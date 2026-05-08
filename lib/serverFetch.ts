@@ -51,12 +51,20 @@ export async function serverFetch<T = any>(
         // Handle non-2xx HTTP responses
         if (!response.ok) {
             const errorData = isJson ? await response.json() : await response.text();
-            throw {
-                status: response.status,
-                statusText: response.statusText,
-                data: errorData,
-                url,
-            };
+            let errorMessage = `HTTP ${response.status} ${response.statusText}`;
+
+            // Lấy message từ backend nếu có
+            if (isJson && errorData && typeof errorData.message === 'string') {
+                errorMessage = errorData.message;
+            } else if (isJson && errorData && typeof errorData.error === 'string') {
+                errorMessage = errorData.error;
+            }
+
+            const error = new Error(errorMessage);
+            (error as any).status = response.status;
+            (error as any).data = errorData;
+            (error as any).url = url;
+            throw error;
         }
 
         // Return parsed JSON or plain text based on content-type
@@ -65,8 +73,12 @@ export async function serverFetch<T = any>(
         }
 
         return (await response.text()) as unknown as T;
-    } catch (error) {
-        console.error(`[serverFetch] Error calling ${url}:`, error);
+    } catch (error: any) {
+        if (error instanceof Error) {
+            console.error(`[serverFetch] Error calling ${url}: ${error.message}`);
+        } else {
+            console.error(`[serverFetch] Error calling ${url}:`, error);
+        }
         throw error;
     }
 }

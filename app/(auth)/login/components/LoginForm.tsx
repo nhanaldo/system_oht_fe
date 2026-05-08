@@ -5,23 +5,25 @@ import Image from "next/image";
 import { loginAction } from "@/app/(app)/actions/authAction";
 import { useRouter } from "next/navigation";
 import { log } from "console";
+import { App } from 'antd'; // Import App
 
 export default function LoginForm() {
     const [showPassword, setShowPassword] = useState(false);
-    const [account, setAccount] = useState("");
+    const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
-    const [errors, setErrors] = useState({ account: "", password: "", general: "" });
+    const [errors, setErrors] = useState({ username: "", password: "", general: "" });
     const [isLoading, setIsLoading] = useState(false);
     const router = useRouter();
+    const { message } = App.useApp()
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
         let hasError = false;
-        const newErrors = { account: "", password: "", general: "" };
+        const newErrors = { username: "", password: "", general: "" };
 
-        if (!account.trim()) {
-            newErrors.account = "Vui lòng nhập tên đăng nhập";
+        if (!username.trim()) {
+            newErrors.username = "Vui lòng nhập tên đăng nhập";
             hasError = true;
         }
 
@@ -35,10 +37,17 @@ export default function LoginForm() {
         if (!hasError) {
             setIsLoading(true);
             try {
-                const result = await loginAction({ account, password });
+                const result = await loginAction({ username, password });
                 if (result.success) {
+                    const avatarUrl = result.data?.elements?.account?.avatar;
+                    if (avatarUrl) {
+                        localStorage.setItem("avatarUrl", avatarUrl);
+                    } else {
+                        localStorage.removeItem("avatarUrl");
+                    }
                     // Chuyển hướng khi đăng nhập thành công
                     router.push("/home"); // Thay bằng route trang chủ thực tế của bạn
+                    message.success("Đăng nhập thành công");
                 } else {
                     console.log("Đăng nhập thất bại", result);
                     setErrors({ ...newErrors, general: result.error || "Đăng nhập thất bại" });
@@ -87,17 +96,17 @@ export default function LoginForm() {
                             </label>
                             <input
                                 type="text"
-                                name="account"
+                                name="username"
                                 placeholder="Nhập vào tên đăng nhập"
-                                value={account}
+                                value={username}
                                 onChange={(e) => {
-                                    setAccount(e.target.value);
-                                    if (errors.account) setErrors({ ...errors, account: "" });
+                                    setUsername(e.target.value);
+                                    if (errors.username) setErrors({ ...errors, username: "" });
                                 }}
                                 className={`w-full px-4 py-3 bg-[#f8f9fa] border border-gray-200/60 focus:ring-[#0F6EB8]/20 focus:border-[#0F6EB8] rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 text-sm text-gray-800 placeholder-gray-400`}
                             />
-                            {errors.account && (
-                                <p className="text-red-500 text-[13px] mt-1">{errors.account}</p>
+                            {errors.username && (
+                                <p className="text-red-500 text-[13px] mt-1">{errors.username}</p>
                             )}
                         </div>
 

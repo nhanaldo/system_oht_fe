@@ -6,154 +6,198 @@ import { usePathname } from 'next/navigation';
 import { Menu, ConfigProvider } from 'antd';
 import DynamicIcon from '@/components/ui/DynamicIcon';
 
+interface MenuTreeItem {
+    id: string;
+    name: string;
+    code?: string;
+    icon?: string;
+    parent_id?: string | null;
+    path?: string;
+    level?: number;
+    order_number?: number;
+    children?: MenuTreeItem[];
+}
+
 interface SideBarProps {
     collapse: boolean;
     pathname?: string;
-    menuItems?: any[];
+    menuItems?: MenuTreeItem[];
+    isAdmin?: boolean;
 }
 
-const IconRenderer = ({ iconName, style, className }: { iconName?: string, style?: React.CSSProperties, className?: string }) => {
+const IconRenderer = ({ iconName, style, className }: { iconName?: string; style?: React.CSSProperties; className?: string }) => {
     return <DynamicIcon iconName={iconName} style={style} className={className} />;
 };
 
-const SideBar = ({ collapse, pathname: propPathname, menuItems }: SideBarProps) => {
+const SideBar = ({ collapse, pathname: propPathname, menuItems, isAdmin = false }: SideBarProps) => {
     const currentPathname = usePathname();
     const pathname = propPathname || currentPathname;
 
-    // ===== selected key: chọn page.path match pathname =====
-    const selectedKey = useMemo(() => {
-        const items = menuItems || [];
-        for (const m of items) {
-            const hit = m.pages?.find((p: any) => pathname?.includes(p.path));
-            if (hit) return hit.path;
-        }
-        return "";
-    }, [menuItems, pathname]);
+    // ===== Chuẩn hóa menuItems tránh lỗi khi API trả về một object envelope thay vì array trực tiếp =====
+    const normalizedMenuItems = useMemo<MenuTreeItem[]>(() => {
+        if (!menuItems) return [];
+        return Array.isArray(menuItems)
+            ? menuItems
+            : (menuItems as any).elements || (menuItems as any).rows || (menuItems as any).data || [];
+    }, [menuItems]);
 
-    // ===== open keys: mở menu cha chứa page đang active (chỉ khi không collapse) =====
+    // ===== Tìm selected key từ pathname =====
+    const selectedKey = useMemo(() => {
+        const findActive = (items: MenuTreeItem[]): string => {
+            if (!Array.isArray(items)) return '';
+            for (const item of items) {
+                if (item.path && pathname?.startsWith(item.path) && item.path !== '/') {
+                    // Kiểm tra children trước để ưu tiên item con cụ thể hơn
+                    if (item.children?.length) {
+                        const childKey = findActive(item.children);
+                        if (childKey) return childKey;
+                    }
+                    return item.path;
+                }
+                if (item.children?.length) {
+                    const childKey = findActive(item.children);
+                    if (childKey) return childKey;
+                }
+            }
+            return '';
+        };
+        return findActive(normalizedMenuItems);
+    }, [normalizedMenuItems, pathname]);
+
+    // ===== Mở tất cả menu cha khi không collapse =====
     const defaultOpenKeys = useMemo(() => {
         if (collapse) return [];
-        const items = menuItems || [];
-        return items.map((m: any) => m.menuName);
-    }, [menuItems, collapse]);
+        const collectParentKeys = (items: MenuTreeItem[]): string[] => {
+            if (!Array.isArray(items)) return [];
+            return items.flatMap(item => {
+                if (item.children?.length) {
+                    return [item.id, ...collectParentKeys(item.children)];
+                }
+                return [];
+            });
+        };
+        return collectParentKeys(normalizedMenuItems);
+    }, [normalizedMenuItems, collapse]);
 
-    const skeletonItems = useMemo(() => {
-        return Array.from({ length: 10 }).map((_, index) => ({
+    // ===== Skeleton loading =====
+    const skeletonItems = useMemo(() =>
+        Array.from({ length: 8 }).map((_, index) => ({
             key: `skeleton-${index}`,
             label: (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 0' }}>
-                    <div style={{ width: '24px', height: '24px', borderRadius: '4px', backgroundColor: '#f5f5f5' }} className="animate-pulse" />
-                    <div style={{ height: '16px', width: '75%', backgroundColor: '#f5f5f5', borderRadius: '4px' }} className="animate-pulse" />
+                    <div style={{ width: '24px', height: '24px', borderRadius: '4px', backgroundColor: '#f0f0f0' }} className="animate-pulse" />
+                    <div style={{ height: '16px', width: '70%', backgroundColor: '#f0f0f0', borderRadius: '4px' }} className="animate-pulse" />
                 </div>
             ),
             disabled: true,
-            style: { cursor: 'default' }
-        }));
-    }, []);
+            style: { cursor: 'default' },
+        })), []);
 
-    const items = useMemo(() => {
-        if (!menuItems || menuItems.length === 0) {
-            return skeletonItems;
-        }
+    // ===== Chuyển đổi menu-tree thành cấu trúc Ant Design =====
+    const buildMenuItems = useMemo(() => {
+        const convert = (items: MenuTreeItem[]): any[] => {
+            if (!Array.isArray(items)) return [];
+            return [...items]
+                .sort((a, b) => (a.order_number ?? 0) - (b.order_number ?? 0))
+                .map(item => {
+                    const isActive = item.path
+                        ? item.path !== '/' && pathname?.startsWith(item.path)
+                        : false;
+                    const hasChildren = Array.isArray(item.children) && item.children.length > 0;
 
-        // Nếu menuItems bị bọc trong { data: [...] } thì lấy data
-        const itemsList = Array.isArray(menuItems) ? menuItems : ((menuItems as any).data || []);
-        if (!Array.isArray(itemsList)) return skeletonItems;
+                    if (hasChildren) {
+                        // Menu cha (có children) — hiển thị dạng SubMenu
+                        return {
+                            key: item.id,
+                            icon: (
+                                <IconRenderer
+                                    iconName={item.icon}
+                                    style={{ color: '#1378C0', fontSize: '16px' }}
+                                />
+                            ),
+                            label: (
+                                <span style={{ fontSize: '16px', fontWeight: 500, color: '#1378C0' }}>
+                                    {item.name}
+                                </span>
+                            ),
+                            children: convert(item.children!),
+                            style: { color: '#1378C0' },
+                        };
+                    }
 
-        return itemsList
-            .filter(() => true)
-            .map((menu: any, index: number) => {
-                const hasChildren = Array.isArray(menu.pages) && menu.pages.length > 0;
-                const menuName = menu.menuName || menu.name || `Menu ${index}`;
+                    // Menu lá (không có children) — hiển thị dạng item bình thường
+                    return {
+                        key: item.path || item.id,
+                        icon: (
+                            <IconRenderer
+                                iconName={item.icon}
+                                style={{
+                                    color: isActive ? '#076EB8' : '#545454',
+                                    fontSize: '16px',
+                                    display: 'inline-flex',
+                                }}
+                            />
+                        ),
+                        label: (
+                            <Link href={item.path || '#'}>
+                                <span style={{
+                                    marginLeft: '4px',
+                                    fontSize: '16px',
+                                    fontWeight: 'regular',
+                                    fontFamily: 'roboto',
+                                    color: isActive ? '#076EB8' : '#545454',
+                                }}>
+                                    {item.name}
+                                </span>
+                            </Link>
+                        ),
+                        style: {
+                            backgroundColor: isActive ? 'rgba(230, 247, 255, 0.8)' : 'transparent',
+                            borderLeft: isActive ? '2px solid #076EB8' : 'none',
+                            color: isActive ? '#076EB8' : '#545454',
+                        },
+                    };
+                });
+        };
 
-                // ===== icon cha: yêu cầu của bạn =====
-                let parentIcon: React.ReactNode = undefined;
-                if (menu.menuIcon) {
-                    parentIcon = collapse ? (
-                        <span style={{ display: "inline-flex" }}>
-                            <IconRenderer iconName={menu.menuIcon} />
-                        </span>
-                    ) : undefined;
-                } else {
-                    parentIcon = collapse ? null : undefined;
-                }
-
-                return {
-                    key: menuName,
-                    icon: parentIcon,
-
-                    children: !hasChildren
-                        ? undefined
-                        : menu.pages.map((page: any, pIndex: number) => {
-                            const isPageActive = page.path === "/" ? pathname === "/" : pathname?.includes(page.path);
-
-                            return {
-                                key: page.path || `page-${pIndex}`,
-                                icon: (
-                                    <IconRenderer
-                                        iconName={page.pageIcon}
-                                        style={{ display: "inline-flex", color: isPageActive ? "#0F6EB8" : "#545454" }}
-                                    />
-                                ),
-                                className: isPageActive ? "sidebar-subitem-active" : undefined,
-                                label: (
-                                    <Link href={page.path || "#"}>
-                                        <span style={{ marginLeft: "5px", fontSize: "16px", fontWeight: "normal", color: isPageActive ? "#0F6EB8" : "#545454" }}>
-                                            {page.pageName || page.name || `Trang ${pIndex}`}
-                                        </span>
-                                    </Link>
-                                ),
-                                style: {
-                                    color: isPageActive ? "#0F6EB8" : "black",
-                                    backgroundColor: isPageActive ? "rgba(230, 247, 255, 0.77)" : "transparent",
-                                    borderLeft: isPageActive ? "2px solid rgba(15, 110, 184, 1)" : "none",
-                                },
-                            };
-                        }),
-
-                    label: hasChildren ? (
-                        <span
-                            style={{
-                                fontSize: "16px",
-                                fontWeight: "500",
-                                color: "#1378C0",
-                            }}
-                        >
-                            {menuName}
-                        </span>
-                    ) : (
-                        <Link href={menu.path || "#"} style={{ fontWeight: "500" }}>
-                            {menuName}
-                        </Link>
-                    ),
-                    style: { color: "#1378C0" },
-                };
-            });
-    }, [menuItems, pathname, collapse, skeletonItems]);
+        if (!normalizedMenuItems || normalizedMenuItems.length === 0) return skeletonItems;
+        return convert(normalizedMenuItems);
+    }, [normalizedMenuItems, pathname, collapse, skeletonItems]);
 
     return (
         <ConfigProvider
             theme={{
                 components: {
                     Menu: {
-                        itemActiveBg: "rgba(230, 247, 255, 0.77)",
+                        itemActiveBg: 'rgba(230, 247, 255, 0.8)',
+                        subMenuItemBg: '#ffffff',
                     },
                 },
             }}
         >
+            {/* Badge phân biệt admin / user */}
+            {!collapse && (
+                <div style={{
+                    padding: '8px 16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                }}>
+
+                </div>
+            )}
             <Menu
-                className={`${collapse ? "collapsed" : ""}`}
+                className={collapse ? 'collapsed' : ''}
                 style={{
-                    borderInlineEnd: "none",
-                    width: "100%",
-                    height: "100%",
-                    backgroundColor: "white",
+                    borderInlineEnd: 'none',
+                    width: '100%',
+                    backgroundColor: 'white',
                 }}
                 mode="inline"
                 inlineCollapsed={collapse}
                 selectedKeys={selectedKey ? [selectedKey] : []}
                 defaultOpenKeys={defaultOpenKeys}
-                items={items}
+                items={buildMenuItems}
             />
         </ConfigProvider>
     );

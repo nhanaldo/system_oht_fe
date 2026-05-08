@@ -1,15 +1,22 @@
 export interface LoginParams {
-    account: string;
+    username: string;
     password: string;
 }
 
 export interface LoginResponse {
-    accessToken: string;
-    userInfo: {
-        id: string;
-        name: string;
-        avatar: string | null;
-        roleId: number;
-        deletedAt: string | null;
+    status: string;
+    message: string;
+    elements: {
+        account: {
+            id: string;
+            code: string;
+            username: string;
+            email: string;
+            name: string;
+            avatar: string | null;
+            is_active: boolean;
+            created_at: string;
+        };
+        token: string;
     };
 }

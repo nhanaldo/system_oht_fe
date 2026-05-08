@@ -1,450 +1,337 @@
 'use client';
 
 import React, { useState } from 'react';
-import {
-    SearchOutlined,
-    DeleteOutlined,
-    PlusOutlined,
-    EditOutlined,
-    SyncOutlined,
-    UnlockOutlined,
-    LockOutlined,
-    ArrowLeftOutlined,
-    DownloadOutlined
-} from '@ant-design/icons';
-import { Modal, Form, Input, Select, Upload, Button, Space, Popconfirm, message } from 'antd';
-import type { UploadFile, UploadProps } from 'antd';
+import { Form, Input, Button, Tag, Upload, App } from 'antd';
+import { CameraOutlined } from '@ant-design/icons';
+import { useRouter } from 'next/navigation';
+import { Account } from '@/types/account';
+import { updateAccountProfile, updateAccountPassword } from '../../system/accounts/accountAction';
 
-interface UserData {
-    id: number;
-    fullName: string;
-    username: string;
-    email: string;
-    role: string;
-    status: string;
+interface AccountProfileProps {
+    initialData: Account | null;
 }
 
-const INITIAL_USERS: UserData[] = [
-    { id: 1, fullName: 'Phạm Anh Đức', username: 'phamanhduc', email: 'phamanhduc@gmail.com', role: 'Admin', status: 'active' },
-    { id: 2, fullName: 'Nguyễn Thành An', username: 'nguyenthanhan', email: 'nguyenthanhan@gmail.com', role: 'User', status: 'inactive' },
-    { id: 3, fullName: 'Bùi Gia Lê', username: 'buigiale', email: 'buigiale@gmail.com', role: 'User', status: 'active' },
-    { id: 4, fullName: 'Hà Bửu Hoàn', username: 'habuuhoan', email: 'habuuhoan@gmail.com', role: 'User', status: 'inactive' },
-    { id: 5, fullName: 'Nguyễn Duy Mạnh', username: 'nguyenduymanh', email: 'nguyenduymanh@gmail.com', role: 'User', status: 'active' },
-    { id: 6, fullName: 'Võ Trung Duy', username: 'votrungduy', email: 'votrungduy@gmail.com', role: 'Admin', status: 'inactive' },
-    { id: 7, fullName: 'Nguyễn Văn Trọng', username: 'nguyenvantrong', email: 'nguyenvantrong@gmail.com', role: 'Admin', status: 'active' },
-    { id: 8, fullName: 'Nguyễn Thị Huệ Trang', username: 'nguyenthihuetrang', email: 'nguyenthihuetrang@gmail.com', role: 'User', status: 'inactive' },
-    { id: 9, fullName: 'Trần Văn Nghĩa', username: 'tranvannghia', email: 'tranvannghia@gmail.com', role: 'User', status: 'active' },
-    { id: 10, fullName: 'Nguyễn Văn Hào', username: 'nguyenvanhao', email: 'nguyenvanhao@gmail.com', role: 'User', status: 'inactive' },
-];
-
-export default function AccountProfile() {
-    const [users, setUsers] = useState<UserData[]>(INITIAL_USERS);
-    const [selectedRowKeys, setSelectedRowKeys] = useState<number[]>([]);
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [editingUser, setEditingUser] = useState<UserData | null>(null);
+export default function AccountProfile({ initialData }: AccountProfileProps) {
+    const router = useRouter();
+    const [activeTab, setActiveTab] = useState<'personal' | 'password'>('personal');
+    const [avatar, setAvatar] = useState<string>(initialData?.avatar || '');
+    const [loading, setLoading] = useState(false);
     const [form] = Form.useForm();
-    const [messageApi, contextHolder] = message.useMessage();
-    const [fileList, setFileList] = useState<UploadFile[]>([]);
-    const [previewOpen, setPreviewOpen] = useState(false);
-    const [tempPreviewImage, setTempPreviewImage] = useState('');
-    const [tempFile, setTempFile] = useState<UploadFile | null>(null);
-    // chuyển file ảnh thành chuỗi base64 
-    const getBase64 = (file: File): Promise<string> =>
-        new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onload = () => resolve(reader.result as string);
-            reader.onerror = (error) => reject(error);
-        });
+    const { message: messageApi } = App.useApp();
 
-    const handlePreview = async (file: UploadFile) => {
-        if (!file.url && !file.preview) {
-            file.preview = await getBase64(file.originFileObj as File);
-        }
-        const url = file.url || (file.preview as string);
-        setTempPreviewImage(url);
-        setTempFile(file);
-        setPreviewOpen(true);
-    };
-
-    const handleChange: UploadProps['onChange'] = ({ fileList: newFileList }) => {
-        setFileList(newFileList);
-    };
-
-    const showModal = (user?: UserData) => {
-        if (user) {
-            setEditingUser(user);
-            form.setFieldsValue(user);
-            // If there's an avatar URL in user data in the future, we would set fileList here
-        } else {
-            setEditingUser(null);
-            form.resetFields();
-            setFileList([]);
-        }
-        setIsModalOpen(true);
-    };
-
-    const handleCancel = () => {
-        setIsModalOpen(false);
-        form.resetFields();
-        setFileList([]);
-        setEditingUser(null);
-    };
-
-    const handleSave = () => {
-        form.validateFields().then(values => {
-            if (editingUser) {
-                // Edit existing user
-                setUsers(users.map(u => u.id === editingUser.id ? { ...u, ...values } : u));
-                messageApi.success('Cập nhật tài khoản thành công');
+    const handleUpdate = async (values: any) => {
+        if (!initialData?.id) return;
+        setLoading(true);
+        try {
+            const res = await updateAccountProfile(initialData.id, {
+                name: values.name,
+                avatar: avatar,
+            });
+            if (res.success) {
+                messageApi.success('Cập nhật thông tin cá nhân thành công!');
+                if (avatar) {
+                    localStorage.setItem("avatarUrl", avatar);
+                }
+                router.push('/home');
             } else {
-                // Add new user
-                const newUser: UserData = {
-                    id: Date.now(), // Generate a unique ID
-                    fullName: values.fullName,
-                    username: values.username,
-                    email: values.email,
-                    role: values.role,
-                    status: 'active' // Default status
-                };
-                setUsers([...users, newUser]);
-                messageApi.success('Thêm mới tài khoản thành công');
+                messageApi.error(res.error || 'Cập nhật thất bại');
             }
-            setIsModalOpen(false);
-            form.resetFields();
-            setFileList([]);
-            setEditingUser(null);
-        }).catch(info => {
-            console.log('Validate Failed:', info);
-        });
-    };
-
-    const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.checked) {
-            setSelectedRowKeys(users.map(user => user.id));
-        } else {
-            setSelectedRowKeys([]);
+        } catch (err: any) {
+            messageApi.error(err.message || 'Đã xảy ra lỗi khi cập nhật');
+        } finally {
+            setLoading(false);
         }
     };
 
-    const handleSelectRow = (id: number) => {
-        setSelectedRowKeys(prev =>
-            prev.includes(id) ? prev.filter(key => key !== id) : [...prev, id]
-        );
+    const handleUpdatePassword = async (values: any) => {
+        if (!initialData?.id) return;
+        if (values.new_password !== values.confirm_new_password) {
+            messageApi.error('Mật khẩu mới và Xác nhận mật khẩu không trùng khớp!');
+            return;
+        }
+        setLoading(true);
+        try {
+            const res = await updateAccountPassword(initialData.id, {
+                old_password: values.old_password,
+                new_password: values.new_password,
+                confirm_new_password: values.confirm_new_password,
+            });
+            if (res.success) {
+                messageApi.success('Thay đổi mật khẩu thành công!');
+                form.resetFields();
+                router.push('/home');
+            } else {
+                messageApi.error(res.error || 'Thay đổi mật khẩu thất bại');
+            }
+        } catch (err: any) {
+            messageApi.error(err.message || 'Đã xảy ra lỗi khi thay đổi mật khẩu');
+        } finally {
+            setLoading(false);
+        }
     };
 
-    const handleDelete = (id: number) => {
-        setUsers(users.filter(user => user.id !== id));
-        messageApi.success('Xóa tài khoản thành công');
-    };
+    const displayValue = (val: any) => val || "Chưa cập nhật";
 
     return (
-        <div className="w-full bg-white rounded-lg shadow-sm border border-gray-200 p-4 flex flex-col min-h-0">
-            {contextHolder}
-            {/* Header controls */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
-                <div>
-                    <h2 className="text-xl font-medium text-gray-800">Quản lý tài khoản</h2>
-                    <p className="text-sm text-gray-500 mt-1">Đã chọn: {selectedRowKeys.length} mục</p>
-                </div>
-                <div className="flex items-center gap-3 flex-wrap">
-                    <div className="relative">
-                        <SearchOutlined className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                        <input
-                            type="text"
-                            placeholder="Nhập vào tìm kiếm"
-                            className="pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 w-64 transition-all"
-                        />
-                    </div>
-                    <select className="border border-gray-200 rounded-lg px-3 py-2 text-s   m text-gray-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white min-w-[120px] outline-none">
-                        <option value="">Vai trò</option>
-                        <option value="Admin">Admin</option>
-                        <option value="User">User</option>
-                    </select>
-                    <Popconfirm
-                        title={<span className="font-medium">Thông báo</span>}
-                        description="Bạn có chắc chắn muốn xóa các tài khoản đã chọn không?"
-                        onConfirm={() => {
-                            if (selectedRowKeys.length === 0) return;
-                            setUsers(users.filter(user => !selectedRowKeys.includes(user.id)));
-                            setSelectedRowKeys([]);
-                            messageApi.success('Xóa tài khoản thành công');
-                        }}
-                        okText="Xác nhận"
-                        cancelText="Hủy"
-                        placement="bottomRight"
-                        okButtonProps={{ className: "rounded-full bg-[#076EB8]" }}
-                        cancelButtonProps={{ className: "rounded-full" }}
-                        disabled={selectedRowKeys.length === 0}
-                    >
-                        <button
-                            className={`w-9 h-9 flex items-center justify-center border rounded-lg transition-colors ${selectedRowKeys.length > 0
-                                    ? 'border-blue-500 text-blue-500 hover:bg-blue-50'
-                                    : 'border-gray-200 text-gray-400 cursor-not-allowed'
-                                }`}
-                        >
-                            <DeleteOutlined className="text-lg" />
-                        </button>
-                    </Popconfirm>
-                    <button
-                        onClick={() => showModal()}
-                        className="w-9 h-9 flex items-center justify-center border border-blue-500 text-blue-500 rounded-lg hover:bg-blue-50 transition-colors"
-                    >
-                        <PlusOutlined className="text-lg" />
-                    </button>
-                </div>
+        <div className="w-full bg-[#F8F9FA] p-6 min-h-screen">
+            {/* Header Breadcrumb */}
+            <div className="mb-6">
+                <span className="text-[14px] text-[#8C8C8C] font-roboto">Thông tin tài khoản - cá nhân</span>
             </div>
 
-            {/* Table wrapper with scrolling */}
-            <div className="overflow-x-auto border border-gray-200 rounded-lg">
-                <table className="w-full text-sm text-center whitespace-nowrap min-w-[1000px]">
-                    <thead className="bg-[#076EB8] text-white sticky top-0 z-10">
-                        <tr>
-                            <th className="py-3 px-4 font-medium w-12 border-b border-[#076EB8]">
-                                <input
-                                    type="checkbox"
-                                    className="w-4 h-4 rounded border-gray-300"
-                                    checked={selectedRowKeys.length === users.length && users.length > 0}
-                                    onChange={handleSelectAll}
+            {/* Profile Main Card */}
+            <div className="w-full bg-white rounded-[20px] shadow-[0_4px_24px_rgba(0,0,0,0.02)] p-8">
+                <h2 className="text-[18px] font-roboto font-medium text-[#1A1A1A] mb-6 pb-4 border-b border-gray-100">
+                    Thông tin tài khoản
+                </h2>
+
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+                    {/* Left Column: Avatar & Name */}
+                    <div className="lg:col-span-4 flex flex-col items-center justify-start border-r border-gray-100 pr-0 lg:pr-10 pb-8 lg:pb-0">
+                        <div className="relative w-[180px] h-[180px] rounded-full">
+                            {avatar ? (
+                                <img
+                                    src={avatar}
+                                    alt="Avatar"
+                                    className="w-full h-full rounded-full object-cover border border-gray-100"
                                 />
-                            </th>
-                            <th className="py-3 px-4 font-medium border-b border-[#076EB8]">STT</th>
-                            <th className="py-3 px-4 font-medium text-left border-b border-[#076EB8]">Họ và tên</th>
-                            <th className="py-3 px-4 font-medium border-b border-[#076EB8]">Tên đăng nhập</th>
-                            <th className="py-3 px-4 font-medium border-b border-[#076EB8]">Email</th>
-                            <th className="py-3 px-4 font-medium border-b border-[#076EB8]">Vai trò</th>
-                            <th className="py-3 px-4 font-medium border-b border-[#076EB8]">Trạng thái</th>
-                            <th className="py-3 px-4 font-medium border-b border-[#076EB8]">Hành động</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200 bg-white text-gray-700">
-                        {users.map((user, index) => (
-                            <tr key={user.id} className="hover:bg-gray-50 transition-colors">
-                                <td className="py-3 px-4">
-                                    <input
-                                        type="checkbox"
-                                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                        checked={selectedRowKeys.includes(user.id)}
-                                        onChange={() => handleSelectRow(user.id)}
-                                    />
-                                </td>
-                                <td className="py-3 px-4">{index + 1}</td>
-                                <td className="py-3 px-4 text-left font-medium text-gray-900">{user.fullName}</td>
-                                <td className="py-3 px-4">{user.username}</td>
-                                <td className="py-3 px-4">{user.email}</td>
-                                <td className="py-3 px-4">
-                                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${user.role === 'Admin'
-                                        ? 'bg-blue-100 text-blue-600'
-                                        : 'bg-green-100 text-green-600'
-                                        }`}>
-                                        {user.role}
+                            ) : (
+                                <div className="w-full h-full rounded-full bg-gradient-to-tr from-[#1378C0]/20 to-[#1378C0]/5 flex items-center justify-center border border-gray-100">
+                                    <span className="text-[48px] font-medium text-[#1378C0]">
+                                        {initialData?.name?.charAt(0)?.toUpperCase() || 'U'}
                                     </span>
-                                </td>
-                                <td className="py-3 px-4">
-                                    {user.status === 'active' ? (
-                                        <UnlockOutlined className="text-green-500 text-lg" />
-                                    ) : (
-                                        <LockOutlined className="text-red-500 text-lg" />
-                                    )}
-                                </td>
-                                <td className="py-3 px-4">
-                                    <div className="flex items-center justify-center gap-4 text-blue-500">
-                                        <button 
-                                            className="hover:text-blue-700 transition-colors" 
-                                            title="Sửa"
-                                            onClick={() => showModal(user)}
-                                        >
-                                            <EditOutlined className="text-lg" />
-                                        </button>
-                                        <button className="hover:text-blue-700 transition-colors" title="Đặt lại mật khẩu">
-                                            <SyncOutlined className="text-lg" />
-                                        </button>
-                                        <Popconfirm
-                                            title={<span className="font-medium">Thông báo</span>}
-                                            description="Bạn có chắc chắn muốn xóa tài khoản này không?"
-                                            onConfirm={() => handleDelete(user.id)}
-                                            okText="Xác nhận"
-                                            cancelText="Hủy"
-                                            placement="topRight"
-                                            okButtonProps={{ className: "rounded-full bg-[#076EB8]" }}
-                                            cancelButtonProps={{ className: "rounded-full" }}
-                                        >
-                                            <button className="hover:text-red-600 text-blue-500 transition-colors" title="Xóa">
-                                                <DeleteOutlined className="text-lg" />
-                                            </button>
-                                        </Popconfirm>
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-
-            {/* Modal Thêm Mới / Chỉnh Sửa */}
-            <Modal
-                title={
-                    <Space size="middle" className="pb-2">
-                        <ArrowLeftOutlined onClick={handleCancel} className="cursor-pointer text-gray-500 hover:text-gray-800" />
-                        <span className="text-base font-medium">
-                            {editingUser ? 'Chỉnh sửa tài khoản' : 'Thêm mới tài khoản'}
-                        </span>
-                    </Space>
-                }
-                open={isModalOpen}
-                onCancel={handleCancel}
-                footer={
-                    <div className="flex justify-center gap-4 mt-8 pb-4">
-                        <Button
-                            onClick={handleCancel}
-                            className="rounded-full px-8"
-                        >
-                            Quay về
-                        </Button>
-                        <Button
-                            type="primary"
-                            onClick={handleSave}
-                            className="rounded-full px-8 bg-[#076EB8]"
-                        >
-                            Lưu
-                        </Button>
-                    </div>
-                }
-                width={800}
-                centered
-            >
-                <div className="px-4 py-6 md:px-10">
-                    <Form
-                        form={form}
-                        layout="horizontal"
-                        labelCol={{ span: 6 }}
-                        wrapperCol={{ span: 16 }}
-                        colon={false}
-                    >
-                        <Form.Item
-                            name="fullName"
-                            label={<span className="font-medium text-gray-700">Họ và tên <span className="text-red-500">*</span></span>}
-                            rules={[{ required: true, message: 'Vui lòng nhập họ và tên!' }]}
-                        >
-                            <Input placeholder="Nhập họ và tên" className="rounded-md py-1.5" />
-                        </Form.Item>
-
-                        <Form.Item
-                            name="username"
-                            label={<span className="font-medium text-gray-700">Tên đăng nhập <span className="text-red-500">*</span></span>}
-                            rules={[{ required: true, message: 'Vui lòng nhập tên đăng nhập!' }]}
-                        >
-                            <Input placeholder="Nhập tên đăng nhập" className="rounded-md py-1.5" />
-                        </Form.Item>
-
-                        <Form.Item
-                            name="email"
-                            label={<span className="font-medium text-gray-700">Email <span className="text-red-500">*</span></span>}
-                            rules={[
-                                { required: true, message: 'Vui lòng nhập email!' },
-                                { type: 'email', message: 'Email không hợp lệ!' }
-                            ]}
-                        >
-                            <Input placeholder="Nhập Email" className="rounded-md py-1.5" />
-                        </Form.Item>
-
-                        <Form.Item
-                            name="role"
-                            label={<span className="font-medium text-gray-700">Vai trò <span className="text-red-500">*</span></span>}
-                            rules={[{ required: true, message: 'Vui lòng chọn vai trò!' }]}
-                        >
-                            <Select placeholder="Chọn vai trò" className="h-9">
-                                <Select.Option value="Admin">Admin</Select.Option>
-                                <Select.Option value="User">User</Select.Option>
-                            </Select>
-                        </Form.Item>
-
-                        <Form.Item
-                            name="avatar"
-                            label={<span className="font-medium text-gray-700">Hình ảnh</span>}
-                        >
+                                </div>
+                            )}
                             <Upload
-                                listType="picture-card"
-                                maxCount={1}
-                                fileList={fileList}
-                                onChange={handleChange}
-                                onPreview={handlePreview}
-                                beforeUpload={() => false}
+                                showUploadList={false}
+                                beforeUpload={(file) => {
+                                    const reader = new FileReader();
+                                    reader.onload = (e) => {
+                                        if (e.target?.result) {
+                                            const base64Data = e.target.result as string;
+                                            setAvatar(base64Data);
+                                            messageApi.success('Đã tải lên ảnh đại diện mới thành công!');
+                                        }
+                                    };
+                                    reader.readAsDataURL(file);
+                                    return false;
+                                }}
                             >
-                                {fileList.length >= 1 ? null : (
-                                    <div className="flex flex-col items-center justify-center text-gray-400">
-                                        <PlusOutlined />
-                                        <div className="mt-2 text-sm">Upload</div>
-                                    </div>
-                                )}
+                                <button className="absolute bottom-2 right-2 bg-white shadow-md border border-gray-100 w-9 h-9 rounded-full flex items-center justify-center hover:bg-gray-50 transition-colors">
+                                    <CameraOutlined className="text-gray-500 text-[16px]" />
+                                </button>
                             </Upload>
-                        </Form.Item>
-                    </Form>
-                </div>
-            </Modal>
-            {/* Modal Image Preview */}
-            <Modal
-                title={<span className="text-base font-medium">Hình ảnh</span>}
-                open={previewOpen}
-                onCancel={() => setPreviewOpen(false)}
-                footer={
-                    <div className="flex justify-end gap-4 mt-4 border-t border-gray-100 pt-4">
-                        <Button
-                            onClick={() => setPreviewOpen(false)}
-                            className="rounded-full px-6 text-gray-600 hover:bg-gray-100"
-                        >
-                            Hủy
-                        </Button>
-                        <Button
-                            type="primary"
-                            onClick={() => {
-                                if (tempFile) {
-                                    setFileList([tempFile]);
-                                }
-                                setPreviewOpen(false);
-                            }}
-                            className="rounded-full px-6 bg-[#076EB8]"
-                        >
-                            Cập nhật
-                        </Button>
-                    </div>
-                }
-                width={500}
-                centered
-            >
-                <div className="flex flex-col items-center justify-center py-8">
-                    <div className="relative w-64 h-64 rounded-full overflow-hidden mb-6 border border-gray-200">
-                        <img
-                            src={tempPreviewImage}
-                            alt="Preview"
-                            className="w-full h-full object-cover"
-                        />
-                        <div className="absolute inset-x-0 bottom-0 h-1/4 bg-gradient-to-t from-black/50 to-transparent flex items-end justify-center pb-4 opacity-80">
-                            <DownloadOutlined className="text-white text-2xl" />
                         </div>
+                        <h3 className="mt-5 text-[16px] font-roboto font-medium text-[#333333]">
+                            {displayValue(initialData?.name)}
+                        </h3>
                     </div>
 
-                    <Upload
-                        showUploadList={false}
-                        beforeUpload={async (file) => {
-                            const url = await getBase64(file);
-                            setTempPreviewImage(url);
-                            setTempFile({
-                                uid: '-1',
-                                name: file.name,
-                                status: 'done',
-                                url: url,
-                                originFileObj: file
-                            });
-                            return false;
-                        }}
-                    >
-                        <Button className="rounded-full bg-blue-50 text-[#076EB8] border-none px-6 py-2 h-auto font-medium hover:bg-blue-100">
-                            Đổi ảnh đại diện
-                        </Button>
-                    </Upload>
+                    {/* Right Column: Profile Fields */}
+                    <div className="lg:col-span-8">
+                        {/* Tab Headers */}
+                        <div className="flex gap-8 mb-8 border-b border-gray-100 pb-3">
+                            <button
+                                onClick={() => setActiveTab('personal')}
+                                className={`text-[15px] font-roboto font-medium transition-colors relative pb-3 ${
+                                    activeTab === 'personal' ? 'text-[#1378C0]' : 'text-[#8C8C8C] hover:text-gray-600'
+                                }`}
+                            >
+                                Cá nhân
+                                {activeTab === 'personal' && (
+                                    <div className="absolute bottom-[-13px] left-0 right-0 h-[2px] bg-[#1378C0] rounded-full" />
+                                )}
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('password')}
+                                className={`text-[15px] font-roboto font-medium transition-colors relative pb-3 ${
+                                    activeTab === 'password' ? 'text-[#1378C0]' : 'text-[#8C8C8C] hover:text-gray-600'
+                                }`}
+                            >
+                                Thay đổi mật khẩu
+                                {activeTab === 'password' && (
+                                    <div className="absolute bottom-[-13px] left-0 right-0 h-[2px] bg-[#1378C0] rounded-full" />
+                                )}
+                            </button>
+                        </div>
+
+                        {/* Tab Contents */}
+                        {activeTab === 'personal' ? (
+                            <Form
+                                form={form}
+                                layout="horizontal"
+                                labelCol={{ span: 5 }}
+                                wrapperCol={{ span: 19 }}
+                                colon={false}
+                                onFinish={handleUpdate}
+                                initialValues={{
+                                    name: initialData?.name || '',
+                                    username: initialData?.username || '',
+                                    email: initialData?.email || '',
+                                    code: initialData?.code || '',
+                                    roles: initialData?.role_names?.join(', ') || '',
+                                }}
+                            >
+                                <Form.Item
+                                    name="name"
+                                    label={<span className="text-[14px] text-[#5F5D5D] font-roboto">Họ và tên</span>}
+                                >
+                                    <Input
+                                        placeholder="Chưa cập nhật"
+                                        className="rounded-md border-gray-200 h-[38px] text-[#333]"
+                                        value={initialData?.name || ''}
+                                    />
+                                </Form.Item>
+
+                                <Form.Item
+                                    name="username"
+                                    label={<span className="text-[14px] text-[#5F5D5D] font-roboto">Tên đăng nhập</span>}
+                                >
+                                    <Input
+                                        disabled
+                                        className="rounded-md border-gray-200 h-[38px] bg-gray-50/50 text-[#8C8C8C]"
+                                        value={initialData?.username || ''}
+                                    />
+                                </Form.Item>
+ 
+                                <Form.Item
+                                    name="email"
+                                    label={<span className="text-[14px] text-[#5F5D5D] font-roboto">Email</span>}
+                                >
+                                    <Input
+                                        disabled
+                                        placeholder="Chưa cập nhật"
+                                        className="rounded-md border-gray-200 h-[38px] bg-gray-50/50 text-[#8C8C8C]"
+                                        value={initialData?.email || ''}
+                                    />
+                                </Form.Item>
+
+                                <Form.Item
+                                    name="code"
+                                    label={<span className="text-[14px] text-[#5F5D5D] font-roboto">MSNV</span>}
+                                >
+                                    <Input
+                                        disabled
+                                        className="rounded-md border-gray-200 h-[38px] bg-gray-50/50 text-[#8C8C8C]"
+                                        placeholder="Chưa cập nhật"
+                                        value={initialData?.code || ''}
+                                    />
+                                </Form.Item>
+
+                                <Form.Item
+                                    name="roles"
+                                    label={<span className="text-[14px] text-[#5F5D5D] font-roboto">Quyền</span>}
+                                >
+                                    <Input
+                                        disabled
+                                        className="rounded-md border-gray-200 h-[38px] bg-gray-50/50 text-[#8C8C8C]"
+                                        placeholder="Chưa cập nhật"
+                                        value={initialData?.role_names?.join(', ') || ''}
+                                    />
+                                </Form.Item>
+
+                                <Form.Item
+                                    label={<span className="text-[14px] text-[#5F5D5D] font-roboto">Kho</span>}
+                                >
+                                    <div className="flex flex-wrap gap-2 min-h-[38px] items-center border border-gray-200 rounded-md p-2 bg-gray-50/50">
+                                        {initialData?.warehouse_names && initialData.warehouse_names.length > 0 ? (
+                                            initialData.warehouse_names.map((wh, idx) => (
+                                                <Tag
+                                                    key={idx}
+                                                    closable={false}
+                                                    className="m-0 bg-[#E6F4FF] border-[#B3D8FF] text-[#1378C0] px-3 py-0.5 rounded-full font-roboto"
+                                                >
+                                                    {wh}
+                                                </Tag>
+                                            ))
+                                        ) : (
+                                            <span className="text-[14px] text-[#8C8C8C] font-roboto pl-1">Chưa cập nhật</span>
+                                        )}
+                                    </div>
+                                </Form.Item>
+
+                                <div className="flex justify-end mt-8 gap-4">
+                                    <Button
+                                        type="default"
+                                        onClick={() => router.push('/home')}
+                                        className="border-gray-300 hover:border-gray-400 h-[36px] px-6 rounded-full font-roboto font-medium text-gray-600"
+                                    >
+                                        Quay lại
+                                    </Button>
+                                    <Button
+                                        type="primary"
+                                        htmlType="submit"
+                                        loading={loading}
+                                        className="bg-[#1378C0] border-[#1378C0] h-[36px] px-6 rounded-full font-roboto font-medium"
+                                    >
+                                        Cập nhật
+                                    </Button>
+                                </div>
+                            </Form>
+                        ) : (
+                            <Form
+                                form={form}
+                                layout="horizontal"
+                                labelCol={{ span: 5 }}
+                                wrapperCol={{ span: 19 }}
+                                colon={false}
+                                onFinish={handleUpdatePassword}
+                            >
+                                <Form.Item
+                                    name="old_password"
+                                    label={<span className="text-[14px] text-[#5F5D5D] font-roboto">Mật khẩu cũ</span>}
+                                    rules={[{ required: true, message: 'Vui lòng nhập mật khẩu cũ!' }]}
+                                >
+                                    <Input.Password
+                                        placeholder="Nhập mật khẩu cũ"
+                                        className="rounded-md border-gray-200 h-[38px] text-[#333]"
+                                    />
+                                </Form.Item>
+
+                                <Form.Item
+                                    name="new_password"
+                                    label={<span className="text-[14px] text-[#5F5D5D] font-roboto">Mật khẩu mới</span>}
+                                    rules={[{ required: true, message: 'Vui lòng nhập mật khẩu mới!' }]}
+                                >
+                                    <Input.Password
+                                        placeholder="Nhập mật khẩu mới"
+                                        className="rounded-md border-gray-200 h-[38px] text-[#333]"
+                                    />
+                                </Form.Item>
+
+                                <Form.Item
+                                    name="confirm_new_password"
+                                    label={<span className="text-[14px] text-[#5F5D5D] font-roboto">Xác nhận mật khẩu mới</span>}
+                                    rules={[{ required: true, message: 'Vui lòng xác nhận mật khẩu mới!' }]}
+                                >
+                                    <Input.Password
+                                        placeholder="Xác nhận mật khẩu mới"
+                                        className="rounded-md border-gray-200 h-[38px] text-[#333]"
+                                    />
+                                </Form.Item>
+
+                                <div className="flex justify-end mt-8 gap-4">
+                                    <Button
+                                        type="default"
+                                        onClick={() => router.push('/home')}
+                                        className="border-gray-300 hover:border-gray-400 h-[36px] px-6 rounded-full font-roboto font-medium text-gray-600"
+                                    >
+                                        Quay lại
+                                    </Button>
+                                    <Button
+                                        type="primary"
+                                        htmlType="submit"
+                                        loading={loading}
+                                        className="bg-[#1378C0] border-[#1378C0] h-[36px] px-6 rounded-full font-roboto font-medium"
+                                    >
+                                        Cập nhật
+                                    </Button>
+                                </div>
+                            </Form>
+                        )}
+                    </div>
                 </div>
-            </Modal>
+            </div>
         </div>
     );
 }

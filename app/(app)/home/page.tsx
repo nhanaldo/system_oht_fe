@@ -3,7 +3,7 @@ import Image from "next/image";
 function Home() {
 
     return (
-        <div className="relative h-full overflow-auto">
+        <div className="relative h-full overflow-auto ">
             <Image
                 src={"/baner_thaco.jpg"}
                 alt="Background Image"
@@ -14,6 +14,7 @@ function Home() {
                     height: "100%",
                     objectFit: "cover",
                     position: "absolute",
+                    borderRadius: "20px"
                 }}
                 className="absolute inset-0 w-full h-full object-cover"
                 loading="eager"
