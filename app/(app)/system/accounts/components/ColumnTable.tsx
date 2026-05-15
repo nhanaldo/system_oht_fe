@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Space, Button, Tooltip, Switch } from "antd";
+import { Space, Tooltip, Switch, ConfigProvider } from "antd";
 import Image from "next/image";
 import { Account } from "@/types/account";
 import type { ColumnsType } from "antd/es/table";
@@ -25,12 +25,13 @@ function StatusSwitch({
         setChecked(active);
     }, [active]);
 
-    const handleChange = async (newVal: boolean) => {
-        if (!onToggleStatus) return;
+    const handleChange = async () => {
+        if (!onToggleStatus || loading) return;
 
         const startLoading = () => setLoading(true);
         const stopLoading = () => setLoading(false);
 
+        const newVal = !checked;
         const success = await onToggleStatus(record, newVal, startLoading, stopLoading);
         if (success) {
             setChecked(newVal);
@@ -38,11 +39,22 @@ function StatusSwitch({
     };
 
     return (
-        <Switch
-            checked={checked}
-            loading={loading}
-            onChange={handleChange}
-        />
+        <ConfigProvider
+            theme={{
+                components: {
+                    Switch: {
+                        trackMinWidth: 40,
+                    }
+                }
+            }}
+        >
+            <Switch
+                checked={checked}
+                loading={loading}
+                onChange={handleChange}
+                style={{ backgroundColor: checked ? '#1890FF' : undefined }}
+            />
+        </ConfigProvider>
     );
 }
 
@@ -62,7 +74,8 @@ export const getColumns = (
         {
             title: 'STT',
             key: 'index',
-            width: 60,
+            width: 71,
+            className: 'stt-column',
             render: (_: any, __: any, index: number) => index + 1,
             align: 'center',
         },
@@ -70,24 +83,38 @@ export const getColumns = (
             title: 'Họ và tên',
             dataIndex: 'name',
             key: 'name',
+            width: 220,
+            align: 'left',
+            onCell: () => ({ style: { paddingLeft: '10px' } }),
+            onHeaderCell: () => ({ style: { textAlign: 'center' } }),
             render: (text: string) => text || '',
         },
         {
             title: 'Tên đăng nhập',
             dataIndex: 'username',
             key: 'username',
+            width: 189,
+            align: 'left',
+            onCell: () => ({ style: { paddingLeft: '10px' } }),
+            onHeaderCell: () => ({ style: { textAlign: 'center' } }),
             render: (text: string) => text || '',
         },
         {
             title: 'Mã nhân viên',
             dataIndex: 'code',
             key: 'code',
+            width: 152,
+            align: 'center',
             render: (text: string) => text || '',
         },
         {
             title: 'Email',
             dataIndex: 'email',
             key: 'email',
+            width: 228,
+            align: 'left',
+            onCell: () => ({ style: { paddingLeft: '10px' } }),
+            onHeaderCell: () => ({ style: { textAlign: 'center' } }),
             render: (text: string) => text || '',
         },
         {
@@ -95,6 +122,7 @@ export const getColumns = (
             dataIndex: 'role_names',
             key: 'role_names',
             align: 'center',
+            width: 134,
             render: (roles: string[] | string) => {
                 if (!roles || (Array.isArray(roles) && roles.length === 0)) return '';
                 const roleArray = Array.isArray(roles) ? roles : [roles];
@@ -106,13 +134,17 @@ export const getColumns = (
                                 <span key={idx} style={{
                                     color: isAdmin ? '#1849D6' : '#148634',
                                     backgroundColor: isAdmin ? '#D2DDFF' : '#DBFFE5',
-                                    padding: '2px 14px',
+                                    padding: '5px 10px',
                                     borderRadius: '20px',
                                     fontSize: '14px',
                                     fontWeight: 400,
                                     fontFamily: 'roboto',
                                     lineHeight: '100%',
-                                    border: `1px solid ${isAdmin ? '#91caff' : '#b7eb8f'}`,
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    height: '26px'
+
                                 }}>
                                     {role}
                                 </span>
@@ -126,6 +158,10 @@ export const getColumns = (
             title: 'Kho',
             dataIndex: 'warehouse_ids',
             key: 'warehouse_ids',
+            align: 'left',
+            onCell: () => ({ style: { paddingLeft: '10px' } }),
+            onHeaderCell: () => ({ style: { textAlign: 'center' } }),
+            width: 247,
             render: (warehouses: string[] | string, record: Account) => {
                 if (record.warehouse_names && record.warehouse_names.length > 0) {
                     return record.warehouse_names.join(', ');
@@ -147,6 +183,7 @@ export const getColumns = (
             dataIndex: 'is_active',
             key: 'is_active',
             align: 'center',
+            width: 109,
             render: (active: boolean, record: Account) => (
                 <StatusSwitch
                     active={active}
@@ -158,16 +195,17 @@ export const getColumns = (
         {
             title: 'Hành động',
             key: 'action',
-            width: 140,
             align: 'center',
+            width: 161,
             render: (_: any, record: Account) => (
-                <Space size={16}>
+                <Space >
                     <Tooltip title="Chỉnh sửa">
                         <Image
                             src="/icon.svg/edit.svg"
                             alt="Chỉnh sửa"
-                            width={24}
-                            height={24}
+                            width={18}
+                            height={18}
+                            style={{ width: '18px', height: '18px', flexShrink: 0 }}
                             onClick={() => onEdit && onEdit(record)}
                             className="cursor-pointer hover:opacity-80 transition-opacity"
                         />
@@ -176,8 +214,9 @@ export const getColumns = (
                         <Image
                             src="/icon.svg/Vector.svg"
                             alt="Cấu hình kho sử dụng"
-                            width={20}
+                            width={18.93}
                             height={20}
+                            style={{ width: '18.93px', height: '20px', flexShrink: 0 }}
                             onClick={() => onConfigWarehouse && onConfigWarehouse(record)}
                             className="cursor-pointer hover:opacity-80 transition-opacity"
                         />
@@ -186,8 +225,9 @@ export const getColumns = (
                         <Image
                             src="/icon.svg/resetbassword.svg"
                             alt="Reset mật khẩu"
-                            width={20}
+                            width={18.93}
                             height={20}
+                            style={{ width: '18.93px', height: '20px', flexShrink: 0 }}
                             onClick={() => onResetPassword && onResetPassword(record.id as string)}
                             className="cursor-pointer hover:opacity-80 transition-opacity"
                         />
@@ -196,8 +236,9 @@ export const getColumns = (
                         <Image
                             src="/icon.svg/deteleedit.svg"
                             alt="Xóa"
-                            width={20}
-                            height={20}
+                            width={17.14}
+                            height={17.86}
+                            style={{ width: '17.14px', height: '17.86px', flexShrink: 0 }}
                             onClick={() => onDelete && onDelete(record.id as string)}
                             className="cursor-pointer hover:opacity-80 transition-opacity"
                         />

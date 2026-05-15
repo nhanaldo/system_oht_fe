@@ -1,12 +1,35 @@
 "use client";
 
-import { Modal, Form, Input, Button, message, Select } from "antd";
-import { useState, useRef, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { AccountAddParams } from "@/types/account";
-import { addAccount, updateAccount } from "../accountAction";
+import { UploadFile } from "antd/lib/upload/interface";
+import FormItemController from "@/components/ui/CustomController";
+import ModalThemeProvider from "@/components/ui/ModalThemeProvider";
+import { Form, GetProp, Button, Image, Modal, Select, Upload, UploadProps, message, Input } from "antd";
+import { useForm } from "react-hook-form";
+import { useEffect, useState } from "react";
 import { PlusOutlined } from "@ant-design/icons";
+import z from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useRouter } from "next/navigation";
+import { addAccount, updateAccount, uploadFile } from "../accountAction";
 
+type FileType = Parameters<GetProp<UploadProps, 'beforeUpload'>>[0];
+
+const getBase64 = (file: FileType): Promise<string> =>
+    new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = (error) => reject(error);
+    });
+
+const schema = z.object({
+    name: z.string().trim().min(1, "Họ và tên không được để trống"),
+    username: z.string().trim().min(1, "Tên đăng nhập không được để trống"),
+    code: z.string().trim().min(1, "Mã nhân viên không được để trống"),
+    email: z.string().trim().email("Email không hợp lệ").min(1, "Email không được để trống"),
+    role_id: z.string().trim().min(1, "Vai trò không được để trống"),
+    avatar: z.any().optional(),
+});
 
 interface ModalAddAccountProps {
     open: boolean;
@@ -17,319 +40,439 @@ interface ModalAddAccountProps {
 }
 
 export default function ModalAddAccount({ open, onClose, onSuccess, roleOptions, editingRecord }: ModalAddAccountProps) {
-    const [form] = Form.useForm();
-    const [loading, setLoading] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [messageApi, contextHolder] = message.useMessage();
-    const [avatarUrl, setAvatarUrl] = useState<string>('');
-    const [previewOpen, setPreviewOpen] = useState(false);
-    const [tempAvatarUrl, setTempAvatarUrl] = useState<string>('');
-    const fileInputRef = useRef<HTMLInputElement>(null);
     const router = useRouter();
 
-    const selectedRoleId = Form.useWatch('role_id', form);
-    const selectedRoleName = roleOptions?.find(r => r.value === selectedRoleId)?.label;
+    const { control, handleSubmit, reset, formState: { isDirty } } = useForm({
+        resolver: zodResolver(schema),
+        defaultValues: {
+            name: "",
+            username: "",
+            code: "",
+            email: "",
+            role_id: "",
+            avatar: null,
+        }
+    });
+
+    const [previewOpen, setPreviewOpen] = useState(false);
+    const [previewImage, setPreviewImage] = useState('');
+    const [fileList, setFileList] = useState<UploadFile[]>([]);
+    const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
-        if (open && editingRecord) {
-            form.setFieldsValue({
-                code: editingRecord.code,
-                name: editingRecord.name,
-                username: editingRecord.username,
-                email: editingRecord.email,
-                role_id: editingRecord.role_ids?.[0] || editingRecord.role_id || (editingRecord.role_names?.[0] ? roleOptions?.find(r => r.label.toLowerCase() === editingRecord.role_names?.[0].toLowerCase())?.value : undefined),
-            });
-            if (editingRecord.avatar) {
-                setAvatarUrl(editingRecord.avatar);
-                setTempAvatarUrl(editingRecord.avatar);
-            } else {
-                setAvatarUrl('');
-                setTempAvatarUrl('');
-            }
-        } else if (open) {
-            form.resetFields();
-            setAvatarUrl('');
-            setTempAvatarUrl('');
-        }
-    }, [open, editingRecord, form, roleOptions]);
+        setMounted(true);
+    }, []);
 
-    const handleCancel = () => {
-        form.resetFields();
-        setAvatarUrl('');
-        setTempAvatarUrl('');
-        onClose();
+    // Check if avatar has changed
+    const isAvatarChanged = editingRecord?.id
+        ? (fileList.length === 0 && !!editingRecord.avatar) || (fileList.length > 0 && !!fileList[0].originFileObj)
+        : fileList.length > 0;
+
+    const canSubmit = isDirty || isAvatarChanged;
+
+    useEffect(() => {
+        if (editingRecord && open) {
+            const roleId = editingRecord.role_ids?.[0] || editingRecord.role_id || (editingRecord.role_names?.[0] ? roleOptions?.find(r => r.label.toLowerCase() === editingRecord.role_names?.[0].toLowerCase())?.value : undefined);
+            reset({
+                name: editingRecord.name ?? "",
+                username: editingRecord.username ?? "",
+                code: editingRecord.code ?? "",
+                email: editingRecord.email ?? "",
+                role_id: roleId ?? "",
+                avatar: null
+            });
+            // Set fileList with existing avatar if available
+            if (editingRecord.avatar) {
+                setFileList([{
+                    uid: '-1',
+                    name: 'avatar',
+                    status: 'done',
+                    url: editingRecord.avatar as string,
+                }]);
+            } else {
+                setFileList([]);
+            }
+        } else if (!open) {
+            setFileList([]);
+            setPreviewImage('');
+            setPreviewOpen(false);
+            reset({ name: "", username: "", code: "", email: "", role_id: "", avatar: null });
+        }
+    }, [editingRecord, open, reset, roleOptions]);
+
+    const handlePreview = async (file: UploadFile) => {
+        if (!file.url && !file.preview) {
+            file.preview = await getBase64(file.originFileObj as FileType);
+        }
+
+        setPreviewImage(file.url || (file.preview as string));
+        setPreviewOpen(true);
     };
 
-    const handleOk = async () => {
+    const handleChange: UploadProps['onChange'] = ({ fileList: newFileList }) =>
+        setFileList(newFileList);
+
+    const handleBeforeUpload = (file: FileType) => {
+        return false;
+    };
+
+    const uploadButton = (
+        <button style={{ border: 0, background: 'none' }} type="button">
+            <PlusOutlined />
+            <div style={{ marginTop: 8, color: "#545454" }}>Upload</div>
+        </button>
+    );
+
+    const stylesFn: UploadProps<any>['styles'] = (info) => {
+        if (info.props.multiple) {
+            return {
+                list: { color: "#54545499" },
+                root: { border: '1px solid #D9D9D9', color: "#54545499" },
+                item: { color: "#54545499", borderRadius: 2, backgroundColor: 'rgba(5, 5, 5, 0.06)', height: 30 },
+            } satisfies UploadProps<any>['styles'];
+        }
+        return {};
+    };
+
+    const handleSubmitForm = async (data: any) => {
+        setIsSubmitting(true);
         try {
-            const values = await form.validateFields();
-            setLoading(true);
+            let avatarUrl = editingRecord?.avatar || '';
+
+            // Handle file upload if there's a new file
+            if (fileList[0]?.originFileObj) {
+                const formData = new FormData();
+                formData.append('storage_provider', 'minio');
+                formData.append('folder', '/upload');
+                formData.append('file', fileList[0].originFileObj);
+
+                const res = await uploadFile(formData);
+                if (res.success && res.data?.elements?.url) {
+                    avatarUrl = res.data.elements.url;
+                } else {
+                    messageApi.error(res.error || 'Tải ảnh lên thất bại');
+                    setIsSubmitting(false);
+                    return;
+                }
+            } else if (fileList.length === 0) {
+                avatarUrl = ''; // user removed avatar
+            }
 
             const payload: any = {
-                code: values.code?.trim(),
-                username: values.username?.trim(),
-                email: values.email?.trim(),
-                name: values.name?.trim(),
+                code: data.code?.trim(),
+                username: data.username?.trim(),
+                email: data.email?.trim(),
+                name: data.name?.trim(),
                 avatar: avatarUrl || undefined,
-                role_ids: values.role_id ? [values.role_id] : [],
+                role_ids: data.role_id ? [data.role_id] : [],
             };
 
-            const response = editingRecord
-                ? await updateAccount(editingRecord.id, payload)
-                : await addAccount(payload);
+            let response;
+            if (editingRecord?.id) {
+                response = await updateAccount(editingRecord.id, payload);
+            } else {
+                response = await addAccount(payload);
+            }
 
             if (response.success) {
-                messageApi.success(editingRecord ? "Cập nhật tài khoản thành công" : "Thêm mới tài khoản thành công");
-                form.resetFields();
-                setAvatarUrl('');
-                if (onSuccess) onSuccess();
+                messageApi.success(editingRecord?.id ? 'Cập nhật tài khoản thành công' : 'Thêm mới tài khoản thành công');
+
+                // Cập nhật avatar trên Header nếu đang chỉnh sửa chính tài khoản của mình
+                const currentAccountId = document.cookie.split('; ').find(row => row.startsWith('accountId='))?.split('=')[1];
+                if (editingRecord && editingRecord.id === currentAccountId && avatarUrl) {
+                    localStorage.setItem("avatarUrl", avatarUrl);
+                    window.dispatchEvent(new CustomEvent('avatar-changed', { detail: avatarUrl }));
+                }
+
+                reset({ name: "", username: "", code: "", email: "", role_id: "", avatar: null });
+                setFileList([]);
                 onClose();
+                onSuccess?.();
                 router.refresh();
             } else {
-                messageApi.error(response.error || (editingRecord ? "Có lỗi xảy ra khi cập nhật" : "Có lỗi xảy ra khi thêm mới"));
+                messageApi.error(response.error || (editingRecord?.id ? "Có lỗi xảy ra khi cập nhật" : "Có lỗi xảy ra khi thêm mới"));
             }
-        } catch (error) {
-            console.error("Validation failed:", error);
+        } catch (error: any) {
+            console.error('Error:', error);
+            messageApi.error('Đã xảy ra lỗi không xác định');
         } finally {
-            setLoading(false);
+            setIsSubmitting(false);
         }
-    };
+    }
 
-    // Đọc file ảnh thành base64 URL
-    const readFileAsUrl = (file: File): Promise<string> =>
-        new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onload = (e) => resolve(e.target?.result as string);
-            reader.readAsDataURL(file);
-        });
-
-    // Nén ảnh thành chuỗi Base64 kích thước cực nhỏ (48x48, JPEG) để đường link siêu ngắn
-    const compressToPng = (base64Str: string): Promise<string> => {
-        return new Promise((resolve) => {
-            const img = new Image();
-            img.src = base64Str;
-            img.onload = () => {
-                const canvas = document.createElement('canvas');
-                const MAX_WIDTH = 48;
-                const MAX_HEIGHT = 48;
-                let width = img.width;
-                let height = img.height;
-
-                if (width > height) {
-                    if (width > MAX_WIDTH) {
-                        height *= MAX_WIDTH / width;
-                        width = MAX_WIDTH;
-                    }
-                } else {
-                    if (height > MAX_HEIGHT) {
-                        width *= MAX_HEIGHT / height;
-                        height = MAX_HEIGHT;
-                    }
-                }
-
-                canvas.width = width;
-                canvas.height = height;
-                const ctx = canvas.getContext('2d');
-                if (ctx) {
-                    ctx.drawImage(img, 0, 0, width, height);
-                    resolve(canvas.toDataURL('image/jpeg', 0.5));
-                } else {
-                    resolve(base64Str);
-                }
-            };
-            img.onerror = () => {
-                resolve(base64Str);
-            };
-        });
-    };
-
-    // Upload ảnh lần đầu
-    const handleFirstUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        const rawUrl = await readFileAsUrl(file);
-        const compressedUrl = await compressToPng(rawUrl);
-        setAvatarUrl(compressedUrl);
-        setTempAvatarUrl(compressedUrl);
-    };
-
-    // Đổi ảnh trong preview modal
-    const handleChangeAvatar = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        const rawUrl = await readFileAsUrl(file);
-        const compressedUrl = await compressToPng(rawUrl);
-        setTempAvatarUrl(compressedUrl);
-    };
-
-    // Xác nhận đổi ảnh
-    const handleConfirmAvatar = () => {
-        setAvatarUrl(tempAvatarUrl);
-        setPreviewOpen(false);
-    };
-
-    // Hủy đổi ảnh
-    const handleCancelPreview = () => {
-        setTempAvatarUrl(avatarUrl); // revert
-        setPreviewOpen(false);
-    };
+    if (!mounted) return null;
 
     return (
-        <>
-            {contextHolder}
+        <ModalThemeProvider>
             <Modal
+                closable={true}
+                open={open}
+                width={1000}
+                centered// ô ra giữa màn hình
                 title={
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <span
-                            style={{ cursor: 'pointer', color: '#595959', fontSize: 16 }}
-                            onClick={handleCancel}
-                        >
-                            ←
-                        </span>
-                        <span style={{ fontSize: 16, fontWeight: 500, color: '#1A1A1A' }}>
-                            {editingRecord ? "Chỉnh sửa tài khoản" : "Thêm mới tài khoản"}
-                        </span>
+                    <div className="flex flex-row items-center gap-[8px] ">
+                        <span className="text-[18px] text-[#484848] font-medium mb-[15px]">{editingRecord ? "Chỉnh sửa tài khoản" : "Thêm mới tài khoản"}</span>
                     </div>
                 }
-                open={open}
-                onCancel={handleCancel}
+                zIndex={1005}
+                styles={{
+                    mask: {
+                        backdropFilter: "blur(0px)" // tắt hiệu ứng mờ ảnh 
+                    },
+
+                    container: {
+                        padding: "20px 40px 30px 40px",
+                    }
+                }
+                }
                 footer={null}
-                width={700}
-                centered
-                className="rounded-[8px]"
+                onCancel={onClose}
+                destroyOnHidden
             >
-                <div className="py-4 px-4">
-                    <Form
-                        form={form}
-                        layout="horizontal"
-                        labelCol={{ span: 6 }}
-                        wrapperCol={{ span: 16 }}
-                    >
-                        {/* Mã nhân viên */}
-                        <Form.Item
-                            label={<span className="text-[#1A1A1A]">Mã nhân viên <span style={{ color: 'red' }}>*</span></span>}
-                            name="code"
-                            required={false}
-                            rules={[{ required: true, whitespace: true, message: "Vui lòng nhập mã nhân viên!" }]}
-                        >
-                            <Input placeholder="Ví dụ: NV001" className="h-[38px] rounded-md" />
-                        </Form.Item>
+                {contextHolder}
+                <div className="flex flex-col items-center">
 
-                        {/* Họ và tên */}
-                        <Form.Item
-                            label={<span className="text-[#1A1A1A]">Họ và tên <span style={{ color: 'red' }}>*</span></span>}
+                    <div className="h-[1px] bg-[#C0C0C0] w-full mb-[30px]"></div>
+
+                    <Form onFinish={handleSubmit(handleSubmitForm)} className="flex flex-col items-center justify-center md:min-w-[716px]">
+                        <FormItemController
                             name="name"
-                            required={false}
-                            rules={[{ required: true, whitespace: true, message: "Vui lòng nhập họ và tên!" }]}
-                        >
-                            <Input placeholder="Nhập họ và tên" className="h-[38px] rounded-md" />
-                        </Form.Item>
+                            label="Họ và tên"
+                            style={{ width: "100%", marginBottom: 20 }}
+                            control={control}
+                            required
+                            wrapperCol={{ style: { paddingLeft: 0 } }}
+                            labelCol={{
+                                style:
+                                {
+                                    minWidth: 200,
+                                    height: 40,
+                                    fontSize: 14,
+                                    fontWeight: 400,
+                                    textAlign: "left",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    color: "#404040",
+                                }
+                            }}
+                            render={(field) => (
+                                <Input
+                                    {...field}
+                                    required
+                                    aria-label="Họ và tên"
+                                    className="w-full h-[40px] rounded-md p-2"
+                                    placeholder="Nhập họ và tên"
+                                />
+                            )}
+                        />
 
-                        {/* Tên đăng nhập */}
-                        <Form.Item
-                            label={<span className="text-[#1A1A1A]">Tên đăng nhập <span style={{ color: 'red' }}>*</span></span>}
+                        <FormItemController
                             name="username"
-                            required={false}
-                            rules={[{ required: true, whitespace: true, message: "Vui lòng nhập tên đăng nhập!" }]}
-                        >
-                            <Input placeholder="Nhập tên đăng nhập" className="h-[38px] rounded-md" />
-                        </Form.Item>
+                            label="Tên đăng nhập"
+                            style={{ width: "100%", marginBottom: 20 }}
+                            control={control}
+                            required
+                            wrapperCol={{ style: { paddingLeft: 0 } }}
+                            labelCol={{
+                                style:
+                                {
+                                    minWidth: 200,
+                                    height: 40,
+                                    fontSize: 14,
+                                    fontWeight: 400,
+                                    textAlign: "left",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    color: "#404040",
+                                }
+                            }}
+                            render={(field) => (
+                                <Input
+                                    {...field}
+                                    required
+                                    aria-label="Tên đăng nhập"
+                                    className="w-full h-[40px] rounded-md p-2"
+                                    placeholder="Nhập tên đăng nhập"
+                                />
+                            )}
+                        />
 
-                        {/* Email */}
-                        <Form.Item
-                            label={<span className="text-[#1A1A1A]">Email <span style={{ color: 'red' }}>*</span></span>}
+                        <FormItemController
+                            name="code"
+                            label="Mã nhân viên"
+                            style={{ width: "100%", marginBottom: 20 }}
+                            control={control}
+                            required
+                            wrapperCol={{ style: { paddingLeft: 0 } }}
+                            labelCol={{
+                                style:
+                                {
+                                    minWidth: 200,
+                                    height: 40,
+                                    fontSize: 14,
+                                    fontWeight: 400,
+                                    textAlign: "left",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    color: "#404040",
+                                }
+                            }}
+                            render={(field) => (
+                                <Input
+                                    {...field}
+                                    required
+                                    aria-label="Mã nhân viên"
+                                    className="w-full h-[40px] rounded-md p-2"
+                                    placeholder="Nhập mã nhân viên"
+                                />
+                            )}
+                        />
+
+                        <FormItemController
                             name="email"
-                            required={false}
-                            rules={[
-                                { required: true, message: "Vui lòng nhập email!" },
-                                { type: 'email', message: "Email không hợp lệ!" },
-                            ]}
-                        >
-                            <Input placeholder="Nhập Email" className="h-[38px] rounded-md" />
-                        </Form.Item>
+                            label="Email"
+                            style={{ width: "100%", marginBottom: 20 }}
+                            control={control}
+                            required
+                            wrapperCol={{ style: { paddingLeft: 0 } }}
+                            labelCol={{
+                                style:
+                                {
+                                    minWidth: 200,
+                                    height: 40,
+                                    fontSize: 14,
+                                    fontWeight: 400,
+                                    textAlign: "left",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    color: "#404040",
+                                }
+                            }}
+                            render={(field) => (
+                                <Input
+                                    {...field}
+                                    required
+                                    aria-label="Email"
+                                    className="w-full h-[40px] rounded-md p-2"
+                                    placeholder="Nhập email"
+                                />
+                            )}
+                        />
 
-                        {/* Vai trò */}
-                        <Form.Item
-                            label={<span className="text-[#1A1A1A]">Vai trò <span style={{ color: 'red' }}>*</span></span>}
+                        <FormItemController
                             name="role_id"
-                            required={false}
-                            rules={[{ required: true, message: "Vui lòng chọn vai trò!" }]}
-                        >
-                            <Select
-                                placeholder="Chọn vai trò"
-                                className="h-[38px] rounded-md"
-                                options={roleOptions || []}
-                            />
-                        </Form.Item>
+                            label="Vai trò"
+                            style={{ width: "100%", marginBottom: 20 }}
+                            control={control}
+                            required
+                            wrapperCol={{ style: { paddingLeft: 0 } }}
+                            labelCol={{
+                                style:
+                                {
+                                    minWidth: 200,
+                                    height: 40,
+                                    fontSize: 14,
+                                    fontWeight: 400,
+                                    textAlign: "left",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    color: "#404040",
+                                }
+                            }}
+                            render={(field) => (
+                                <Select
+                                    value={roleOptions && roleOptions.length > 0 ? (field.value || undefined) : undefined}
+                                    onChange={(val) => field.onChange(val ?? "")}
+                                    onBlur={field.onBlur}
+                                    style={{ height: 40 }}
+                                    placeholder="Chọn vai trò"
+                                    options={roleOptions || []}
+                                    className="w-full rounded-md"
+                                    suffixIcon={<img src="/icon.svg/dow.svg" alt="down" />}
+                                />
+                            )}
+                        />
 
-
-                        {/* Hình ảnh */}
-                        <Form.Item
-                            label={<span className="text-[#1A1A1A]">Hình ảnh</span>}
-                        >
-                            {avatarUrl ? (
-                                <div
-                                    onClick={() => { setTempAvatarUrl(avatarUrl); setPreviewOpen(true); }}
-                                    style={{
-                                        width: 72,
-                                        height: 72,
-                                        cursor: 'pointer',
-                                        borderRadius: 6,
-                                        overflow: 'hidden',
-                                        border: '1px solid #d9d9d9',
-                                    }}
-                                >
-                                    <img
-                                        src={avatarUrl}
-                                        alt="avatar"
-                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                    />
-                                </div>
-                            ) : (
+                        <FormItemController
+                            name="avatar"
+                            label="Hình ảnh"
+                            style={{ width: "100%" }}
+                            control={control}
+                            wrapperCol={{ style: { paddingLeft: 0 } }}
+                            labelCol={{
+                                style:
+                                {
+                                    minWidth: 200,
+                                    height: 40,
+                                    fontSize: 14,
+                                    fontWeight: 400,
+                                    textAlign: "left",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    color: "#404040",
+                                }
+                            }}
+                            render={(field) => (
                                 <>
-                                    <input
-                                        type="file"
+                                    <Upload
+                                        beforeUpload={handleBeforeUpload}
+                                        listType="picture-card"
+                                        fileList={fileList}
+                                        onPreview={handlePreview}
+                                        onChange={handleChange}
                                         accept="image/*"
-                                        ref={fileInputRef}
-                                        style={{ display: 'none' }}
-                                        onChange={handleFirstUpload}
-                                    />
-                                    <div
-                                        onClick={() => fileInputRef.current?.click()}
-                                        style={{
-                                            width: 72,
-                                            height: 72,
-                                            border: '1px dashed #d9d9d9',
-                                            borderRadius: 6,
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            cursor: 'pointer',
-                                            color: '#8c8c8c',
-                                            fontSize: 12,
-                                            gap: 4,
-                                        }}
+                                        styles={stylesFn}
+                                        className="avatar-uploader-full"
                                     >
-                                        <PlusOutlined style={{ fontSize: 16 }} />
-                                        <span>Upload</span>
-                                    </div>
+                                        {fileList.length >= 1 ? null : uploadButton}
+                                    </Upload>
+                                    {previewImage && (
+                                        <Image
+                                            styles={{ root: { display: 'none' } }}
+                                            preview={{
+                                                open: previewOpen,
+                                                onOpenChange: (visible) => setPreviewOpen(visible),
+                                                afterOpenChange: (visible) => !visible && setPreviewImage(''),
+                                            }}
+                                            src={previewImage}
+                                            alt="Preview"
+                                        />
+                                    )}
                                 </>
                             )}
-                        </Form.Item>
+                        />
 
-                        {/* Buttons */}
-                        <div className="flex justify-center gap-4 mt-8">
+                        <div className="flex flex-row items-center justify-end gap-[20px] mt-[66px]">
                             <Button
-                                onClick={handleCancel}
-                                className="min-w-[100px] h-[36px] rounded-[20px] text-[#5F5D5D] border-gray-300"
+                                onClick={onClose}
+                                disabled={isSubmitting}
+                                style={{
+                                    backgroundColor: "white",
+                                    color: "#A1A1A1",
+                                    border: "1px solid #A1A1A1",
+                                    padding: "5px 15px",
+                                    height: 30,
+                                    width: 80,
+                                    borderRadius: 20,
+                                }}
                             >
-                                Quay về
+                                Quay lại
                             </Button>
                             <Button
-                                type="primary"
-                                onClick={handleOk}
-                                loading={loading}
-                                className="min-w-[100px] h-[36px] rounded-[20px] bg-[#0265B9]"
+                                htmlType="submit"
+                                loading={isSubmitting}
+                                disabled={isSubmitting}
+                                style={{
+                                    backgroundColor: isSubmitting ? "#f5f5f5" : "#076EB8",
+                                    color: isSubmitting ? "rgba(0, 0, 0, 0.25)" : "white",
+                                    border: isSubmitting ? "1px solid #d9d9d9" : "none",
+                                    padding: "5px 15px",
+                                    height: 30,
+                                    width: 54,
+                                    borderRadius: 20,
+                                }}
                             >
                                 Lưu
                             </Button>
@@ -337,67 +480,6 @@ export default function ModalAddAccount({ open, onClose, onSuccess, roleOptions,
                     </Form>
                 </div>
             </Modal>
-
-            {/* Image Preview Modal */}
-            <Modal
-                title="Hình ảnh"
-                open={previewOpen}
-                onCancel={handleCancelPreview}
-                centered
-                width={480}
-                footer={
-                    <div style={{ display: 'flex', justifyContent: 'center', gap: 12 }}>
-                        <Button
-                            onClick={handleCancelPreview}
-                            className="min-w-[80px] rounded-[20px]"
-                        >
-                            Hủy
-                        </Button>
-                        <Button
-                            type="primary"
-                            onClick={handleConfirmAvatar}
-                            style={{ backgroundColor: '#0265B9', borderRadius: 20, minWidth: 80 }}
-                        >
-                            Cập nhật
-                        </Button>
-                    </div>
-                }
-            >
-                <div style={{ textAlign: 'center', padding: '16px 0' }}>
-                    {/* Ảnh preview lớn */}
-                    <div style={{
-                        width: 260,
-                        height: 260,
-                        margin: '0 auto',
-                        borderRadius: '50%',
-                        overflow: 'hidden',
-                        border: '2px solid #e8e8e8',
-                    }}>
-                        <img
-                            src={tempAvatarUrl}
-                            alt="preview"
-                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                        />
-                    </div>
-
-                    {/* Nút đổi ảnh */}
-                    <div style={{ marginTop: 20 }}>
-                        <input
-                            type="file"
-                            accept="image/*"
-                            id="change-avatar-input"
-                            style={{ display: 'none' }}
-                            onChange={handleChangeAvatar}
-                        />
-                        <Button
-                            onClick={() => document.getElementById('change-avatar-input')?.click()}
-                            style={{ borderRadius: 20, minWidth: 140 }}
-                        >
-                            Đổi ảnh đại diện
-                        </Button>
-                    </div>
-                </div>
-            </Modal>
-        </>
-    );
+        </ModalThemeProvider>
+    )
 }

@@ -19,25 +19,29 @@ export const getColumns = (
             title: 'Vai trò',
             dataIndex: 'name',
             key: 'name',
+            width: 600,
             render: (text: string) => {
                 if (!text) return '';
                 const isAdmin = text.toLowerCase().includes('admin');
-                const color = isAdmin ? '#1677ff' : '#52c41a';
-                const bgColor = isAdmin ? '#e6f4ff' : '#f6ffed';
                 return (
-                    <span style={{
-                        color: isAdmin ? '#1849D6' : '#148634',
-                        backgroundColor: isAdmin ? '#D2DDFF' : '#DBFFE5',
-                        padding: '2px 14px',
-                        borderRadius: '20px',
-                        fontSize: '14px',
-                        fontWeight: 400,
-                        fontFamily: 'roboto',
-                        lineHeight: '100%',
-                        border: `1px solid ${isAdmin ? '#91caff' : '#b7eb8f'}`,
-                    }}>
-                        {text}
-                    </span>
+                    <div style={{ display: 'flex', justifyContent: 'center' }}>
+                        <span style={{
+                            color: isAdmin ? '#1849D6' : '#148634',
+                            backgroundColor: isAdmin ? '#D2DDFF' : '#DBFFE5',
+                            padding: '5px 10px',
+                            borderRadius: '20px',
+                            fontSize: '14px',
+                            fontWeight: 400,
+                            fontFamily: 'roboto',
+                            lineHeight: '100%',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            height: '26px'
+                        }}>
+                            {text}
+                        </span>
+                    </div>
                 );
             },
             align: 'center',
@@ -46,24 +50,27 @@ export const getColumns = (
             title: 'Mô tả',
             dataIndex: 'description',
             key: 'description',
-            render: (text: string) => (
-                <div style={{ paddingLeft: '35%' }}>
-                    {text || ''}
-                </div>
-            ),
+            className: "text-left",
+            render: (text: string) => text || '',
+            onHeaderCell: () => ({
+                style: {
+                    textAlign: 'left',
+                },
+            }),
         },
         {
             title: 'Hành động',
             key: 'action',
-            width: 150,
+            width: 140,
             render: (_: any, record: Role) => (
-                <Space size="middle">
+                <Space >
                     <Tooltip title="Chỉnh sửa">
                         <Image
                             src="/icon.svg/edit.svg"
                             alt="Chỉnh sửa"
-                            width={20}
-                            height={20}
+                            width={18}
+                            height={18}
+                            style={{ width: '18px', height: '18px', flexShrink: 0 }}
                             onClick={() => onEdit && onEdit(record)}
                             className="cursor-pointer hover:opacity-80 transition-opacity"
                         />
@@ -72,8 +79,9 @@ export const getColumns = (
                         <Image
                             src="/icon.svg/action.svg"
                             alt="Phân quyền"
-                            width={20}
-                            height={20}
+                            width={16.79}
+                            height={19.46}
+                            style={{ width: '16.79px', height: '19.46px', flexShrink: 0 }}
                             onClick={() => onPermission && onPermission(record)}
                             className="cursor-pointer hover:opacity-80 transition-opacity"
                         />
@@ -84,6 +92,7 @@ export const getColumns = (
                             alt="Xóa"
                             width={20}
                             height={20}
+                            style={{ width: '20px', height: '20px', flexShrink: 0 }}
                             onClick={() => onDelete && onDelete(record.id as string)}
                             className="cursor-pointer hover:opacity-80 transition-opacity"
                         />

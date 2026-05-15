@@ -25,15 +25,18 @@ export async function serverFetch<T = any>(
 
     const { params, ...fetchOptions } = options;
 
-    const defaultHeaders: HeadersInit = {
-        'Content-Type': 'application/json',
+    const finalHeaders: Record<string, string> = {
         'Accept': 'application/json',
     };
+
+    if (!(fetchOptions.body instanceof FormData)) {
+        finalHeaders['Content-Type'] = 'application/json';
+    }
 
     const finalOptions: RequestInit = {
         ...fetchOptions,
         headers: {
-            ...defaultHeaders,
+            ...finalHeaders,
             ...fetchOptions.headers,
         },
     };

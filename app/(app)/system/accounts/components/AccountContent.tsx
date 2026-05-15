@@ -36,7 +36,7 @@ export default async function AccountContent() {
 
     if (response && response.success === false) {
         return (
-            <div className="flex flex-col bg-white rounded-[20px] min-h-full">
+            <div className="flex flex-col h-full min-h-0 bg-white rounded-[20px] min-h-full">
                 <div className="p-6">
                     <h2 className="text-2xl font-bold mb-4">Quản lý tài khoản</h2>
                     <div className="p-4 bg-red-100 text-red-700 rounded-lg">
@@ -52,7 +52,7 @@ export default async function AccountContent() {
         : (response?.elements || response?.rows || response?.data || []);
 
     return (
-        <div className="flex flex-col bg-white rounded-[20px] min-h-full p-2">
+        <div className="h-full flex flex-col">
             <AccountTable raw={accounts} roleOptions={roleOptions} warehouseOptions={warehouseOptions} />
         </div>
     );

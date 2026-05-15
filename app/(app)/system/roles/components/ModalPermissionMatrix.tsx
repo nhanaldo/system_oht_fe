@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Modal, Table, Checkbox, Spin, Button, message } from 'antd';
+import ModalThemeProvider from "@/components/ui/ModalThemeProvider";
 import type { ColumnsType } from 'antd/es/table';
 import { DownOutlined, RightOutlined } from '@ant-design/icons';
 import { getRolePermissionMatrix, syncRolePermissions } from '../roleAction';
+
 
 interface PermissionDetail {
     permissionId: string;
@@ -56,7 +58,7 @@ export default function ModalPermissionMatrix({ open, roleId, onClose }: ModalPe
         data.forEach(node => {
             const parentStt = `${parentIndex}`;
             const isCollapsed = !!collapsedParents[node.menu_id];
-            
+
             flat.push({
                 ...node,
                 stt: parentStt,
@@ -185,8 +187,8 @@ export default function ModalPermissionMatrix({ open, roleId, onClose }: ModalPe
             render: (text: string, record: any) => {
                 if (record.level === 0) {
                     return (
-                        <span 
-                            className="cursor-pointer select-none font-bold text-[#1378C0] hover:underline"
+                        <span
+                            className="cursor-pointer select-none font-bold text-[#484848]"
                             onClick={(e) => {
                                 e.stopPropagation();
                                 toggleParent(record.menu_id);
@@ -203,22 +205,22 @@ export default function ModalPermissionMatrix({ open, roleId, onClose }: ModalPe
             title: 'Chức năng',
             dataIndex: 'menuName',
             key: 'menuName',
-            width: 250,
+            width: 770,
             render: (text: string, record: any) => {
                 if (record.level === 0) {
                     const isCollapsed = !!collapsedParents[record.menu_id];
                     return (
-                        <span 
-                            className="flex items-center gap-2 font-semibold text-[#1378C0] pl-2 cursor-pointer select-none hover:underline"
+                        <span
+                            className="flex items-center gap-2 font-medium text-[#484848] pl-2 cursor-pointer select-none"
                             onClick={(e) => {
                                 e.stopPropagation();
                                 toggleParent(record.menu_id);
                             }}
                         >
                             {isCollapsed ? (
-                                <RightOutlined className="text-[#1378C0] text-[10px]" />
+                                <RightOutlined className="text-[#484848] text-[10px]" />
                             ) : (
-                                <DownOutlined className="text-[#1378C0] text-[10px]" />
+                                <DownOutlined className="text-[#484848] text-[10px]" />
                             )}
                             {text}
                         </span>
@@ -285,7 +287,7 @@ export default function ModalPermissionMatrix({ open, roleId, onClose }: ModalPe
         try {
             // Chỉ lấy danh sách ID của các quyền đang được tích (is_selected: true)
             const permissionIds: string[] = [];
-            
+
             Object.keys(selectedPermissions).forEach(compositeKey => {
                 if (selectedPermissions[compositeKey]) {
                     const parts = compositeKey.split('_');
@@ -300,7 +302,7 @@ export default function ModalPermissionMatrix({ open, roleId, onClose }: ModalPe
             });
 
             const res = await syncRolePermissions(roleId, permissionIds);
-            
+
             if (res.success) {
                 messageApi.success('Đồng bộ quyền thành công');
                 onClose();
@@ -317,47 +319,55 @@ export default function ModalPermissionMatrix({ open, roleId, onClose }: ModalPe
     return (
         <>
             {contextHolder}
+
             <Modal
-                title="Phân quyền"
+                title={<span style={{ fontSize: 18, fontWeight: 500, color: '#484848' }}>Phân quyền</span>}
                 open={open}
                 onCancel={onClose}
-                width={1000}
-                footer={
-                    <div style={{ display: 'flex', justifyContent: 'center', marginTop: 24 }}>
-                        <Button 
-                            type="primary" 
-                            onClick={handleSubmit} 
-                            style={{ 
-                                borderRadius: 20, 
-                                padding: '0 32px',
-                                backgroundColor: '#1378C0',
-                                borderColor: '#1378C0',
-                                height: '36px',
-                                fontWeight: 500,
-                            }}
-                        >
-                            Xác nhận
-                        </Button>
-                    </div>
-                }
+                width={1500}
+                footer={null}
                 centered
+                className="rounded-[8px]"
+                styles={{
+                    header: {
+                    },
+                    mask: { backdropFilter: "blur(0px)" },
+                    container: { padding: "20px 40px 30px 40px ", overflowY: 'hidden' }
+                }}
             >
-                <Spin spinning={loading}>
-                    <div style={{ maxHeight: '60vh', overflow: 'auto' }}>
+                <div className='w-full border-t border-[#c0c0c0] opacity-50 mt-[14px] mb-[20px]'></div>
+
+                <ModalThemeProvider>
+                    <Spin spinning={loading}>
                         <style>{`
                             .permission-table .ant-table-thead > tr > th {
                                 background-color: #076EB8 !important;
                                 color: white !important;
-                                text-align: center !important;
-                                font-weight: 500 !important;
-                                font-family: 'roboto' !important;
+                                font-weight: 400 !important;
+                                font-size: 16px !important;
                                 padding: 8px 12px !important;
+                                border-inline-end: none !important;
+                                border-right: none !important;
+                            }
+                            .permission-table .ant-table-thead > tr > th.ant-table-cell-scrollbar {
+                                background-color: #076EB8 !important;
+                                box-shadow: none !important;
+                            }
+                               .permission-table .ant-table-measure-row {
+                                display: none !important;
+                            }
+                            .permission-table .ant-table-thead > tr > th::before {
+                                display: none !important;
                             }
                             .permission-table .ant-table-tbody > tr.parent-row {
                                 background-color: #EAF6FF !important;
+                                font-weight: 500 !important;
+                                font-size: 14px !important; 
                             }
                             .permission-table .ant-table-tbody > tr.parent-row td {
                                 background-color: #EAF6FF !important;
+                                border-inline-end: none !important;
+                                border-right: none !important;
                             }
                             .permission-table .ant-table-tbody > tr > td {
                                 padding: 6px 12px !important;
@@ -370,13 +380,40 @@ export default function ModalPermissionMatrix({ open, roleId, onClose }: ModalPe
                             rowKey="menu_id"
                             pagination={false}
                             bordered
+                            scroll={{ x: 1200, y: 'calc(100vh - 400px)' }}
                             size="small"
                             className="permission-table"
                             rowClassName={(record) => record.level === 0 ? 'parent-row' : ''}
-                            childrenColumnName="non_existent_children"
+                            childrenColumnName="non_existent_children"// bỏ dấu + dư thừa của ant
                         />
-                    </div>
-                </Spin>
+
+                        <div className="flex justify-center gap-[20px] mt-[24px]  items-center ">
+                            <Button
+                                onClick={onClose}
+                                disabled={loading}
+                                className="w-[80px] h-[30px]"
+                                style={{ borderRadius: '20px', borderColor: '#a1a1a1', color: '#a1a1a1', backgroundColor: "white" }}
+                            >
+                                Quay lại
+                            </Button>
+                            <Button
+                                type="primary"
+                                loading={loading}
+                                disabled={loading}
+                                onClick={handleSubmit}
+                                className="w-[80px] h-[30px]"
+                                style={{
+                                    backgroundColor: loading ? "#f5f5f5" : '#076eb8',
+                                    borderColor: loading ? "#d9d9d9" : '#076eb8',
+                                    color: loading ? "rgba(0, 0, 0, 0.25)" : "white",
+                                    borderRadius: '20px'
+                                }}
+                            >
+                                Xác nhận
+                            </Button>
+                        </div>
+                    </Spin>
+                </ModalThemeProvider>
             </Modal>
         </>
     );

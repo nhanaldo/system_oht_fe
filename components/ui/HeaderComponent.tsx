@@ -14,6 +14,7 @@ import {
 } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
 import { logoutAction } from '@/app/(app)/actions/authAction';
+import { getCurrentAccountProfile } from '@/app/(app)/system/accounts/accountAction';
 
 const { Header } = Layout;
 
@@ -29,14 +30,33 @@ export default function HeaderComponent({ collapsed, setCollapsed, username }: H
     const router = useRouter();
 
     useEffect(() => {
-        const storedAvatar = localStorage.getItem("avatarUrl");
-        if (storedAvatar) {
-            setAvatarData(storedAvatar);
-        }
+        const fetchAvatar = async () => {
+            try {
+                const response: any = await getCurrentAccountProfile();
+                const data = response?.elements || response?.data || response;
+                if (data?.avatar) {
+                    setAvatarData(data.avatar);
+                }
+            } catch (error) {
+                console.error("Failed to fetch avatar", error);
+            }
+        };
+
+        fetchAvatar();
+
+        const handleAvatarChange = (event: any) => {
+            if (event.detail) {
+                setAvatarData(event.detail);
+            }
+        };
+
+        window.addEventListener('avatar-changed', handleAvatarChange);
+        return () => {
+            window.removeEventListener('avatar-changed', handleAvatarChange);
+        };
     }, []);
 
     const handleLogout = async () => {
-        localStorage.removeItem("avatarUrl");
         await logoutAction();
     };
 
@@ -51,16 +71,34 @@ export default function HeaderComponent({ collapsed, setCollapsed, username }: H
             key: 'logout',
             label: (
                 <Popconfirm
-                    title="Thông báo"
-                    description="Bạn có chắc chắn muốn đăng xuất khỏi tài khoản?"
+                    overlayClassName="custom-logout-popconfirm"
+                    styles={{ container: { width: 417, height: 157, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '24px' } }}
+                    title={<span style={{ fontSize: '16px', fontWeight: 400, marginLeft: "16px", lineHeight: '100%', color: '#001e33' }}>Thông báo</span>}
+                    description={<span style={{ fontSize: '14px', marginLeft: "16px", lineHeight: '20px', color: '#485259', display: 'block', marginTop: '4px', }}>Bạn có chắc chắn muốn đăng xuất khỏi tài khoản?</span>}
                     onConfirm={handleLogout}
                     okText="Xác nhận"
                     cancelText="Hủy"
                     placement="left"
+                    icon={<img src="/icon.svg/message.svg" alt="message" style={{ width: 22, height: 22 }} />}
+
                     okButtonProps={{
                         style: {
-                            backgroundColor: '#1378C0',
-                            borderColor: '#1378C0',
+                            backgroundColor: '#076eb8',
+                            borderColor: '#076eb8',
+                            color: '#ffffff',
+                            width: '88px',
+                            height: '30px',
+                            borderRadius: '20px',
+                            marginLeft: '20px',
+                        }
+                    }}
+                    cancelButtonProps={{
+                        style: {
+                            width: '55px',
+                            height: '30px',
+                            borderColor: '#a1a1a1',
+                            color: '#a1a1a1',
+                            borderRadius: '20px',
                         }
                     }}
                 >
@@ -131,7 +169,7 @@ export default function HeaderComponent({ collapsed, setCollapsed, username }: H
 
             {/* User Actions */}
             <div className="mobile-header-padding" style={{ display: 'flex', alignItems: 'center', paddingRight: '24px', flexShrink: 0 }}>
-                <Space size="middle">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                     <Popover
                         content={<div style={{ padding: '8px', color: '#545454' }}>Chưa có thông báo</div>}
                         title={<span style={{ fontWeight: 600 }}>Thông báo</span>}
@@ -143,19 +181,19 @@ export default function HeaderComponent({ collapsed, setCollapsed, username }: H
                         </Badge>
                     </Popover>
                     <Dropdown menu={{ items: userMenuItems }} trigger={['click']}>
-                        <Space style={{ cursor: 'pointer' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                             {avatarData ? (
-                                <Avatar src={avatarData} />
+                                <Avatar src={avatarData} style={{ flexShrink: 0, width: '32px', height: '32px' }} />
                             ) : (
-                                <Avatar style={{ backgroundColor: '#0F6EB8', color: '#fff', fontWeight: 500, marginRight: '7px' }}>
+                                <Avatar style={{ flexShrink: 0, width: '32px', height: '32px', backgroundColor: '#0F6EB8', color: '#fff', fontWeight: 500 }}>
                                     {username?.charAt(0)?.toUpperCase() || 'A'}
                                 </Avatar>
                             )}
                             <span className="mobile-user-name" style={{ fontWeight: 400, fontSize: '16px', color: '#545454', fontFamily: "roboto", lineHeight: 1, fontStyle: "normal", whiteSpace: 'nowrap' }}>{username}</span>
-                            <DownOutlined style={{ fontSize: '12px', color: '#292D32' }} />
-                        </Space>
+                            <DownOutlined style={{ fontSize: '12px', color: '#292D32', flexShrink: 0 }} />
+                        </div>
                     </Dropdown>
-                </Space>
+                </div>
             </div>
         </Header>
     );

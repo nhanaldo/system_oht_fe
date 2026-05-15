@@ -1,122 +1,231 @@
 "use client";
 
-import { Modal, Form, Input, Button, message } from "antd";
-import { useState } from "react";
+import { Modal, Input, Button, message, Form } from "antd";
+import ModalThemeProvider from "@/components/ui/ModalThemeProvider";
+import FormItemController from "@/components/ui/CustomController";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { addRole } from "../roleAction";
+import { addRole, updateRole } from "../roleAction";
 import { RoleAddParams } from "@/types/role";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import z from "zod";
+
+const schema = z.object({
+    name: z.string().min(1, "Vui lòng nhập tên vai trò hợp lệ (không để trống)!").trim(),
+    description: z.string().optional(),
+});
 
 interface ModalAddRoleProps {
     open: boolean;
     onClose: () => void;
     onSuccess?: () => void;
     roleOptions?: { label: string, value: string }[];
+    editingRecord?: any;
 }
 
-export default function ModalAddRole({ open, onClose, onSuccess, roleOptions }: ModalAddRoleProps) {
-    const [form] = Form.useForm();
-    const [loading, setLoading] = useState(false);
+export default function ModalAddRole({ open, onClose, onSuccess, roleOptions, editingRecord }: ModalAddRoleProps) {
+    const isEditMode = !!editingRecord?.id;
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [messageApi, contextHolder] = message.useMessage();
     const router = useRouter();
 
+    const { control, handleSubmit, reset, formState: { isDirty } } = useForm({
+        resolver: zodResolver(schema),
+        defaultValues: {
+            name: "",
+            description: "",
+        }
+    });
+
+    useEffect(() => {
+        if (open) {
+            if (editingRecord) {
+                reset({
+                    name: editingRecord.name ?? "",
+                    description: editingRecord.description ?? "",
+                });
+            } else {
+                reset({ name: "", description: "" });
+            }
+        } else {
+            reset({ name: "", description: "" });
+        }
+    }, [open, editingRecord, reset]);
+
     const handleCancel = () => {
-        form.resetFields();
+        reset();
         onClose();
     };
 
-    const handleOk = async () => {
+    const handleSubmitForm = async (data: any) => {
+        setIsSubmitting(true);
         try {
-            const values = await form.validateFields();
-            setLoading(true);
+            if (isEditMode) {
+                // Edit mode
+                const response = await updateRole(editingRecord.id, {
+                    name: data.name,
+                    description: data.description?.trim(),
+                });
 
-            const newName = values.name?.trim();
-            const isDuplicate = roleOptions?.some(opt => 
-                opt.value.trim().toLowerCase() === newName.toLowerCase()
-            );
-
-            if (isDuplicate) {
-                messageApi.error("Vai trò này đã tồn tại!");
-                setLoading(false);
-                return;
-            }
-
-            const payload: RoleAddParams = {
-                name: newName,
-                description: values.description?.trim(),
-            };
-
-            const response = await addRole(payload);
-
-            if (response.success) {
-                messageApi.success("Thêm mới vai trò thành công");
-
-                form.resetFields();
-                if (onSuccess) onSuccess();
-                onClose();
-                router.refresh();
-                console.log(response);
+                if (response.success) {
+                    messageApi.success("Cập nhật vai trò thành công");
+                    reset();
+                    if (onSuccess) onSuccess();
+                    onClose();
+                    router.refresh();
+                } else {
+                    messageApi.error(response.error || "Có lỗi xảy ra khi cập nhật");
+                }
             } else {
-                messageApi.error(response.error || "Có lỗi xảy ra khi thêm mới");
+                // Add mode
+                const newName = data.name;
+                const isDuplicate = roleOptions?.some(opt =>
+                    opt.value.trim().toLowerCase() === newName.toLowerCase()
+                );
+
+                if (isDuplicate) {
+                    messageApi.error("Vai trò này đã tồn tại!");
+                    setIsSubmitting(false);
+                    return;
+                }
+
+                const payload: RoleAddParams = {
+                    name: newName,
+                    description: data.description?.trim(),
+                };
+
+                const response = await addRole(payload);
+
+                if (response.success) {
+                    messageApi.success("Thêm mới vai trò thành công");
+                    reset();
+                    if (onSuccess) onSuccess();
+                    onClose();
+                    router.refresh();
+                } else {
+                    messageApi.error(response.error || "Có lỗi xảy ra khi thêm mới");
+                }
             }
         } catch (error) {
-            console.error("Validation failed:", error);
+            console.error("Submission failed:", error);
         } finally {
-            setLoading(false);
+            setIsSubmitting(false);
         }
     };
 
     return (
         <Modal
-            title={<span className="text-[16px] font-medium text-[#1A1A1A]">Thêm mới vai trò</span>}
+            title={
+                <span className="text-[18px] font-medium text-[#484848]">
+                    {isEditMode ? "Chỉnh sửa vai trò" : "Thêm mới vai trò"}
+                </span>
+            }
             open={open}
             onCancel={handleCancel}
             footer={null}
-            width={700}
+            width={800}
             centered
             className="rounded-[8px]"
             forceRender
+            styles={{
+                header: {
+                    paddingBottom: '16px',
+                    marginBottom: '24px'
+                },
+                mask: { backdropFilter: "blur(0px)" },
+                container: { padding: "20px 40px 30px 40px" }
+            }}
+            destroyOnHidden
         >
+            <div className="h-[1px] bg-[#C0C0C0] w-full mt-[9px]"></div>
             {contextHolder}
-            <div className="py-6 px-4">
-                <Form
-                    form={form}
-                    layout="horizontal"
-                    labelCol={{ span: 6 }}
-                    wrapperCol={{ span: 16 }}
-                >
-                    <Form.Item
-                        label={<span className="text-[#1A1A1A]">Vai trò</span>}
-                        name="name"
-                        rules={[{ required: true, whitespace: true, message: "Vui lòng nhập tên vai trò hợp lệ (không để trống)!" }]}
-                    >
-                        <Input placeholder="Nhập Menu" className="h-[38px] rounded-md" />
-                    </Form.Item>
+            <ModalThemeProvider>
+                <div className="mt-[25px] px-4 w-full flex items-center justify-center">
+                    <Form onFinish={handleSubmit(handleSubmitForm)} className="flex flex-col items-center justify-center ">
 
-                    <Form.Item
-                        label={<span className="text-[#1A1A1A]">Mô tả</span>}
-                        name="description"
-                    >
-                        <Input placeholder="Nhập đường dẫn" className="h-[38px] rounded-md" />
-                    </Form.Item>
+                        <FormItemController
+                            name="name"
+                            label="Vai trò"
+                            style={{ width: "100%", }}
+                            control={control}
+                            required
+                            wrapperCol={{ flex: 'none', style: { paddingLeft: 0 } }}
+                            labelCol={{
+                                style: {
+                                    minWidth: 160,
+                                    height: 40,
+                                    fontSize: 14,
+                                    fontWeight: 400,
+                                    textAlign: "left",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    color: "#404040",
+                                }
+                            }}
+                            render={(field) => (
+                                <Input
+                                    {...field}
+                                    placeholder="Nhập tên vai trò"
+                                    className="w-full h-[40px] rounded-md p-2"
+                                />
+                            )}
+                        />
 
-                    <div className="flex justify-center gap-4 mt-8">
-                        <Button
-                            onClick={handleCancel}
-                            className="min-w-[100px] h-[36px] rounded-[20px] text-[#5F5D5D] border-gray-300"
-                        >
-                            Quay về
-                        </Button>
-                        <Button
-                            type="primary"
-                            onClick={handleOk}
-                            loading={loading}
-                            className="min-w-[100px] h-[36px] rounded-[20px] bg-[#0265B9]"
-                        >
-                            Lưu
-                        </Button>
-                    </div>
-                </Form>
-            </div>
+                        <FormItemController
+                            name="description"
+                            label="Mô tả"
+                            style={{ width: "100%", marginBottom: 30 }}
+                            control={control}
+                            wrapperCol={{ flex: 'none', style: { paddingLeft: 0 } }}
+                            labelCol={{
+                                style: {
+                                    minWidth: 160,
+                                    height: 40,
+                                    fontSize: 14,
+                                    fontWeight: 400,
+                                    textAlign: "left",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    color: "#404040",
+                                }
+                            }}
+                            render={(field) => (
+                                <Input
+                                    {...field}
+                                    placeholder="Nhập mô tả"
+                                    className="w-full h-[40px] rounded-md p-2"
+                                />
+                            )}
+                        />
+
+                        <div className="flex justify-center gap-[20px] mb-[10px] items-center">
+                            <Button
+                                onClick={handleCancel}
+                                disabled={isSubmitting}
+                                className="w-[80px] h-[30px]"
+                                style={{ borderRadius: '20px', borderColor: '#a1a1a1', color: '#a1a1a1', backgroundColor: "white" }}
+                            >
+                                Quay lại
+                            </Button>
+                            <Button
+                                htmlType="submit"
+                                loading={isSubmitting}
+                                disabled={isSubmitting}
+                                className="w-[54px] h-[30px]"
+                                style={{
+                                    backgroundColor: isSubmitting ? "#f5f5f5" : '#076eb8',
+                                    borderColor: isSubmitting ? "#d9d9d9" : '#076eb8',
+                                    color: isSubmitting ? "rgba(0, 0, 0, 0.25)" : "white",
+                                    borderRadius: '20px'
+                                }}
+                            >
+                                Lưu
+                            </Button>
+                        </div>
+                    </Form>
+                </div>
+            </ModalThemeProvider>
         </Modal>
     );
 }

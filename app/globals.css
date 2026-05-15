@@ -1,7 +1,203 @@
 @import "tailwindcss";
+@import "overlayscrollbars/overlayscrollbars.css";
 
 body {
     background-color: #f8fafc;
     color: #0f172a;
     font-family: system-ui, -apple-system, sans-serif;
+}
+
+/* magin cho popup logout  */
+.custom-logout-popconfirm .ant-popconfirm-message {
+    margin: 8px 8px 0px 8px !important;
+}
+
+.custom-logout-popconfirm .ant-popconfirm-buttons {
+    padding-top: 24px !important;
+    margin-right: 8px !important;
+}
+
+/*thêm mới account trong modal*/
+
+
+/* Remove default margin and padding from modal header */
+.ant-modal-header {
+    margin-bottom: 0 !important;
+    padding: 0 !important;
+}
+
+/* màu của nút đóng */
+.ant-modal-close-x {
+    color: #000000 !important;
+}
+
+/* xóa viền focus của nút đóng */
+.ant-modal-close:focus,
+.ant-modal-close:focus-visible,
+.ant-modal-close:hover {
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+.ant-upload-select {
+    width: 80px !important;
+    height: 80px !important;
+    color: #545454 !important;
+
+}
+
+.ant-select-content-item {
+    margin-top: 4px;
+}
+
+.ant-upload-wrapper {
+    --ant-upload-picture-card-size: 80px !important;
+}
+
+.custom-confirm-modal {
+    --ant-modal-content-padding: 0px !important;
+}
+
+.custom-confirm-modal .ant-modal-content,
+.custom-confirm-modal .ant-modal-container {
+    padding: 0 !important;
+}
+
+.ant-form-item-control-input-content {
+    width: 520px !important;
+    height: 40px !important;
+}
+
+
+
+/* ===== HEADER ===== */
+.fixed-layout-table .ant-table-container,
+.fixed-layout-table .ant-table-content {
+    overflow: visible !important;
+}
+
+/* ===== HEADER — layout (màu/nền dùng token ConfigProvider) ===== */
+.fixed-layout-table .ant-table-thead>tr>th {
+    font-weight: 400 !important;
+    height: 45px !important;
+    font-size: 16px !important;
+}
+
+/* XÓA VẠCH TRẮNG GIỮA CÁC CỘT HEADER */
+.fixed-layout-table .ant-table-thead>tr>th::before {
+    display: none !important;
+}
+
+/* ẨN Ô BÙ SCROLLBAR GIẢ CỦA ANT DESIGN */
+.fixed-layout-table .ant-table-cell-scrollbar {
+    display: none !important;
+}
+
+/* ===== BODY ===== */
+.fixed-layout-table .ant-table-tbody>tr>td {
+    color: #484848 !important;
+    font-size: 14px !important;
+    height: 38px !important;
+    font-weight: 400 !important;
+    box-sizing: border-box !important;
+}
+
+/* PHẢI ÉP HÀNG ĐO LƯỜNG VỀ 0 ĐỂ KHÔNG BỊ ẢNH HƯỞNG BỞI CHIỀU CAO 38PX TRÊN */
+.fixed-layout-table .ant-table-measure-row td {
+    display: none !important;
+}
+
+.fixed-layout-table .ant-table-tbody>tr.ant-table-row-selected>td {
+    background: #ffffff !important;
+}
+
+.fixed-layout-table .ant-table-tbody>tr.ant-table-row-selected:hover>td {
+    background: #f5f5f5 !important;
+}
+
+
+
+/* ===== FOOTER / PAGINATION ===== */
+.fixed-layout-table .ant-table-wrapper .ant-pagination,
+.fixed-layout-table .ant-pagination {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    background-color: #ffffff !important;
+    margin: 0 !important;
+    padding: 8px 16px !important;
+    border-top: 1px solid #f0f0f0 !important;
+    width: 100% !important;
+}
+
+.fixed-layout-table .ant-pagination-total-text {
+    margin-right: auto !important;
+    font-size: 14px !important;
+    color: #404040 !important;
+    font-family: 'Roboto', sans-serif !important;
+}
+
+/* Nút Prev/Next và số trang */
+.fixed-layout-table .ant-pagination-prev .ant-pagination-item-link,
+.fixed-layout-table .ant-pagination-next .ant-pagination-item-link,
+.fixed-layout-table .ant-pagination-item {
+    border: 1px solid #d9d9d9 !important;
+    font-size: 14px !important;
+    font-family: 'Roboto', sans-serif !important;
+    font-weight: 400 !important;
+    border-radius: 6px !important;
+    background-color: #ffffff !important;
+    min-width: 34px !important;
+    height: 34px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    transition: all 0.3s !important;
+}
+
+/* Trạng thái Active và Hover khớp với màu theme của chuyển trang  */
+.fixed-layout-table .ant-pagination-item-active {
+    border-color: #076EB8 !important;
+}
+
+.fixed-layout-table .ant-pagination-item-active a {
+    color: #076EB8 !important;
+    font-weight: 500 !important;
+}
+
+.fixed-layout-table .ant-pagination-item:hover a {
+    color: #076EB8 !important;
+}
+
+.ant-tag {
+    background-color: #ffffff;
+    padding: 0px 10px;
+}
+
+/* Custom Upload Avatar - Tràn viền */
+.avatar-uploader-full .ant-upload-list-item-container,
+.avatar-uploader-full .ant-upload-list-item {
+    padding: 0 !important;
+}
+
+/*  tắt ô vuông thừa
+ */
+.avatar-uploader-full .ant-upload-list-item::before {
+    position: static !important;
+}
+
+.avatar-uploader-full .ant-upload-list-item-thumbnail img {
+    object-fit: cover !important;
+    width: 100% !important;
+    height: 100% !important;
+}
+
+.avatar-uploader-full .ant-upload-select-picture-card {
+    background-color: #fafafa;
+}
+
+/*  chiều dài thanh cuộn scoll */
+.os-scrollbar-handle {
+    width: 8px !important;
+    background-color: #d9d9d9 !important;
 }

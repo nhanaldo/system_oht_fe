@@ -25,7 +25,7 @@ export default async function InfoUserPage() {
     }
 
     return (
-        <div className="w-full min-h-screen">
+        <div className="w-full h-full  ">
             <AccountProfile initialData={actualAccount} />
         </div>
     );

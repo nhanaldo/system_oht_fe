@@ -5,10 +5,9 @@ import Link from 'next/link';
 import { Layout } from 'antd';
 import SideBar from './SideBar';
 import HeaderComponent from '@/components/ui/HeaderComponent';
+import { OverlayScrollbarsComponent } from "overlayscrollbars-react";
 
 const { Header, Sider, Content, Footer } = Layout;
-
-
 
 interface AppLayoutProps {
     children?: React.ReactNode;
@@ -28,6 +27,12 @@ export default function AppLayoutComponents({ children, menuData = [], username 
                         display: none !important;
                     }
                 }
+                /* Tùy chỉnh OverlayScrollbars để thanh cuộn lơ lửng */
+                .os-theme-dark.os-theme-hover {
+                    --os-handle-bg: rgba(0, 0, 0, 0.2);
+                    --os-handle-bg-hover: rgba(0, 0, 0, 0.3);
+                    --os-handle-bg-active: rgba(0, 0, 0, 0.4);
+                }
             `}</style>
             {/* Header */}
             <HeaderComponent
@@ -43,19 +48,30 @@ export default function AppLayoutComponents({ children, menuData = [], username 
                     collapsible
                     collapsed={collapsed}
                     collapsedWidth={0}
-                    width={256}
+                    width={280}
                     breakpoint="md"
                     onBreakpoint={(broken) => {
                         setCollapsed(broken);
                     }}
                     theme="light"
                     style={{
-                        overflowY: 'auto',
-                        overflowX: 'hidden',
                         height: '100%',
+                        overflow: 'hidden',
+                        background: '#ffffff'
                     }}
                 >
-                    <SideBar collapse={collapsed} menuItems={menuData} isAdmin={isAdmin} />
+                    <OverlayScrollbarsComponent
+                        defer
+                        options={{
+                            scrollbars: {
+                                autoHide: 'leave',
+                                autoHideDelay: 500,
+                            },
+                        }}
+                        style={{ maxHeight: '100%' }}
+                    >
+                        <SideBar collapse={collapsed} menuItems={menuData} isAdmin={isAdmin} />
+                    </OverlayScrollbarsComponent>
                 </Sider>
 
                 {/* Main Content */}
@@ -63,7 +79,7 @@ export default function AppLayoutComponents({ children, menuData = [], username 
                     <Content
                         className="mobile-content-padding"
                         style={{
-                            padding: 24,
+                            padding: 25,
                             margin: 0,
                             background: '#f1f5f9',
                             position: 'relative',

@@ -1,6 +1,7 @@
 'use server';
 
 import { updateTag } from 'next/cache';
+import { cookies } from 'next/headers';
 import { api } from '@/app/(app)/actions/api';
 import { AccountFilterParams, AccountAddParams } from '@/types/account';
 
@@ -43,11 +44,35 @@ export async function getAccountById(id: string) {
                 revalidate: 0,
             }
         });
+
     } catch (error: any) {
         if (error?.digest?.startsWith('NEXT_REDIRECT')) throw error;
         return { success: false, error: error.message || 'Failed to get account by ID' };
     }
 }
+
+export async function getCurrentAccountProfile() {
+    try {
+        const cookieStore = await cookies();
+        const accountId = cookieStore.get("accountId")?.value;
+        if (!accountId) {
+             return { success: false, error: 'No account ID found' };
+        }
+        return await api(`/accounts/${accountId}/profile`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            next: {
+                revalidate: 0,
+            }
+        });
+    } catch (error: any) {
+        if (error?.digest?.startsWith('NEXT_REDIRECT')) throw error;
+        return { success: false, error: error.message || 'Failed to get current account profile' };
+    }
+}
+
 
 export async function updateAccountProfile(id: string, body: { name?: string, avatar?: string, username?: string }) {
     try {
@@ -229,5 +254,16 @@ export async function updateAccountWarehouses(id: string, warehouseIds: string[]
         return { success: false, error: error.message || 'Failed to update account warehouses' };
     }
 }
+export async function uploadFile(formData: FormData) {
+    try {
+        const response = await api<any>('/upload-file', {
+            method: 'POST',
+            body: formData,
+        });
 
-
+        return { success: true, data: response };
+    } catch (error: any) {
+        if (error?.digest?.startsWith('NEXT_REDIRECT')) throw error;
+        return { success: false, error: error.message || 'Failed to upload file' };
+    }
+}

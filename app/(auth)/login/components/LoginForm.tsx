@@ -39,12 +39,6 @@ export default function LoginForm() {
             try {
                 const result = await loginAction({ username, password });
                 if (result.success) {
-                    const avatarUrl = result.data?.elements?.account?.avatar;
-                    if (avatarUrl) {
-                        localStorage.setItem("avatarUrl", avatarUrl);
-                    } else {
-                        localStorage.removeItem("avatarUrl");
-                    }
                     // Chuyển hướng khi đăng nhập thành công
                     router.push("/home"); // Thay bằng route trang chủ thực tế của bạn
                     message.success("Đăng nhập thành công");
@@ -63,7 +57,7 @@ export default function LoginForm() {
     return (
         <div className="w-full lg:w-1/2 h-full min-h-screen bg-[#0F6EB8]">
             <div className="w-full h-full min-h-screen flex items-center justify-center bg-white lg:rounded-bl-[120px] p-6 sm:p-12">
-                <div className="w-full max-w-md space-y-10">
+                <div className="w-full max-w-[570px] space-y-10">
                     {/* Mobile Logo */}
                     <div className="flex lg:hidden justify-center mb-6">
                         <Image
@@ -77,7 +71,7 @@ export default function LoginForm() {
                     </div>
 
                     <div className="text-center space-y-2">
-                        <h1 className="text-2xl leading-none font-medium font-roboto text-gray-900">
+                        <h1 className="text-2xl leading-none font-medium font-roboto text-[#171717]">
                             Đăng nhập tài khoản
                         </h1>
                     </div>
@@ -91,7 +85,7 @@ export default function LoginForm() {
 
                         {/* Tên đăng nhập */}
                         <div className="space-y-2 text-left">
-                            <label className="text-[16px] font-roboto font-regular text-gray-700 block leading-none text-[#262626]">
+                            <label className="text-[16px] font-roboto font-regular block leading-none text-[#262626] mb-[20px]">
                                 Tên đăng nhập
                             </label>
                             <input
@@ -103,7 +97,7 @@ export default function LoginForm() {
                                     setUsername(e.target.value);
                                     if (errors.username) setErrors({ ...errors, username: "" });
                                 }}
-                                className={`w-full px-4 py-3 bg-[#f8f9fa] border border-gray-200/60 focus:ring-[#0F6EB8]/20 focus:border-[#0F6EB8] rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 text-sm text-gray-800 placeholder-gray-400`}
+                                className={`shadow-sm w-full px-4 py-3 bg-[#f4f5f9] border border-gray-200/60 rounded-xl focus:outline-none transition-all duration-200 text-sm text-gray-800 placeholder-gray-400`}
                             />
                             {errors.username && (
                                 <p className="text-red-500 text-[13px] mt-1">{errors.username}</p>
@@ -112,7 +106,7 @@ export default function LoginForm() {
 
                         {/* Mật khẩu */}
                         <div className="space-y-2 text-left">
-                            <label className="text-[16px] font-roboto font-regular text-gray-700 block leading-none text-[#262626]">
+                            <label className="text-[16px] font-roboto font-regular text-gray-700 block leading-none text-[#262626] mb-[20px]">
                                 Mật khẩu
                             </label>
                             <div className="relative">
@@ -124,7 +118,7 @@ export default function LoginForm() {
                                         setPassword(e.target.value);
                                         if (errors.password) setErrors({ ...errors, password: "" });
                                     }}
-                                    className={`w-full px-4 py-3 bg-[#f8f9fa] border border-gray-200/60 focus:ring-[#0F6EB8]/20 focus:border-[#0F6EB8] rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 text-sm text-gray-800 placeholder-gray-400 pr-10`}
+                                    className={`shadow-sm w-full px-4 py-3 bg-[#f4f5f9] border border-gray-200/60 rounded-xl focus:outline-none transition-all duration-200 text-sm text-gray-800 placeholder-gray-400`}
                                 />
                                 <button
                                     type="button"
@@ -149,7 +143,7 @@ export default function LoginForm() {
                             <button
                                 type="submit"
                                 disabled={isLoading}
-                                className={`w-full bg-[#0F6EB8] hover:bg-[#0b5a96] text-white font-medium text-[15px] py-3.5 px-4 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#0F6EB8]/50 focus:ring-offset-1 ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                                className={`w-full bg-[#0F6EB8] hover:bg-[#0F6EB8] text-white font-medium text-[15px] py-3.5 px-4 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#0F6EB8]/50 focus:ring-offset-1 ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
                             >
                                 {isLoading ? 'Đang đăng nhập...' : 'Đăng nhập'}
                             </button>

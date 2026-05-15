@@ -28,7 +28,7 @@ export default async function RoleContent() {
     const roles: Role[] = Array.isArray(response) ? response : (response?.elements || response?.rows || response?.data || []);
 
     return (
-        <div className="flex flex-col bg-white rounded-[20px] min-h-full p-2">
+        <div className="h-full flex flex-col">
             <RoleTable raw={roles} />
         </div>
     );
