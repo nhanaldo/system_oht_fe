@@ -1,6 +1,6 @@
 "use client";
 
-import { Modal, Input, Button, message, Form } from "antd";
+import { Modal, Input, Button, Form } from "antd";
 import ModalThemeProvider from "@/components/ui/ModalThemeProvider";
 import FormItemController from "@/components/ui/CustomController";
 import { useState, useEffect } from "react";
@@ -10,6 +10,7 @@ import { RoleAddParams } from "@/types/role";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import z from "zod";
+import { useToast } from "@/components/ui/Toast";
 
 const schema = z.object({
     name: z.string().min(1, "Vui lòng nhập tên vai trò hợp lệ (không để trống)!").trim(),
@@ -27,7 +28,7 @@ interface ModalAddRoleProps {
 export default function ModalAddRole({ open, onClose, onSuccess, roleOptions, editingRecord }: ModalAddRoleProps) {
     const isEditMode = !!editingRecord?.id;
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [messageApi, contextHolder] = message.useMessage();
+    const { showSuccess, showError } = useToast();
     const router = useRouter();
 
     const { control, handleSubmit, reset, formState: { isDirty } } = useForm({
@@ -69,13 +70,13 @@ export default function ModalAddRole({ open, onClose, onSuccess, roleOptions, ed
                 });
 
                 if (response.success) {
-                    messageApi.success("Cập nhật vai trò thành công");
+                    showSuccess("Cập nhật vai trò thành công");
                     reset();
                     if (onSuccess) onSuccess();
                     onClose();
                     router.refresh();
                 } else {
-                    messageApi.error(response.error || "Có lỗi xảy ra khi cập nhật");
+                    showError(response.error || "Có lỗi xảy ra khi cập nhật");
                 }
             } else {
                 // Add mode
@@ -85,7 +86,7 @@ export default function ModalAddRole({ open, onClose, onSuccess, roleOptions, ed
                 );
 
                 if (isDuplicate) {
-                    messageApi.error("Vai trò này đã tồn tại!");
+                    showError("Vai trò này đã tồn tại!");
                     setIsSubmitting(false);
                     return;
                 }
@@ -98,13 +99,13 @@ export default function ModalAddRole({ open, onClose, onSuccess, roleOptions, ed
                 const response = await addRole(payload);
 
                 if (response.success) {
-                    messageApi.success("Thêm mới vai trò thành công");
+                    showSuccess("Thêm mới vai trò thành công");
                     reset();
                     if (onSuccess) onSuccess();
                     onClose();
                     router.refresh();
                 } else {
-                    messageApi.error(response.error || "Có lỗi xảy ra khi thêm mới");
+                    showError(response.error || "Có lỗi xảy ra khi thêm mới");
                 }
             }
         } catch (error) {
@@ -112,6 +113,26 @@ export default function ModalAddRole({ open, onClose, onSuccess, roleOptions, ed
         } finally {
             setIsSubmitting(false);
         }
+    };
+
+    const commonLabelCol = {
+        md: { flex: '160px' },
+        xs: { span: 24 },
+        style: {
+            height: 40,
+            fontSize: 14,
+            fontWeight: 400,
+            textAlign: "left" as const,
+            display: "flex",
+            alignItems: "center",
+            color: "#404040",
+        }
+    };
+
+    const commonWrapperCol = {
+        md: { flex: '1' },
+        xs: { span: 24 },
+        style: { paddingLeft: 0, maxWidth: '100%' }
     };
 
     return (
@@ -126,7 +147,7 @@ export default function ModalAddRole({ open, onClose, onSuccess, roleOptions, ed
             footer={null}
             width={800}
             centered
-            className="rounded-[8px]"
+            className="responsive-modal"
             forceRender
             styles={{
                 header: {
@@ -139,10 +160,9 @@ export default function ModalAddRole({ open, onClose, onSuccess, roleOptions, ed
             destroyOnHidden
         >
             <div className="h-[1px] bg-[#C0C0C0] w-full mt-[9px]"></div>
-            {contextHolder}
             <ModalThemeProvider>
                 <div className="mt-[25px] px-4 w-full flex items-center justify-center">
-                    <Form onFinish={handleSubmit(handleSubmitForm)} className="flex flex-col items-center justify-center ">
+                    <Form onFinish={handleSubmit(handleSubmitForm)} className="flex flex-col items-center justify-center w-full max-w-full md:w-[680px]">
 
                         <FormItemController
                             name="name"
@@ -150,19 +170,8 @@ export default function ModalAddRole({ open, onClose, onSuccess, roleOptions, ed
                             style={{ width: "100%", }}
                             control={control}
                             required
-                            wrapperCol={{ flex: 'none', style: { paddingLeft: 0 } }}
-                            labelCol={{
-                                style: {
-                                    minWidth: 160,
-                                    height: 40,
-                                    fontSize: 14,
-                                    fontWeight: 400,
-                                    textAlign: "left",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    color: "#404040",
-                                }
-                            }}
+                            wrapperCol={commonWrapperCol}
+                            labelCol={commonLabelCol}
                             render={(field) => (
                                 <Input
                                     {...field}
@@ -177,19 +186,8 @@ export default function ModalAddRole({ open, onClose, onSuccess, roleOptions, ed
                             label="Mô tả"
                             style={{ width: "100%", marginBottom: 30 }}
                             control={control}
-                            wrapperCol={{ flex: 'none', style: { paddingLeft: 0 } }}
-                            labelCol={{
-                                style: {
-                                    minWidth: 160,
-                                    height: 40,
-                                    fontSize: 14,
-                                    fontWeight: 400,
-                                    textAlign: "left",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    color: "#404040",
-                                }
-                            }}
+                            wrapperCol={commonWrapperCol}
+                            labelCol={commonLabelCol}
                             render={(field) => (
                                 <Input
                                     {...field}

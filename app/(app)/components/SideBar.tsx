@@ -116,7 +116,11 @@ const SideBar = ({ collapse, pathname: propPathname, menuItems, isAdmin = false 
                                 />
                             ),
                             label: (
-                                <span style={{ fontSize: '16px', fontWeight: 500, color: '#1378C0' }}>
+                                <span
+                                    className="truncate block"
+                                    title={item.name}
+                                    style={{ fontSize: '16px', fontWeight: 500, color: '#1378C0' }}
+                                >
                                     {item.name}
                                 </span>
                             ),
@@ -139,14 +143,18 @@ const SideBar = ({ collapse, pathname: propPathname, menuItems, isAdmin = false 
                             />
                         ),
                         label: (
-                            <Link href={item.path || '#'}>
-                                <span style={{
-                                    marginLeft: '4px',
-                                    fontSize: '16px',
-                                    fontWeight: 'regular',
-                                    fontFamily: 'roboto',
-                                    color: isActive ? '#076EB8' : '#545454',
-                                }}>
+                            <Link href={item.path || '#'} className="truncate block">
+                                <span
+                                    className="truncate block"
+                                    title={item.name}
+                                    style={{
+                                        marginLeft: '4px',
+                                        fontSize: '16px',
+                                        fontWeight: 'regular',
+                                        fontFamily: 'roboto',
+                                        color: isActive ? '#076EB8' : '#545454',
+                                    }}
+                                >
                                     {item.name}
                                 </span>
                             </Link>
@@ -171,6 +179,7 @@ const SideBar = ({ collapse, pathname: propPathname, menuItems, isAdmin = false 
                     Menu: {
                         itemActiveBg: 'rgba(230, 247, 255, 0.8)',
                         subMenuItemBg: '#ffffff',
+                        // subMenuArrowColor: '#1378C0',
                     },
                 },
             }}

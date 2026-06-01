@@ -5,30 +5,35 @@ import Image from "next/image";
 import { Account } from "@/types/account";
 import CustomTable from "@/components/ui/CustomTable";
 import { getColumns } from "./ColumnTable";
-import { Input, Button, Space, Modal, message, Select, ConfigProvider } from "antd";
+import { Input, Button, Space, Modal, Select, ConfigProvider } from "antd";
 import { SearchOutlined } from "@ant-design/icons";
 import ModalAddAccount from "./ModalAddAccount";
 import ModalConfigWarehouse from "./ModalConfigWarehouse";
-import { deleteAccount, updateAccountStatus, resetAccountPassword } from "../accountAction";
+import { getAccount, deleteAccount, updateAccountStatus, resetAccountPassword } from "../accountAction";
 import { useRouter } from "next/navigation";
 import ModalConfirmDelete from "@/components/ui/ModalConfirmDelete";
-
+import { useToast } from "@/components/ui/Toast";
+import { useTableQuery } from "@/hook/useTableQuery";
 
 interface AccountTableProps {
-    raw: Account[];
     roleOptions?: { label: string, value: string }[];
     warehouseOptions?: { label: string, value: string }[];
 }
 
-export default function AccountTable({ raw, roleOptions, warehouseOptions }: AccountTableProps) {
+export default function AccountTable({ roleOptions, warehouseOptions }: AccountTableProps) {
     const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
-    const [searchText, setSearchText] = useState("");
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingRecord, setEditingRecord] = useState<Account | null>(null);
     const [isWarehouseModalOpen, setIsWarehouseModalOpen] = useState(false);
     const [warehouseRecord, setWarehouseRecord] = useState<Account | null>(null);
     const [selectedRoleFilter, setSelectedRoleFilter] = useState<string | undefined>(undefined);
-    const [messageApi, messageContext] = message.useMessage();
+    const { showSuccess, showError } = useToast();
+
+    const { data: rawData, total, refetch, onPageChange, onSearchChange, params } = useTableQuery<Account>({
+        queryKey: 'accounts',
+        fetchFn: getAccount,
+        initialParams: { limit: 20 }
+    });
 
     const router = useRouter();
 
@@ -44,10 +49,6 @@ export default function AccountTable({ raw, roleOptions, warehouseOptions }: Acc
 
     const onSelectChange = (newSelectedRowKeys: React.Key[]) => {
         setSelectedRowKeys(newSelectedRowKeys);
-    };
-
-    const onSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setSearchText(e.target.value);
     };
 
     const [confirmModal, setConfirmModal] = useState<{
@@ -90,7 +91,7 @@ export default function AccountTable({ raw, roleOptions, warehouseOptions }: Acc
     };
 
     const handleDelete = (id: string) => {
-        const item = raw.find(a => a.id === id);
+        const item = rawData.find(a => a.id === id);
         const name = item?.username || item?.name || 'tài khoản này';
 
         openConfirmModal(
@@ -100,16 +101,16 @@ export default function AccountTable({ raw, roleOptions, warehouseOptions }: Acc
                 try {
                     const res = await deleteAccount(id);
                     if (typeof res === 'string') {
-                        messageApi.error(res);
+                        showError(res);
                     } else if (res && res.success === false) {
-                        messageApi.error(res.error || 'Có lỗi xảy ra khi xóa');
+                        showError(res.error || 'Có lỗi xảy ra khi xóa');
                     } else {
-                        messageApi.success('Xóa tài khoản thành công');
+                        showSuccess('Xóa tài khoản thành công');
                         setSelectedRowKeys(prev => prev.filter(key => key !== id));
-                        router.refresh();
+                        refetch();
                     }
                 } catch {
-                    messageApi.error('Có lỗi xảy ra khi xóa');
+                    showError('Có lỗi xảy ra khi xóa');
                 } finally {
                     setConfirmModal(prev => ({ ...prev, open: false }));
                 }
@@ -118,7 +119,7 @@ export default function AccountTable({ raw, roleOptions, warehouseOptions }: Acc
     };
 
     const handleResetPassword = (id: string) => {
-        const item = raw.find(a => a.id === id);
+        const item = rawData.find(a => a.id === id);
         const name = item?.username || item?.name || 'tài khoản này';
 
         openConfirmModal(
@@ -128,12 +129,12 @@ export default function AccountTable({ raw, roleOptions, warehouseOptions }: Acc
                 try {
                     const res = await resetAccountPassword(id);
                     if (res && res.success === false) {
-                        messageApi.error(res.error || 'Có lỗi xảy ra khi reset mật khẩu');
+                        showError(res.error || 'Có lỗi xảy ra khi reset mật khẩu');
                     } else {
-                        messageApi.success('Reset mật khẩu thành công');
+                        showSuccess('Reset mật khẩu thành công');
                     }
                 } catch {
-                    messageApi.error('Có lỗi xảy ra khi reset mật khẩu');
+                    showError('Có lỗi xảy ra khi reset mật khẩu');
                 } finally {
                     setConfirmModal(prev => ({ ...prev, open: false }));
                 }
@@ -151,16 +152,16 @@ export default function AccountTable({ raw, roleOptions, warehouseOptions }: Acc
                 try {
                     const res = await deleteAccount(selectedRowKeys as string[]);
                     if (typeof res === 'string') {
-                        messageApi.error(res);
+                        showError(res);
                     } else if (res && res.success === false) {
-                        messageApi.error(res.error || 'Có lỗi xảy ra khi xóa');
+                        showError(res.error || 'Có lỗi xảy ra khi xóa');
                     } else {
-                        messageApi.success(`Đã xóa thành công ${selectedRowKeys.length} tài khoản`);
+                        showSuccess(`Đã xóa thành công ${selectedRowKeys.length} tài khoản`);
                         setSelectedRowKeys([]);
-                        router.refresh();
+                        refetch();
                     }
                 } catch {
-                    messageApi.error('Có lỗi xảy ra khi xóa');
+                    showError('Có lỗi xảy ra khi xóa');
                 } finally {
                     setConfirmModal(prev => ({ ...prev, open: false }));
                 }
@@ -190,15 +191,15 @@ export default function AccountTable({ raw, roleOptions, warehouseOptions }: Acc
                     try {
                         const res = await updateAccountStatus(id, checked);
                         if (res.success) {
-                            messageApi.success("Cập nhật trạng thái thành công");
-                            router.refresh();
+                            showSuccess("Cập nhật trạng thái thành công");
+                            refetch();
                             resolve(true);
                         } else {
-                            messageApi.error(res.error || "Có lỗi xảy ra khi cập nhật trạng thái");
+                            showError(res.error || "Có lỗi xảy ra khi cập nhật trạng thái");
                             resolve(false);
                         }
                     } catch {
-                        messageApi.error("Có lỗi xảy ra khi cập nhật trạng thái");
+                        showError("Có lỗi xảy ra khi cập nhật trạng thái");
                         resolve(false);
                     } finally {
                         stopLoading();
@@ -212,8 +213,8 @@ export default function AccountTable({ raw, roleOptions, warehouseOptions }: Acc
         });
     };
 
-    const filteredData = raw.filter(item => {
-        const q = searchText.toLowerCase();
+    const filteredData = rawData.filter(item => {
+        const q = (params.search || '').toLowerCase();
         const matchesSearch = (
             (item.username || '').toLowerCase().includes(q) ||
             (item.name || '').toLowerCase().includes(q) ||
@@ -231,7 +232,6 @@ export default function AccountTable({ raw, roleOptions, warehouseOptions }: Acc
 
     return (
         <div className="flex flex-col h-full min-h-0">
-            {messageContext}
             <div className="flex justify-between items-start mb-2 shrink-0">
                 <div className="min-w-0 flex-1 mr-2">
                     {/* leading-none: chiều cao của dòng bằng kích thước của phông chữ <=> line height = 100% 
@@ -262,12 +262,11 @@ export default function AccountTable({ raw, roleOptions, warehouseOptions }: Acc
                             prefix={<SearchOutlined style={{ color: '#545454', fontSize: '18.34px', opacity: 0.6 }} />}
                             className="rounded-[8px] placeholder:text-[#545454] placeholder:text-[16px]"
                             style={{ width: '300px', fontSize: '16px', height: '40px' }}
-                            value={searchText}
-                            onChange={onSearchChange}
+                            value={params.search}
+                            onChange={(e) => onSearchChange(e.target.value)}
                         />
                         <Select
                             placeholder="Vai trò"
-                            allowClear
                             suffixIcon={
                                 <svg width="17.33" height="8.6" viewBox="0 0 17.33 8.6" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ color: '#bfbfbf' }}>
                                     <path d="M1 1L8.665 7L16.33 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -308,6 +307,12 @@ export default function AccountTable({ raw, roleOptions, warehouseOptions }: Acc
                     dataTable={filteredData}
                     columns={getColumns(handleEdit, handleConfigWarehouse, handleDelete, handleToggleStatus, warehouseOptions, handleResetPassword)}
                     keyIndex="id"
+                    pagination={{
+                        current: params.page,
+                        pageSize: params.limit,
+                        total,
+                        onChange: onPageChange,
+                    }}
                     rowSelection={{
                         selectedRowKeys,
                         onChange: onSelectChange,
@@ -324,6 +329,7 @@ export default function AccountTable({ raw, roleOptions, warehouseOptions }: Acc
                 }}
                 roleOptions={roleOptions}
                 editingRecord={editingRecord || undefined}
+                onSuccess={refetch}
             />
 
             <ModalConfigWarehouse
@@ -333,6 +339,7 @@ export default function AccountTable({ raw, roleOptions, warehouseOptions }: Acc
                     setWarehouseRecord(null);
                 }}
                 record={warehouseRecord || undefined}
+                onSuccess={refetch}
             />
 
             <ModalConfirmDelete

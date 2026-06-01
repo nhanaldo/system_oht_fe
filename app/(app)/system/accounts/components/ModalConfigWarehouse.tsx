@@ -1,6 +1,6 @@
 "use client";
 
-import { Modal, Select, Button, message, Form } from "antd";
+import { Modal, Select, Button, Form } from "antd";
 import ModalThemeProvider from "@/components/ui/ModalThemeProvider";
 import FormItemController from "@/components/ui/CustomController";
 import { useState, useEffect } from "react";
@@ -9,6 +9,7 @@ import { getWarehouses, updateAccountWarehouses } from "../accountAction";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import z from "zod";
+import { useToast } from "@/components/ui/Toast";
 
 const schema = z.object({
     warehouse_ids: z.array(z.string()).optional().default([]),
@@ -18,13 +19,14 @@ interface ModalConfigWarehouseProps {
     open: boolean;
     onClose: () => void;
     record?: any;
+    onSuccess?: () => void;
 }
 
-export default function ModalConfigWarehouse({ open, onClose, record }: ModalConfigWarehouseProps) {
+export default function ModalConfigWarehouse({ open, onClose, record, onSuccess }: ModalConfigWarehouseProps) {
     const [warehouses, setWarehouses] = useState<{ label: string; value: string }[]>([]);
     const [loading, setLoading] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [messageApi, contextHolder] = message.useMessage();
+    const { showSuccess, showError } = useToast();
     const router = useRouter();
 
     const { control, handleSubmit, reset, formState: { isDirty } } = useForm({
@@ -80,13 +82,14 @@ export default function ModalConfigWarehouse({ open, onClose, record }: ModalCon
             const response = await updateAccountWarehouses(record.id, data.warehouse_ids || []);
 
             if (response.success) {
-                messageApi.success("Cấu hình kho sử dụng thành công");
+                showSuccess("Cấu hình kho sử dụng thành công");
                 setTimeout(() => {
                     onClose();
+                    onSuccess?.();
                     router.refresh();
                 }, 800);
             } else {
-                messageApi.error(response.error || "Có lỗi xảy ra khi cập nhật kho");
+                showError(response.error || "Có lỗi xảy ra khi cập nhật kho");
             }
         } catch (error) {
             console.error("Submission failed:", error);
@@ -95,11 +98,29 @@ export default function ModalConfigWarehouse({ open, onClose, record }: ModalCon
         }
     };
 
+    const commonLabelCol = {
+        md: { flex: '110px' },
+        xs: { span: 24 },
+        style: {
+            height: 40,
+            fontSize: 14,
+            fontWeight: 500,
+            textAlign: "left" as const,
+            display: "flex",
+            alignItems: "center",
+            color: "#404040",
+        }
+    };
+
+    const commonWrapperCol = {
+        md: { flex: 'auto' },
+        xs: { span: 24 },
+        style: { paddingLeft: 0, maxWidth: '100%' }
+    };
+
     return (
         <>
-            {contextHolder}
             <Modal
-                // classNames={"config-warehouse-modal"}
                 title={
                     <span style={{ fontSize: 18, fontWeight: 500, color: '#484848' }}>
                         Cấu hình kho sử dụng
@@ -110,7 +131,7 @@ export default function ModalConfigWarehouse({ open, onClose, record }: ModalCon
                 footer={null}
                 width={800}
                 centered
-                className="rounded-[8px] "
+                className="responsive-modal"
                 styles={{
 
                     container: {
@@ -120,77 +141,56 @@ export default function ModalConfigWarehouse({ open, onClose, record }: ModalCon
             >
                 <div className="h-[1px] bg-[#C0C0C0] w-full mt-[7px] "></div>
                 <ModalThemeProvider>
-                    <div className="w-full flex items-center justify-center">
-
-
-                        <div className="pt-[42px] px-4 ">
-
-                            <Form onFinish={handleSubmit(handleSubmitForm)} className="flex flex-col items-center justify-center md:min-w-[716px]">
-                                <div className="w-full flex justify-center mb-[50px]">
-                                    <FormItemController
-                                        name="warehouse_ids"
-                                        label="Kho"
-                                        style={{ marginBottom: 0 }}
-                                        control={control}
-                                        wrapperCol={{ flex: 'none', style: { paddingLeft: 0 } }}
-                                        labelCol={{
-                                            style: {
-                                                minWidth: 100,
-                                                height: 40,
-                                                fontSize: 14,
-                                                fontWeight: 500,
-                                                textAlign: "left",
-                                                display: "flex",
-                                                alignItems: "center",
-                                                color: "#404040",
-                                                marginRight: 10
-                                            }
-                                        }}
-                                        render={(field) => (
-                                            <Select
-                                                value={field.value || []}
-                                                onChange={(val) => field.onChange(val ?? [])}
-                                                onBlur={field.onBlur}
-                                                mode="multiple"
-                                                placeholder="Chọn kho"
-                                                // xóa dấu x dư thừA 
-                                                // allowClear
-                                                loading={loading}
-                                                suffixIcon={<img src="/icon.svg/dow.svg" alt="down" />}
-                                                className="w-full rounded-md moi"
-                                                options={warehouses}
-                                                style={{ fontSize: 14, color: '#545454', height: 40 }}
-                                            />
-                                        )}
+                    <div className="w-full pt-[30px] md:pt-[42px] flex flex-col items-center">
+                        <Form onFinish={handleSubmit(handleSubmitForm)} className="w-full max-w-full md:w-[630px] flex flex-col items-center">
+                            <FormItemController
+                                name="warehouse_ids"
+                                label="Kho"
+                                style={{ marginBottom: 50, width: '100%' }}
+                                control={control}
+                                wrapperCol={commonWrapperCol}
+                                labelCol={commonLabelCol}
+                                render={(field) => (
+                                    <Select
+                                        value={field.value || []}
+                                        onChange={(val) => field.onChange(val ?? [])}
+                                        onBlur={field.onBlur}
+                                        mode="multiple"
+                                        placeholder="Chọn kho"
+                                        loading={loading}
+                                        suffixIcon={<img src="/icon.svg/dow.svg" alt="down" />}
+                                        className="w-full rounded-md moi"
+                                        options={warehouses}
+                                        style={{ fontSize: 14, color: '#545454', height: 40 }}
                                     />
-                                </div>
+                                )}
+                            />
 
-                                <div className="flex justify-center gap-[20px]  w-full">
-                                    <Button
-                                        onClick={handleCancel}
-                                        disabled={isSubmitting}
-                                        className="w-[55px] h-[30px]"
-                                        style={{ borderRadius: '20px', borderColor: '#a1a1a1', color: '#a1a1a1' }}
-                                    >
-                                        Hủy
-                                    </Button>
-                                    <Button
-                                        htmlType="submit"
-                                        loading={isSubmitting}
-                                        disabled={isSubmitting}
-                                        className="w-[54px] h-[30px]"
-                                        style={{
-                                            backgroundColor: isSubmitting ? "#f5f5f5" : '#076eb8',
-                                            borderColor: isSubmitting ? "#d9d9d9" : '#076eb8',
-                                            color: isSubmitting ? "rgba(0, 0, 0, 0.25)" : "white",
-                                            borderRadius: '20px'
-                                        }}
-                                    >
-                                        Lưu
-                                    </Button>
-                                </div>
-                            </Form>
-                        </div>
+                            <div className="flex justify-center gap-[20px] w-full">
+                                <Button
+                                    onClick={handleCancel}
+                                    disabled={isSubmitting}
+                                    className="w-[80px] h-[30px]"
+                                    style={{ borderRadius: '20px', borderColor: '#a1a1a1', color: '#a1a1a1', backgroundColor: "white" }}
+                                >
+                                    Hủy
+                                </Button>
+                                <Button
+                                    htmlType="submit"
+                                    loading={isSubmitting}
+                                    disabled={isSubmitting}
+                                    className="w-[80px] h-[30px]"
+                                    style={{
+                                        backgroundColor: isSubmitting ? "#f5f5f5" : '#076eb8',
+                                        borderColor: isSubmitting ? "#d9d9d9" : '#076eb8',
+                                        color: isSubmitting ? "rgba(0, 0, 0, 0.25)" : "white",
+                                        borderRadius: '20px'
+                                    }}
+                                >
+                                    Lưu
+                                </Button>
+                            </div>
+                        </Form>
                     </div>
                 </ModalThemeProvider>
             </Modal>

@@ -26,6 +26,7 @@ export default function ModalConfirmDelete({
             footer={null}
             closable={false}
             centered
+            classNames={"focus:outline-none focus-visible:outline-none"}
             width={417}
             wrapClassName="custom-confirm-modal"
             rootClassName="custom-confirm-modal"
@@ -59,6 +60,7 @@ export default function ModalConfirmDelete({
                         <Button
                             onClick={onClose}
                             disabled={loading}
+                            className="focus:outline-none focus-visible:outline-none"
                             style={{
                                 width: '55px',
                                 height: '30px',
@@ -67,7 +69,9 @@ export default function ModalConfirmDelete({
                                 borderRadius: '20px',
                                 display: 'flex',
                                 justifyContent: 'center',
-                                alignItems: 'center'
+                                alignItems: 'center',
+                                outline: 'none',
+                                boxShadow: 'none'
                             }}
                         >
                             Hủy
@@ -76,6 +80,7 @@ export default function ModalConfirmDelete({
                             type="primary"
                             loading={loading}
                             onClick={onConfirm}
+                            className="focus:outline-none focus-visible:outline-none"
                             style={{
                                 backgroundColor: '#076eb8',
                                 borderColor: '#076eb8',
@@ -86,7 +91,9 @@ export default function ModalConfirmDelete({
                                 marginLeft: '20px',
                                 display: 'flex',
                                 justifyContent: 'center',
-                                alignItems: 'center'
+                                alignItems: 'center',
+                                outline: 'none',
+                                boxShadow: 'none'
                             }}
                         >
                             Xác nhận

@@ -1,13 +1,14 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Form, Input, Button, Tag, Upload, App } from 'antd';
+import { Form, Input, Button, Tag, Upload } from 'antd';
 import ModalThemeProvider from '@/components/ui/ModalThemeProvider';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Account } from '@/types/account';
 import { updateAccountProfile, uploadFile } from '../../system/accounts/accountAction';
 import ResetPassword from './ResetPassword';
+import { useToast } from '@/components/ui/Toast';
 
 interface AccountProfileProps {
     initialData: Account | null;
@@ -19,7 +20,7 @@ export default function AccountProfile({ initialData }: AccountProfileProps) {
     const [avatar, setAvatar] = useState<string>(initialData?.avatar || '');
     const [loading, setLoading] = useState(false);
     const [form] = Form.useForm();
-    const { message: messageApi } = App.useApp();
+    const { showSuccess, showError } = useToast();
 
     const handleUpdate = async (values: any) => {
         if (!initialData?.id) return;
@@ -33,10 +34,10 @@ export default function AccountProfile({ initialData }: AccountProfileProps) {
                 if (avatar) {
                     window.dispatchEvent(new CustomEvent('avatar-changed', { detail: avatar }));
                 }
-                messageApi.success('Cập nhật thông tin cá nhân thành công!');
+                showSuccess('Cập nhật thông tin cá nhân thành công!');
             }
         } catch (err: any) {
-            messageApi.error(err.message || 'Đã xảy ra lỗi khi cập nhật');
+            showError(err.message || 'Đã xảy ra lỗi khi cập nhật');
         } finally {
             setLoading(false);
         }
@@ -56,7 +57,7 @@ export default function AccountProfile({ initialData }: AccountProfileProps) {
                 <div className="flex flex-col lg:flex-row gap-8 lg:gap-0">
 
                     {/* Left Column: Avatar & Name */}
-                    <div className=" mt-[44px] flex flex-col items-center justify-start lg:w-[300px] xl:w-[380px] shrink-0 pb-6 lg:pb-0">
+                    <div className=" mt-[44px] flex flex-col items-center justify-start lg:w-[200px] xl:w-[380px] shrink-0 pb-6 lg:pb-0">
                         {/* Avatar */}
                         <div className="relative w-[160px] h-[160px] sm:w-[200px] sm:h-[200px] xl:w-[250px] xl:h-[250px] rounded-full">
                             {avatar ? (
@@ -80,20 +81,19 @@ export default function AccountProfile({ initialData }: AccountProfileProps) {
                                     formData.append('folder', '/upload');
                                     formData.append('file', file);
 
-                                    const hide = messageApi.loading('Đang tải ảnh lên...', 0);
+                                    // We'll just use showError since useToast doesn't have loading, or we can just ignore loading for now
+                                    // Or simply keep messageApi if needed? Wait, the user wants us to migrate everything to useToast. I'll just remove the loading state for now or use useToast's methods if available. Since useToast only has showSuccess/showError, I'll remove loading.
                                     try {
                                         const res = await uploadFile(formData);
-                                        hide();
                                         if (res.success && res.data?.elements?.url) {
                                             const imageUrl = res.data.elements.url;
                                             setAvatar(imageUrl);
-                                            messageApi.success('Đã tải lên ảnh đại diện mới thành công!');
+                                            showSuccess('Đã tải lên ảnh đại diện mới thành công!');
                                         } else {
-                                            messageApi.error(res.error || 'Tải ảnh lên thất bại');
+                                            showError(res.error || 'Tải ảnh lên thất bại');
                                         }
                                     } catch (err: any) {
-                                        hide();
-                                        messageApi.error('Đã xảy ra lỗi khi tải ảnh lên');
+                                        showError('Đã xảy ra lỗi khi tải ảnh lên');
                                     }
                                     return false;
                                 }}
@@ -112,7 +112,7 @@ export default function AccountProfile({ initialData }: AccountProfileProps) {
                     </div>
 
                     {/* Vertical divider for desktop */}
-                    <div className="hidden lg:block w-[1px] bg-[#C0C0C0] mx-8 self-stretch h-[440px]" />
+                    <div className="hidden lg:block w-[1px] bg-[#C0C0C0] mx-4 xl:mx-8 self-stretch h-[440px]" />
 
                     {/* Right Column: Profile Fields */}
                     <div className="flex-1 min-w-0 mt-[44px]" >
@@ -166,7 +166,7 @@ export default function AccountProfile({ initialData }: AccountProfileProps) {
                                     >
                                         <Input
                                             placeholder="Chưa cập nhật"
-                                            className="rounded-md border-[#C0C0C0] h-[40px] text-[#484848]"
+                                            className="rounded-md border-[#C0C0C0] h-[40px] !w-full lg:!w-[520px] text-[#484848] "
                                             value={initialData?.name || ''}
                                         />
                                     </Form.Item>
@@ -179,7 +179,7 @@ export default function AccountProfile({ initialData }: AccountProfileProps) {
                                     >
                                         <Input
                                             disabled
-                                            className="rounded-md border-[#C0C0C0] h-[40px] text-[#484848]"
+                                            className="rounded-md border-[#C0C0C0] h-[40px] !w-full lg:!w-[520px] text-[#484848]"
                                             style={{ backgroundColor: '#f2f4f8' }}
                                             value={initialData?.username || ''}
                                         />
@@ -194,7 +194,7 @@ export default function AccountProfile({ initialData }: AccountProfileProps) {
                                         <Input
                                             disabled
                                             placeholder="Chưa cập nhật"
-                                            className="rounded-md border-[#C0C0C0] h-[40px] text-[#484848]"
+                                            className="rounded-md border-[#C0C0C0] h-[40px] !w-full lg:!w-[520px] text-[#484848]"
                                             style={{ backgroundColor: '#f2f4f8' }}
                                             value={initialData?.email || ''}
                                         />
@@ -208,7 +208,7 @@ export default function AccountProfile({ initialData }: AccountProfileProps) {
                                     >
                                         <Input
                                             disabled
-                                            className="rounded-md border-[#C0C0C0] h-[40px] text-[#484848]"
+                                            className="rounded-md border-[#C0C0C0] h-[40px] !w-full lg:!w-[520px] text-[#484848]"
                                             style={{ backgroundColor: '#f2f4f8' }}
                                             placeholder="Chưa cập nhật"
                                             value={initialData?.code || ''}
@@ -223,7 +223,7 @@ export default function AccountProfile({ initialData }: AccountProfileProps) {
                                     >
                                         <Input
                                             disabled
-                                            className="rounded-md border-[#C0C0C0] h-[40px] text-[#484848]"
+                                            className="rounded-md border-[#C0C0C0] h-[40px] !w-full lg:!w-[520px] text-[#484848]"
                                             style={{ backgroundColor: '#f2f4f8' }}
                                             placeholder="Chưa cập nhật"
                                             value={initialData?.role_names?.join(', ') || ''}
@@ -236,7 +236,7 @@ export default function AccountProfile({ initialData }: AccountProfileProps) {
                                         wrapperCol={{ flex: 'none' }}
                                     >
                                         <div
-                                            className="flex flex-wrap gap-2 min-h-[40px] items-center border border-[#C0C0C0] rounded-md p-2"
+                                            className="flex flex-wrap gap-2 min-h-[40px] items-center border border-[#C0C0C0] rounded-md p-2 w-full lg:w-[520px]"
                                             style={{ backgroundColor: '#f2f4f8' }}
                                         >
                                             {initialData?.warehouse_names && initialData.warehouse_names.length > 0 ? (

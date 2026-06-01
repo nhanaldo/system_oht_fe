@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Layout } from 'antd';
 import SideBar from './SideBar';
@@ -18,22 +18,40 @@ interface AppLayoutProps {
 
 export default function AppLayoutComponents({ children, menuData = [], username = 'Admin', isAdmin = false }: AppLayoutProps) {
     const [collapsed, setCollapsed] = useState(false);
+    const [mounted, setMounted] = useState(false);
+    const [siderWidth, setSiderWidth] = useState(280);
+
+    useEffect(() => {
+        setMounted(true);
+
+        const handleResize = () => {
+            if (window.innerWidth < 1024) {
+                setSiderWidth(200);
+            } else {
+                setSiderWidth(280);
+            }
+        };
+        handleResize();
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
+    if (!mounted) {
+        return (
+            <div style={{ height: '100vh', width: '100vw', background: '#f8f9fa', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+                    <img src="/logothaco.png" alt="THACO Logo" style={{ maxHeight: '40px', objectFit: 'contain' }} />
+                    <div style={{ color: '#076eb8', fontFamily: 'Roboto, sans-serif', fontWeight: 500, fontSize: '14px' }}>
+                        Đang tải hệ thống...
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <Layout style={{ height: '100vh', width: '100vw', overflow: 'hidden' }}>
-            <style>{`
-                @media (max-width: 768px) {
-                    .mobile-title {
-                        display: none !important;
-                    }
-                }
-                /* Tùy chỉnh OverlayScrollbars để thanh cuộn lơ lửng */
-                .os-theme-dark.os-theme-hover {
-                    --os-handle-bg: rgba(0, 0, 0, 0.2);
-                    --os-handle-bg-hover: rgba(0, 0, 0, 0.3);
-                    --os-handle-bg-active: rgba(0, 0, 0, 0.4);
-                }
-            `}</style>
+
             {/* Header */}
             <HeaderComponent
                 collapsed={collapsed}
@@ -48,7 +66,7 @@ export default function AppLayoutComponents({ children, menuData = [], username 
                     collapsible
                     collapsed={collapsed}
                     collapsedWidth={0}
-                    width={280}
+                    width={siderWidth}
                     breakpoint="md"
                     onBreakpoint={(broken) => {
                         setCollapsed(broken);

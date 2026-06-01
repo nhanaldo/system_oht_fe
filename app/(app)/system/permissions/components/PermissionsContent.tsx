@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { message, Spin } from "antd";
+import { Spin } from "antd";
 import { getMenuTree } from "../permissionsAction";
 import PermissionsTable from "./PermissionsTable";
+import { useToast } from "@/components/ui/Toast";
 
 interface MenuTreeItem {
     id: string;
@@ -20,7 +21,7 @@ interface MenuTreeItem {
 export default function PermissionsContent() {
     const [rawTree, setRawTree] = useState<MenuTreeItem[]>([]);
     const [loading, setLoading] = useState(true);
-    const [messageApi, messageContext] = message.useMessage();
+    const { showSuccess, showError } = useToast();
 
     const fetchData = async () => {
         setLoading(true);
@@ -32,10 +33,10 @@ export default function PermissionsContent() {
                     : (res.data.elements || res.data.rows || res.data.data || []);
                 setRawTree(dataArray);
             } else {
-                messageApi.error(res.error || "Không thể tải danh sách chức năng");
+                showError(res.error || "Không thể tải danh sách chức năng");
             }
         } catch (err: any) {
-            messageApi.error(err.message || "Đã xảy ra lỗi khi tải dữ liệu");
+            showError(err.message || "Đã xảy ra lỗi khi tải dữ liệu");
         } finally {
             setLoading(false);
         }
@@ -47,7 +48,6 @@ export default function PermissionsContent() {
 
     return (
         <div className="h-full flex flex-col">
-            {messageContext}
             {loading ? (
                 <div className="flex-1 flex items-center justify-center min-h-[400px]">
                     <Spin size="large" />

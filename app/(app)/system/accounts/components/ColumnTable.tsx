@@ -7,10 +7,14 @@ import type { ColumnsType } from "antd/es/table";
 function StatusSwitch({
     active,
     record,
-    onToggleStatus
+    onToggleStatus,
+    width = 40,
+    height = 20
 }: {
     active: boolean;
     record: Account;
+    width?: number;
+    height?: number;
     onToggleStatus?: (
         record: Account,
         checked: boolean,
@@ -43,7 +47,9 @@ function StatusSwitch({
             theme={{
                 components: {
                     Switch: {
-                        trackMinWidth: 40,
+                        trackMinWidth: width,
+                        trackHeight: height,
+                        handleSize: height - 4,
                     }
                 }
             }}
@@ -93,7 +99,7 @@ export const getColumns = (
             title: 'Tên đăng nhập',
             dataIndex: 'username',
             key: 'username',
-            width: 189,
+            width: 180,
             align: 'left',
             onCell: () => ({ style: { paddingLeft: '10px' } }),
             onHeaderCell: () => ({ style: { textAlign: 'center' } }),
@@ -189,6 +195,8 @@ export const getColumns = (
                     active={active}
                     record={record}
                     onToggleStatus={onToggleStatus}
+                    width={40}
+                    height={20}
                 />
             ),
         },

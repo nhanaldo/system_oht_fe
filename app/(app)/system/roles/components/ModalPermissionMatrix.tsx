@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, Table, Checkbox, Spin, Button, message } from 'antd';
+import { Modal, Table, Checkbox, Spin, Button } from 'antd';
 import ModalThemeProvider from "@/components/ui/ModalThemeProvider";
 import type { ColumnsType } from 'antd/es/table';
 import { DownOutlined, RightOutlined } from '@ant-design/icons';
 import { getRolePermissionMatrix, syncRolePermissions } from '../roleAction';
-
+import { OverlayScrollbarsComponent } from "overlayscrollbars-react";
+import { useToast } from "@/components/ui/Toast";
 
 interface PermissionDetail {
     permissionId: string;
@@ -38,7 +39,7 @@ const PERMISSION_COLUMNS = [
 export default function ModalPermissionMatrix({ open, roleId, onClose }: ModalPermissionMatrixProps) {
     const [loading, setLoading] = useState(false);
     const [data, setData] = useState<PermissionMatrixNode[]>([]);
-    const [messageApi, contextHolder] = message.useMessage();
+    const { showSuccess, showError } = useToast();
 
     // Quản lý state cho các permission đã chọn: compositeKey (menuId_permissionId) -> boolean
     const [selectedPermissions, setSelectedPermissions] = useState<Record<string, boolean>>({});
@@ -117,10 +118,10 @@ export default function ModalPermissionMatrix({ open, roleId, onClose }: ModalPe
                 traverse(matrixData);
                 setSelectedPermissions(initialSelected);
             } else {
-                messageApi.error(res.error || 'Lỗi khi tải dữ liệu phân quyền');
+                showError(res.error || 'Lỗi khi tải dữ liệu phân quyền');
             }
         } catch (error) {
-            messageApi.error('Có lỗi xảy ra khi tải dữ liệu');
+            showError('Có lỗi xảy ra khi tải dữ liệu');
         } finally {
             setLoading(false);
         }
@@ -304,13 +305,13 @@ export default function ModalPermissionMatrix({ open, roleId, onClose }: ModalPe
             const res = await syncRolePermissions(roleId, permissionIds);
 
             if (res.success) {
-                messageApi.success('Đồng bộ quyền thành công');
+                showSuccess('Đồng bộ quyền thành công');
                 onClose();
             } else {
-                messageApi.error(res.error || 'Đồng bộ quyền thất bại');
+                showError(res.error || 'Đồng bộ quyền thất bại');
             }
         } catch (error) {
-            messageApi.error('Có lỗi xảy ra khi đồng bộ quyền');
+            showError('Có lỗi xảy ra khi đồng bộ quyền');
         } finally {
             setLoading(false);
         }
@@ -318,8 +319,6 @@ export default function ModalPermissionMatrix({ open, roleId, onClose }: ModalPe
 
     return (
         <>
-            {contextHolder}
-
             <Modal
                 title={<span style={{ fontSize: 18, fontWeight: 500, color: '#484848' }}>Phân quyền</span>}
                 open={open}
@@ -327,7 +326,7 @@ export default function ModalPermissionMatrix({ open, roleId, onClose }: ModalPe
                 width={1500}
                 footer={null}
                 centered
-                className="rounded-[8px]"
+                className="responsive-modal"
                 styles={{
                     header: {
                     },
@@ -339,53 +338,32 @@ export default function ModalPermissionMatrix({ open, roleId, onClose }: ModalPe
 
                 <ModalThemeProvider>
                     <Spin spinning={loading}>
-                        <style>{`
-                            .permission-table .ant-table-thead > tr > th {
-                                background-color: #076EB8 !important;
-                                color: white !important;
-                                font-weight: 400 !important;
-                                font-size: 16px !important;
-                                padding: 8px 12px !important;
-                                border-inline-end: none !important;
-                                border-right: none !important;
-                            }
-                            .permission-table .ant-table-thead > tr > th.ant-table-cell-scrollbar {
-                                background-color: #076EB8 !important;
-                                box-shadow: none !important;
-                            }
-                               .permission-table .ant-table-measure-row {
-                                display: none !important;
-                            }
-                            .permission-table .ant-table-thead > tr > th::before {
-                                display: none !important;
-                            }
-                            .permission-table .ant-table-tbody > tr.parent-row {
-                                background-color: #EAF6FF !important;
-                                font-weight: 500 !important;
-                                font-size: 14px !important; 
-                            }
-                            .permission-table .ant-table-tbody > tr.parent-row td {
-                                background-color: #EAF6FF !important;
-                                border-inline-end: none !important;
-                                border-right: none !important;
-                            }
-                            .permission-table .ant-table-tbody > tr > td {
-                                padding: 6px 12px !important;
-                                vertical-align: middle !important;
-                            }
-                        `}</style>
-                        <Table
-                            columns={columns}
-                            dataSource={getVisibleData()}
-                            rowKey="menu_id"
-                            pagination={false}
-                            bordered
-                            scroll={{ x: 1200, y: 'calc(100vh - 400px)' }}
-                            size="small"
-                            className="permission-table"
-                            rowClassName={(record) => record.level === 0 ? 'parent-row' : ''}
-                            childrenColumnName="non_existent_children"// bỏ dấu + dư thừa của ant
-                        />
+
+                        <OverlayScrollbarsComponent
+                            defer
+                            options={{
+                                scrollbars: {
+                                    autoHide: 'leave',
+                                    autoHideDelay: 500,
+                                },
+                            }}
+                            className="permission-scroll-container"
+                            style={{ maxHeight: 'calc(100vh - 400px)', width: '100%' }}
+                        >
+                            <Table
+                                columns={columns}
+                                dataSource={getVisibleData()}
+                                rowKey="menu_id"
+                                pagination={false}
+                                bordered
+                                sticky
+                                size="small"
+                                className="permission-table"
+                                rowClassName={(record) => record.level === 0 ? 'parent-row' : ''}
+                                childrenColumnName="non_existent_children"// bỏ dấu + dư thừa của ant
+                                style={{ minWidth: 1420 }}
+                            />
+                        </OverlayScrollbarsComponent>
 
                         <div className="flex justify-center gap-[20px] mt-[24px]  items-center ">
                             <Button

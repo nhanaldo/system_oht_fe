@@ -1,6 +1,6 @@
 "use client";
 
-import { Modal, Button, message, Select, Space, Input, Form } from "antd";
+import { Modal, Button, Select, Space, Input, Form } from "antd";
 import { useState, useEffect } from "react";
 import { addPermission, getPublicIcons, getResources, updatePermission } from "../permissionsAction";
 import Image from "next/image";
@@ -9,6 +9,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import FormItemController from "@/components/ui/CustomController";
+import { useToast } from "@/components/ui/Toast";
+import { OverlayScrollbarsComponent } from "overlayscrollbars-react";
 
 const schema = z.object({
     name: z.string().trim().min(1, "Vui lòng nhập Menu"),
@@ -42,7 +44,7 @@ export default function ModalAddPermissions({ open, onClose, onSuccess, menuTree
     const [icons, setIcons] = useState<string[]>([]);
     const [resources, setResources] = useState<{ label: string; value: string }[]>([]);
     const [resourcesLoading, setResourcesLoading] = useState(false);
-    const [messageApi, contextHolder] = message.useMessage();
+    const { showSuccess, showError } = useToast();
     const [mounted, setMounted] = useState(false);
 
     const { control, handleSubmit, reset, watch, setValue } = useForm<FormValues>({
@@ -145,12 +147,12 @@ export default function ModalAddPermissions({ open, onClose, onSuccess, menuTree
                 : await addPermission(payload);
 
             if (response.success) {
-                messageApi.success(isEdit ? "Cập nhật chức năng thành công" : "Thêm mới chức năng thành công");
+                showSuccess(isEdit ? "Cập nhật chức năng thành công" : "Thêm mới chức năng thành công");
                 reset();
                 if (onSuccess) onSuccess();
                 onClose();
             } else {
-                messageApi.error(response.error || "Có lỗi xảy ra");
+                showError(response.error || "Có lỗi xảy ra");
             }
         } catch (error) {
             console.error("Submit Failed:", error);
@@ -178,6 +180,8 @@ export default function ModalAddPermissions({ open, onClose, onSuccess, menuTree
     if (!mounted) return null;
 
     const commonLabelCol = {
+        md: { flex: '200px' },
+        xs: { span: 24 },
         style: {
             minWidth: 200,
             height: 40,
@@ -190,7 +194,11 @@ export default function ModalAddPermissions({ open, onClose, onSuccess, menuTree
         }
     };
 
-    const commonWrapperCol = { style: { paddingLeft: 0 } };
+    const commonWrapperCol = {
+        md: { flex: 'auto' },
+        xs: { span: 24 },
+        style: { paddingLeft: 0, maxWidth: '100%' }
+    };
 
     return (
         <Modal
@@ -201,6 +209,7 @@ export default function ModalAddPermissions({ open, onClose, onSuccess, menuTree
             centered
             width={800}
             destroyOnHidden
+            className="responsive-modal"
             styles={{
                 mask: {
                     backdropFilter: "blur(0px)"
@@ -211,12 +220,11 @@ export default function ModalAddPermissions({ open, onClose, onSuccess, menuTree
                 }
             }}
         >
-            {contextHolder}
             <ModalThemeProvider>
-                <div className="flex flex-col items-center">
+                <div className="flex flex-col items-center w-full">
                     <div className="h-[1px] bg-[#C0C0C0] w-full mb-[30px] mt-[9px]"></div>
 
-                    <Form onFinish={handleSubmit(onSubmit)} className="flex flex-col items-center justify-center md:min-w-[716px]">
+                    <Form onFinish={handleSubmit(onSubmit)} className="flex flex-col items-center justify-center w-full max-w-full md:w-[720px]">
                         <FormItemController
                             control={control}
                             name="name"
@@ -251,6 +259,20 @@ export default function ModalAddPermissions({ open, onClose, onSuccess, menuTree
                                     style={{ height: 40 }}
                                     showSearch
                                     suffixIcon={<img src="/icon.svg/dow.svg" alt="down" />}
+                                    virtual={false}
+                                    popupRender={(menu) => (
+                                        <OverlayScrollbarsComponent
+                                            options={{
+                                                scrollbars: {
+                                                    autoHide: 'leave',
+
+                                                }
+                                            }}
+                                            style={{ maxHeight: '250px' }}
+                                        >
+                                            {menu}
+                                        </OverlayScrollbarsComponent>
+                                    )}
                                 >
                                     {icons.map(iconFile => (
                                         <Select.Option key={iconFile} value={iconFile}>
@@ -293,6 +315,17 @@ export default function ModalAddPermissions({ open, onClose, onSuccess, menuTree
                                     }
                                     disabled={isEdit && initialData.parent_id !== 'root'}
                                     suffixIcon={<img src="/icon.svg/dow.svg" alt="down" />}
+                                    virtual={false}
+                                    popupRender={(menu) => (
+                                        <OverlayScrollbarsComponent
+                                            options={{
+                                                scrollbars: { autoHide: 'scroll' }
+                                            }}
+                                            style={{ maxHeight: '250px' }}
+                                        >
+                                            {menu}
+                                        </OverlayScrollbarsComponent>
+                                    )}
                                     onChange={(val) => {
                                         field.onChange(val);
                                         if (val === 'root') {
@@ -339,12 +372,22 @@ export default function ModalAddPermissions({ open, onClose, onSuccess, menuTree
                                             style={{ height: 40 }}
                                             options={resources}
                                             loading={resourcesLoading}
-                                            // disabled={isEdit && initialData.parent_id !== 'root'}
                                             showSearch
                                             filterOption={(input, option) =>
                                                 (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
                                             }
                                             suffixIcon={<img src="/icon.svg/dow.svg" alt="down" />}
+                                            virtual={false}
+                                            popupRender={(menu) => (
+                                                <OverlayScrollbarsComponent
+                                                    options={{
+                                                        scrollbars: { autoHide: 'scroll' }
+                                                    }}
+                                                    style={{ maxHeight: '250px' }}
+                                                >
+                                                    {menu}
+                                                </OverlayScrollbarsComponent>
+                                            )}
                                         />
                                     )}
                                 />

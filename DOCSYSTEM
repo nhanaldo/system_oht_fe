@@ -1,0 +1,67 @@
+# Tài liệu Cấu trúc Dự án (Project Structure)
+
+Dự án được xây dựng dựa trên framework **Next.js (v15+)** sử dụng **App Router**, TypeScript và Ant Design. Cấu trúc được tổ chức theo hướng module hóa, tách biệt rõ ràng giữa giao diện (UI), logic xử lý (Server Actions) và định nghĩa dữ liệu (Types).
+
+---
+
+## 1. Thư mục Gốc (Root)
+- **`app/`**: Chứa toàn bộ các route, trang (pages), và layout của ứng dụng.
+- **`components/`**: Các thành phần UI dùng chung cho toàn bộ dự án.
+- **`public/`**: Chứa tài sản tĩnh (ảnh, icon svg, font).
+- **`types/`**: Định nghĩa các Interface và Type cho TypeScript.
+- **`hook/`**: Chứa các custom hooks dùng chung (ví dụ: xử lý scroll, form).
+- **`lib/`**: Các cấu hình thư viện bên thứ ba hoặc hàm tiện ích hệ thống.
+
+---
+
+## 2. Chi tiết Thư mục `app/` (Cấu trúc Routing)
+Dự án sử dụng **Route Groups** để phân chia logic:
+
+### A. `(auth)` - Xác thực
+- Quản lý các trang Đăng nhập, Đăng ký, Quên mật khẩu.
+
+### B. `(app)` - Ứng dụng chính (Dashboard)
+Chứa các tính năng chính của hệ thống sau khi đăng nhập.
+- **`actions/`**: Chứa logic gọi API chung (`api.ts`).
+- **`system/`**: Module quản trị hệ thống (Đây là phần quan trọng nhất hiện tại):
+    - **`accounts/`**: Quản lý tài khoản người dùng.
+    - **`roles/`**: Quản lý vai trò (Roles) và ma trận phân quyền.
+    - **`permissions/`**: Quản lý Menu và chức năng (Dạng cây - Tree structure).
+    - **`resources/`**: Quản lý tài nguyên hệ thống (API endpoints).
+- **`layout.tsx`**: Định nghĩa khung giao diện chung (Sidebar, Header).
+
+---
+
+## 3. Cấu trúc một Module điển hình (ví dụ: `system/permissions`)
+Mỗi module lớn trong `system` thường bao gồm các thành phần sau để dễ bảo trì:
+- **`page.tsx`**: Trang chủ của module, chịu trách nhiệm fetch dữ liệu từ server.
+- **`components/`**: Các component con đặc thù của module đó:
+    - `PermissionsTable.tsx`: Hiển thị danh sách dữ liệu (sử dụng `CustomTable`).
+    - `ColumnTable.tsx`: Định nghĩa cấu trúc cột của bảng.
+    - `ModalAddPermissions.tsx`: Modal thêm mới hoặc chỉnh sửa dữ liệu.
+- **`permissionsAction.ts`**: Chứa các **Server Actions** (add, update, delete, reorder) để tương tác với Backend.
+
+---
+
+## 4. Thư mục `components/ui/` (Core UI)
+Đây là các thành phần "xương sống" giúp giao diện đồng nhất:
+- **`CustomTable.tsx`**: Một bản bọc (wrapper) nâng cao của Ant Design Table, hỗ trợ phân trang, sticky header, và mở rộng hàng (expandable).
+- **`CustomController.tsx`**: Xử lý Input/Select kết hợp với `react-hook-form` để quản lý form và hiển thị lỗi.
+- **`HeaderComponent.tsx`**: Thanh header trên cùng với thông tin người dùng và các nút điều hướng nhanh.
+- **`ModalThemeProvider.tsx`**: Cấu hình màu sắc và style riêng cho các Modal theo thiết kế Premium.
+- **`ModalConfirmDelete.tsx`**: Modal chung dùng để xác nhận trước khi xóa dữ liệu.
+
+---
+
+## 5. Luồng dữ liệu (Data Flow)
+1. **Frontend**: Người dùng tương tác (ví dụ: kéo thả hàng trong `PermissionsTable`).
+2. **Server Actions**: Component gọi một function trong file `...Action.ts` (ví dụ: `reorderMenu`).
+3. **API Wrapper**: Server Action sử dụng hàm `api` trong `lib` hoặc `app/(app)/actions/api.ts` để gửi request lên Backend thực tế.
+4. **Revalidate**: Sau khi thành công, sử dụng `revalidateTag('tag', 'max')` hoặc `router.refresh()` để cập nhật lại dữ liệu trên giao diện mà không cần load lại trang.
+
+---
+
+## 6. Các quy tắc thiết kế đang áp dụng
+- **Responsive**: Sử dụng Tailwind CSS (`lg:`, `md:`, `sm:`) kết hợp với Ant Design.
+- **Icons**: Sử dụng `DynamicIcon.tsx` để hiển thị linh hoạt các icon từ thư viện Lucide hoặc Ant Icons.
+- **UX**: Sử dụng `dnd-kit` cho các thao tác kéo thả và `message.useMessage()` để thông báo trạng thái người dùng.

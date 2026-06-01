@@ -3,20 +3,29 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import React, { useState, useEffect } from 'react';
-import { Layout, Button, Avatar, Dropdown, Space, Badge, Popover, App, Popconfirm } from 'antd';
+import { Layout, Button, Avatar, Dropdown, Space, Badge, Popover, App, Popconfirm, Input } from 'antd';
 import {
     MenuFoldOutlined,
     MenuUnfoldOutlined,
     BellOutlined,
     DownOutlined,
     LogoutOutlined,
-    UserOutlined
+    UserOutlined,
+    SearchOutlined,
+    HomeOutlined
 } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
-import { logoutAction } from '@/app/(app)/actions/authAction';
+import { logoutAction, setWarehouseIdAction } from '@/app/(app)/actions/authAction';
 import { getCurrentAccountProfile } from '@/app/(app)/system/accounts/accountAction';
+import { OverlayScrollbarsComponent } from "overlayscrollbars-react";
+import "overlayscrollbars/overlayscrollbars.css";
 
 const { Header } = Layout;
+
+interface Warehouse {
+    id: string;
+    name: string;
+}
 
 interface HeaderComponentProps {
     collapsed: boolean;
@@ -26,23 +35,63 @@ interface HeaderComponentProps {
 
 export default function HeaderComponent({ collapsed, setCollapsed, username }: HeaderComponentProps) {
     const [avatarData, setAvatarData] = useState<string>("");
+    const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+    const [selectedWarehouseId, setSelectedWarehouseId] = useState<string>("");
+    const [searchText, setSearchText] = useState("");
+    const [dropdownOpen, setDropdownOpen] = useState(false);
+    const [isSetupMode, setIsSetupMode] = useState(false);
     const { modal } = App.useApp();
     const router = useRouter();
 
     useEffect(() => {
-        const fetchAvatar = async () => {
+        const handleSetupMode = (event: any) => {
+            if (event.detail !== undefined) {
+                setIsSetupMode(event.detail);
+            }
+        };
+        //lắng nghe sự kiện workflow-setup-mode  để cập nhật trạng thái isSetupMode, khi issetup = true thì header sẽ khoá click danh sach
+        window.addEventListener('workflow-setup-mode', handleSetupMode);
+        return () => {
+            window.removeEventListener('workflow-setup-mode', handleSetupMode);
+        };
+    }, []);
+
+    useEffect(() => {
+        const fetchAccountInfo = async () => {
             try {
                 const response: any = await getCurrentAccountProfile();
                 const data = response?.elements || response?.data || response;
                 if (data?.avatar) {
                     setAvatarData(data.avatar);
                 }
+                if (data?.warehouse_names && data?.warehouse_ids) {
+                    const whList = data.warehouse_names.map((name: string, idx: number) => ({
+                        id: data.warehouse_ids[idx],
+                        name: name
+                    }));
+                    setWarehouses(whList);
+
+                    // Kiểm tra cookie đã lưu warehouseId chưa
+                    const cookies = document.cookie.split('; ');
+                    const savedId = cookies.find(row => row.startsWith('selectedWarehouseId='))?.split('=')[1];
+
+                    if (savedId && whList.some((w: Warehouse) => w.id === savedId)) {
+                        setSelectedWarehouseId(savedId);
+                    } else if (whList.length > 0) {
+                        const firstId = whList[0].id;
+                        setSelectedWarehouseId(firstId);
+                        // Nếu chưa có cookie thì set mặt định là kho đầu tiên
+                        if (!savedId) {
+                            await setWarehouseIdAction(firstId);
+                        }
+                    }
+                }
             } catch (error) {
-                console.error("Failed to fetch avatar", error);
+                console.error("Failed to fetch account info", error);
             }
         };
 
-        fetchAvatar();
+        fetchAccountInfo();
 
         const handleAvatarChange = (event: any) => {
             if (event.detail) {
@@ -109,6 +158,15 @@ export default function HeaderComponent({ collapsed, setCollapsed, username }: H
         },
     ];
 
+    const handleWarehouseSelect = async (wh: Warehouse) => {
+        setSelectedWarehouseId(wh.id);
+        await setWarehouseIdAction(wh.id);
+        setDropdownOpen(false); // Đóng popup sau khi chọn xong
+        router.refresh();
+    };
+
+    const selectedWarehouse = warehouses.find(w => w.id === selectedWarehouseId);
+
     return (
         <Header
             style={{
@@ -139,7 +197,7 @@ export default function HeaderComponent({ collapsed, setCollapsed, username }: H
                 />
 
                 {/* Logo Area */}
-                <Link href="/home">
+                <Link href="/home" style={{ outline: 'none' }}>
                     <div
                         className="mobile-logo-wrapper"
                         style={{
@@ -166,7 +224,109 @@ export default function HeaderComponent({ collapsed, setCollapsed, username }: H
                     HỆ THỐNG PHẦN MỀM KHO THÔNG MINH
                 </h3>
             </div>
+            <Dropdown
+                open={dropdownOpen}
+                onOpenChange={setDropdownOpen}
+                popupRender={() => (
+                    <div style={{
+                        backgroundColor: '#fff',
+                        borderRadius: '12px',
+                        boxShadow: '0 10px 32px rgba(0,0,0,0.1)',
+                        width: "300px",
+                        padding: '12px',
+                        border: '1px solid #f0f0f0'
+                    }}>
+                        {/* Search Input */}
+                        <div style={{ marginBottom: '12px' }}>
+                            <Input
+                                placeholder="Tìm kiếm kho theo mã kho, tên kho"
+                                prefix={<SearchOutlined style={{ color: '#bfbfbf' }} />}
+                                value={searchText}
+                                onChange={e => setSearchText(e.target.value)}
+                                style={{
+                                    borderRadius: '8px',
+                                    height: '40px',
+                                    border: '1px solid #d9d9d9'
+                                }}
+                            />
+                        </div>
 
+                        {/* Divider */}
+                        <div style={{ height: '1px', backgroundColor: '#f0f0f0', margin: '8px 0' }} />
+
+                        {/* Scrollable List with OverlayScrollbars */}
+                        <OverlayScrollbarsComponent
+                            defer
+                            options={{
+                                scrollbars: {
+                                    autoHide: 'leave',
+                                    autoHideDelay: 500,
+                                },
+                            }}
+                            style={{ maxHeight: '280px' }}
+                        >
+                            <div style={{ paddingRight: '4px' }}>
+                                {warehouses.length > 0 ? (
+                                    warehouses
+                                        .filter(wh => wh.name.toLowerCase().includes(searchText.toLowerCase()))
+                                        .map((wh, idx) => (
+                                            <div
+                                                key={idx}
+                                                onClick={() => handleWarehouseSelect(wh)}
+                                                style={{
+                                                    padding: '12px',
+                                                    cursor: 'pointer',
+                                                    borderRadius: '8px',
+                                                    transition: 'all 0.2s',
+                                                    marginBottom: '4px',
+                                                    borderBottom: '1px solid #f9f9f9',
+                                                    backgroundColor: selectedWarehouseId === wh.id ? '#f0f7ff' : 'transparent'
+                                                }}
+                                                className="hover:bg-[#f0f7ff]"
+                                            >
+                                                <div style={{ fontWeight: 500, color: '#484848', fontSize: '20px' }}>
+                                                    {wh.name.split('-')[0].trim()}
+                                                </div>
+                                            </div>
+                                        ))
+                                ) : (
+                                    <div style={{ padding: '20px', textAlign: 'center', color: '#bfbfbf' }}>Đang tải dữ liệu...</div>
+                                )}
+                            </div>
+                        </OverlayScrollbarsComponent>
+                    </div>
+                )}
+                trigger={['click']}
+                placement="bottomRight"
+                disabled={warehouses.length === 0 || isSetupMode}
+            >
+                <div
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        cursor: isSetupMode ? 'not-allowed' : 'pointer',
+                        opacity: isSetupMode ? 0.6 : 1,
+                        padding: '4px 16px',
+                        borderRadius: '8px',
+                        backgroundColor: 'transparent',
+                        transition: 'all 0.3s',
+                        height: '46px',
+                        justifyContent: 'right'
+                    }}
+                    title={isSetupMode ? "Không thể đổi kho khi đang thiết lập quy trình" : undefined}
+                >
+                    <div
+                        className="mobile-warehouse-name"
+                        style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-end', textAlign: 'right' }}
+                    >
+                        <span style={{ fontWeight: 500, fontSize: '20px', color: '#484848', lineHeight: '1.2' }}>
+                            {selectedWarehouse ? selectedWarehouse.name.split('-')[0].trim() : (warehouses.length > 0 ? "Chọn kho" : "Đang tải...")}
+                        </span>
+                    </div>
+                    <img src="/icon.svg/namewarehouse.svg" alt="warehouse" style={{ width: 25, height: 26 }} />
+                </div>
+            </Dropdown>
             {/* User Actions */}
             <div className="mobile-header-padding" style={{ display: 'flex', alignItems: 'center', paddingRight: '24px', flexShrink: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
@@ -180,6 +340,9 @@ export default function HeaderComponent({ collapsed, setCollapsed, username }: H
                             <BellOutlined style={{ fontSize: '20px', cursor: 'pointer', color: '#1378C0', }} />
                         </Badge>
                     </Popover>
+
+                    {/* Hiển thị danh sách kho */}
+
                     <Dropdown menu={{ items: userMenuItems }} trigger={['click']}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                             {avatarData ? (
@@ -195,6 +358,6 @@ export default function HeaderComponent({ collapsed, setCollapsed, username }: H
                     </Dropdown>
                 </div>
             </div>
-        </Header>
+        </Header >
     );
 }

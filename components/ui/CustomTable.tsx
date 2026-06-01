@@ -5,91 +5,110 @@ import { Table, ConfigProvider } from "antd";
 import type { TableProps } from "antd";
 import { DownOutlined, RightOutlined } from "@ant-design/icons";
 import { createStyles } from "antd-style";
-import { useOverlayScrollbars } from "overlayscrollbars-react";
+import { OverlayScrollbars } from "overlayscrollbars";
 
 export const useStyle = createStyles(({ css }: any) => ({
     customTable: css`
-    /* Ẩn thanh cuộn mặc định của Ant Design */
-    .ant-table-body::-webkit-scrollbar,
-    .ant-table-content::-webkit-scrollbar,
-    .ant-table-header::-webkit-scrollbar {
-      display: none !important;
-      width: 0 !important;
-      height: 0 !important;
-    }
-    
-    .ant-table-body,
-    .ant-table-content {
-      scrollbar-width: none !important;
-      -ms-overflow-style: none !important;
-      overflow: auto !important;
+    /* Đảm bảo table luôn rộng ít nhất 100% container để không bị nhỏ từ đầu */
+    .ant-table table {
+      min-width: 100% !important;
     }
 
-    /* Loại bỏ vết mờ (shadow) khi có cột cố định hoặc cuộn ngang */
-    // .ant-table-ping-right:after,
-    // .ant-table-ping-left:before,
-    // .ant-table-cell-fix-right-first::after,
-    // .ant-table-cell-fix-left-last::after {
-    //   box-shadow: none !important;
-    // }
+    /* Đè cấu hình scrollbar-color mặc định của Ant Design */
+    .ant-table,
+    .ant-table-container,
+    .ant-table-body,
+    .ant-table-content {
+      scrollbar-color: unset !important;
+    }
+
+    /* Tùy chỉnh các lớp của OverlayScrollbars bên trong bảng */
+    .os-scrollbar {
+      padding: 0 !important;
+    }
+
+    .os-scrollbar-vertical {
+      right: 0 !important;
+      width: 8px !important;
+    }
+
+    .os-scrollbar-horizontal {
+      bottom: 0 !important;
+      height: 8px !important;
+    }
+
+    .os-scrollbar-vertical .os-scrollbar-handle {
+      width: 8px !important;
+    }
+
+    .os-scrollbar-horizontal .os-scrollbar-handle {
+      height: 8px !important;
+    }
+
+    .os-scrollbar-handle {
+      background-color: #d9d9d9 !important;
+      border-radius: 4px !important;
+    }
   `,
 }));
 
 interface CustomTableProps<T> extends TableProps<T> {
-    dataTable: T[];
+    dataTable?: T[];
     keyIndex?: string;
     heightTable?: number | string;
+    children?: React.ReactNode;
 }
 
 export default function CustomTable<T extends object>({
-    dataTable,
+    dataTable = [],
     keyIndex = 'id',
     heightTable,
+    children,
     ...rest
 }: CustomTableProps<T>) {
     const { styles } = useStyle();
     const [mounted, setMounted] = useState(false);
-    const tableRef = React.useRef<HTMLDivElement>(null); // scroll table 
-
-    const [initialize, instance] = useOverlayScrollbars({
-        options: {
-            scrollbars: {
-                autoHide: 'leave',// horver thì hiển thị scroll 
-                autoHideDelay: 500,// khoảng thời gian chớ khi ẩn hoặc hiện 
-            },
-        },
-        events: {
-            scroll: (inst) => {
-                const { viewport } = inst.elements();
-                if (tableRef.current) {
-                    const tableHeader = tableRef.current.querySelector('.ant-table-header');
-                    if (tableHeader) {
-                        tableHeader.scrollLeft = viewport.scrollLeft;// đồng bộ cuộn cả header 
-
-                    }
-                }
-            }
-        },
-        defer: true,
-    });
+    const tableRef = React.useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         setMounted(true);
     }, []);
 
     useEffect(() => {
-        if (mounted && tableRef.current) {
-            const tableBody = tableRef.current.querySelector('.ant-table-body');
-            if (tableBody) {
-                initialize({
-                    target: tableBody as HTMLElement,
-                    cancel: {
-                        nativeScrollbarsOverlaid: true,
-                    }
-                });
-            }
+        if (!mounted || !tableRef.current) return;
+
+        const antTableBody = tableRef.current.querySelector('.ant-table-body');
+        const antTableContent = tableRef.current.querySelector('.ant-table-content');
+        const scrollEl = antTableBody || antTableContent;
+
+        if (scrollEl) {
+            const osInstance = OverlayScrollbars(scrollEl as HTMLElement, {
+                scrollbars: {
+                    theme: 'os-theme-dark os-theme-hover',
+                    visibility: 'auto',
+                    autoHide: 'leave',
+                    autoHideDelay: 500, // Đợi đúng 5 giây
+                }
+            });
+
+            const viewport = osInstance.elements().viewport;
+            const handleScroll = () => {
+                const antTableHeader = tableRef.current?.querySelector('.ant-table-header');
+                if (antTableHeader) {
+                    antTableHeader.scrollLeft = viewport.scrollLeft;
+                }
+            };
+
+            viewport.addEventListener('scroll', handleScroll);
+
+            return () => {
+                viewport.removeEventListener('scroll', handleScroll);
+                if (osInstance && osInstance.destroy) {
+                    osInstance.destroy();
+                }
+            };
         }
-    }, [mounted, initialize, dataTable]);
+    }, [mounted, dataTable]);
 
     if (!mounted) return null;
 
@@ -111,43 +130,47 @@ export default function CustomTable<T extends object>({
                 }
             }}
         >
-            <div ref={tableRef} className="w-full">
-                <Table
-                    className={`fixed-layout-table ${styles.customTable}`}
-                    dataSource={dataTable.map((item: any, index: number) => ({
-                        ...item,
-                        key: item[keyIndex] || item._id || index
-                    }))}
-                    pagination={{
-                        pageSize: 20,
-                        showSizeChanger: false,
-                        showTotal: (total) => `Hiển thị 20 trong tổng ${total}`,
-                        placement: ['bottomRight'] as any,
-                    }}
-                    locale={{ emptyText: "Không có dữ liệu" }}
-                    scroll={{ x: 'max-content', y: heightTable || 'calc(100vh - 355px)' }}
-                    tableLayout="fixed"
-                    sticky
-                    {...rest}
-                    expandable={{
-                        expandIcon: ({ expanded, onExpand, record, expandable }) => {
-                            if (!expandable) return <span style={{ height: 0, lineHeight: 0, verticalAlign: 'middle', visibility: 'hidden' }} />;
-                            return expanded ? (
-                                <DownOutlined
-                                    className="mr-2 cursor-pointer text-[#8C8C8C] text-[12px]"
-                                    onClick={e => onExpand(record, e)}
-                                />
-                            ) : (
-                                <RightOutlined
-                                    className="mr-2 cursor-pointer text-[#8C8C8C] text-[12px]"
-                                    onClick={e => onExpand(record, e)}
-                                />
-                            );
-                        },
-                        expandIconColumnIndex: rest.expandable?.expandIconColumnIndex ?? (rest.rowSelection ? 1 : 0),
-                        ...(rest.expandable || {})
-                    }}
-                />
+            <div ref={tableRef} className="w-full h-full">
+                {children ? (
+                    children
+                ) : (
+                    <Table
+                        className={`fixed-layout-table ${styles.customTable}`}
+                        dataSource={dataTable.map((item: any, index: number) => ({
+                            ...item,
+                            key: item[keyIndex] || item._id || index
+                        }))}
+                        locale={{ emptyText: "Không có dữ liệu" }}
+                        scroll={{ x: 'max-content', y: heightTable || 'calc(100vh - 355px)' }}
+                        tableLayout="fixed"
+                        sticky
+                        {...rest}
+                        pagination={rest.pagination === false ? false : {
+                            pageSize: 20,
+                            showSizeChanger: false,
+                            showTotal: (total) => `Hiển thị 20 trong tổng ${total}`,
+                            placement: ['bottomEnd'] as const,
+                            ...rest.pagination,
+                        }}
+                        expandable={{
+                            expandIcon: ({ expanded, onExpand, record, expandable }) => {
+                                if (!expandable) return <span style={{ height: 0, lineHeight: 0, verticalAlign: 'middle', visibility: 'hidden' }} />;
+                                return expanded ? (
+                                    <DownOutlined
+                                        className="mr-2 cursor-pointer text-[#8C8C8C] text-[12px]"
+                                        onClick={e => onExpand(record, e)}
+                                    />
+                                ) : (
+                                    <RightOutlined
+                                        className="mr-2 cursor-pointer text-[#8C8C8C] text-[12px]"
+                                        onClick={e => onExpand(record, e)}
+                                    />
+                                );
+                            },
+                            ...(rest.expandable || {})
+                        }}
+                    />
+                )}
             </div>
         </ConfigProvider>
     );

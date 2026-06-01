@@ -23,6 +23,13 @@ export default function ModalThemeProvider({ children }: ModalThemeProviderProps
                         colorText: "#484848",
                         colorTextDisabled: "#484848",
                     },
+                    InputNumber: {
+                        colorPrimary: "#d9d9d9",
+                        colorPrimaryHover: "#d9d9d9",
+                        controlOutline: "transparent",
+                        colorText: "#484848",
+                        colorTextDisabled: "#484848",
+                    },
                     Select: {
                         colorPrimary: "#d9d9d9",
                         colorPrimaryHover: "#d9d9d9",

@@ -28,7 +28,7 @@ export const getColumns = (
             title: "Mô tả",
             dataIndex: "description",
             key: "description",
-            width: 750,
+            width: 550,
             className: "text-left",
             onHeaderCell: () => ({
                 style: { textAlign: 'left' },

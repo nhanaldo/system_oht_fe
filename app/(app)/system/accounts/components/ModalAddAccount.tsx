@@ -3,17 +3,19 @@
 import { UploadFile } from "antd/lib/upload/interface";
 import FormItemController from "@/components/ui/CustomController";
 import ModalThemeProvider from "@/components/ui/ModalThemeProvider";
-import { Form, GetProp, Button, Image, Modal, Select, Upload, UploadProps, message, Input } from "antd";
+import { Form, GetProp, Button, Image, Modal, Select, Upload, UploadProps, Input } from "antd";
 import { useForm } from "react-hook-form";
 import { useEffect, useState } from "react";
 import { PlusOutlined } from "@ant-design/icons";
 import z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useRouter } from "next/navigation";
 import { addAccount, updateAccount, uploadFile } from "../accountAction";
+import { useToast } from "@/components/ui/Toast";
+import { useRouter } from "next/navigation";
+//lấy ra kiểu dữ liệu chính xác của tệp tin (File) mà component <Upload> của Ant Design sử dụng khi xử lý ảnh
+type FileType = Parameters<GetProp<UploadProps, 'beforeUpload'>>[0]; // định nghĩa kiểu dữ liệu cho file ( CẤU TRÚC CÓ SẴN CỦA ANT DESIGN )
 
-type FileType = Parameters<GetProp<UploadProps, 'beforeUpload'>>[0];
-
+//hàm chuyển file ảnh thành chuỗi base64 ( để hiển thị ảnh ngay lập tức )
 const getBase64 = (file: FileType): Promise<string> =>
     new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -24,9 +26,15 @@ const getBase64 = (file: FileType): Promise<string> =>
 
 const schema = z.object({
     name: z.string().trim().min(1, "Họ và tên không được để trống"),
-    username: z.string().trim().min(1, "Tên đăng nhập không được để trống"),
+    username: z.string()
+        .min(1, "Tên đăng nhập không được để trống")
+        .regex(/^[^\s]+$/, "Tên đăng nhập không được chứa dấu cách")
+        .refine(val => !/[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ]/.test(val), "Tên đăng nhập không được chứa tiếng Việt có dấu")
+        .regex(/^[a-zA-Z0-9_.]+$/, "Tên đăng nhập không được chứa ký tự đặc biệt"),
     code: z.string().trim().min(1, "Mã nhân viên không được để trống"),
-    email: z.string().trim().email("Email không hợp lệ").min(1, "Email không được để trống"),
+    email: z.string().trim()
+        .min(1, "Email không được để trống")
+        .email("Email không đúng định dạng"),
     role_id: z.string().trim().min(1, "Vai trò không được để trống"),
     avatar: z.any().optional(),
 });
@@ -41,11 +49,12 @@ interface ModalAddAccountProps {
 
 export default function ModalAddAccount({ open, onClose, onSuccess, roleOptions, editingRecord }: ModalAddAccountProps) {
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [messageApi, contextHolder] = message.useMessage();
+    const { showSuccess, showError } = useToast();
     const router = useRouter();
 
-    const { control, handleSubmit, reset, formState: { isDirty } } = useForm({
+    const { control, handleSubmit, reset, setValue, trigger, formState: { isDirty } } = useForm({
         resolver: zodResolver(schema),
+        mode: "onChange",
         defaultValues: {
             name: "",
             username: "",
@@ -55,24 +64,22 @@ export default function ModalAddAccount({ open, onClose, onSuccess, roleOptions,
             avatar: null,
         }
     });
-
+    //mở rộng chức năng modal để preview ảnh ( xem trước ảnh)
     const [previewOpen, setPreviewOpen] = useState(false);
     const [previewImage, setPreviewImage] = useState('');
     const [fileList, setFileList] = useState<UploadFile[]>([]);
-    const [mounted, setMounted] = useState(false);
+    // const [mounted, setMounted] = useState(false);
 
-    useEffect(() => {
-        setMounted(true);
-    }, []);
 
-    // Check if avatar has changed
+    // xác định xem người dùng đã thực sự thay đổi ảnh đại diện (avatar) hay chưa, 
+    // từ đó quyết định xem có cho phép nhấn nút "Lưu" (canSubmit) hay không.
     const isAvatarChanged = editingRecord?.id
         ? (fileList.length === 0 && !!editingRecord.avatar) || (fileList.length > 0 && !!fileList[0].originFileObj)
         : fileList.length > 0;
-
+    // cho phép nhấn nút lưu khi có sự thay đổi dữ liệu 
     const canSubmit = isDirty || isAvatarChanged;
-
-    useEffect(() => {
+    // xử lý khi mở modal ( sửa hoặc thêm ) & reset form khi đóng modal 
+    useEffect(() => {// xử lí lấy vai trò 
         if (editingRecord && open) {
             const roleId = editingRecord.role_ids?.[0] || editingRecord.role_id || (editingRecord.role_names?.[0] ? roleOptions?.find(r => r.label.toLowerCase() === editingRecord.role_names?.[0].toLowerCase())?.value : undefined);
             reset({
@@ -86,22 +93,24 @@ export default function ModalAddAccount({ open, onClose, onSuccess, roleOptions,
             // Set fileList with existing avatar if available
             if (editingRecord.avatar) {
                 setFileList([{
-                    uid: '-1',
+                    uid: '-1', // ID giả định cho file đã tồn tại
                     name: 'avatar',
-                    status: 'done',
-                    url: editingRecord.avatar as string,
+                    status: 'done', // Báo cho Ant Design biết ảnh này đã tải lên thành công rồi
+                    url: editingRecord.avatar as string, // Link ảnh cũ từ server để làm ảnh thu nhỏ (thumbnail)
                 }]);
             } else {
-                setFileList([]);
+                setFileList([]); // Nếu không có ảnh cũ, xóa danh sách ảnh
             }
-        } else if (!open) {
-            setFileList([]);
-            setPreviewImage('');
-            setPreviewOpen(false);
-            reset({ name: "", username: "", code: "", email: "", role_id: "", avatar: null });
-        }
-    }, [editingRecord, open, reset, roleOptions]);
 
+        } else if (!open) {//Khi Modal đóng lại
+            setFileList([]); // Xóa danh sách tệp ảnh đã chọn
+            setPreviewImage(''); // Xóa đường dẫn ảnh xem trước phóng to
+            setPreviewOpen(false); // Đóng modal xem trước ảnh (nếu đang mở)
+            reset({ name: "", username: "", code: "", email: "", role_id: "", avatar: null }); // Xóa sạch dữ liệu tất cả các ô chữ trong form
+        }
+
+    }, [editingRecord, open, reset, roleOptions]);
+    // phóng to ảnh khi người dùng nhấn vào ảnh
     const handlePreview = async (file: UploadFile) => {
         if (!file.url && !file.preview) {
             file.preview = await getBase64(file.originFileObj as FileType);
@@ -152,7 +161,7 @@ export default function ModalAddAccount({ open, onClose, onSuccess, roleOptions,
                 if (res.success && res.data?.elements?.url) {
                     avatarUrl = res.data.elements.url;
                 } else {
-                    messageApi.error(res.error || 'Tải ảnh lên thất bại');
+                    showError(res.error || 'Tải ảnh lên thất bại');
                     setIsSubmitting(false);
                     return;
                 }
@@ -177,7 +186,7 @@ export default function ModalAddAccount({ open, onClose, onSuccess, roleOptions,
             }
 
             if (response.success) {
-                messageApi.success(editingRecord?.id ? 'Cập nhật tài khoản thành công' : 'Thêm mới tài khoản thành công');
+                showSuccess(editingRecord?.id ? 'Cập nhật tài khoản thành công' : 'Thêm mới tài khoản thành công');
 
                 // Cập nhật avatar trên Header nếu đang chỉnh sửa chính tài khoản của mình
                 const currentAccountId = document.cookie.split('; ').find(row => row.startsWith('accountId='))?.split('=')[1];
@@ -192,75 +201,77 @@ export default function ModalAddAccount({ open, onClose, onSuccess, roleOptions,
                 onSuccess?.();
                 router.refresh();
             } else {
-                messageApi.error(response.error || (editingRecord?.id ? "Có lỗi xảy ra khi cập nhật" : "Có lỗi xảy ra khi thêm mới"));
+                showError(response.error || (editingRecord?.id ? "Có lỗi xảy ra khi cập nhật" : "Có lỗi xảy ra khi thêm mới"));
             }
         } catch (error: any) {
             console.error('Error:', error);
-            messageApi.error('Đã xảy ra lỗi không xác định');
+            showError('Đã xảy ra lỗi không xác định');
         } finally {
             setIsSubmitting(false);
         }
     }
 
-    if (!mounted) return null;
+    const commonLabelCol = {
+        md: { flex: '200px' }, // chữ tiêu đề bên trái khóad cứng 
+        xs: { span: 24 }, //trên mobile thì chữ tiêu đề chiếm hết chiều rộng 
+        style: {
+            height: 40,
+            fontSize: 14,
+            fontWeight: 400,// định dạng font chữ 
+            textAlign: "left" as const,
+            display: "flex",//chữ tiêu đề canh giữa theo chiều dọc
+            alignItems: "center",//căn chỉnh theo chiều dọc 
+            color: "#404040",
+        }
+    };
+
+    const commonWrapperCol = {
+        md: { flex: 'auto' },// độ rộng input sẽ tự co giãn
+        xs: { span: 24 },
+        style: { paddingLeft: 0, maxWidth: '100%' }
+    };
 
     return (
         <ModalThemeProvider>
             <Modal
                 closable={true}
+                title={
+                    <span style={{ fontSize: 18, fontWeight: 500, color: '#484848' }}>
+                        {!!editingRecord?.id ? "Chỉnh sửa tài khoản" : "Thêm mới tài khoản"}
+                    </span>
+                }
                 open={open}
                 width={1000}
-                centered// ô ra giữa màn hình
-                title={
-                    <div className="flex flex-row items-center gap-[8px] ">
-                        <span className="text-[18px] text-[#484848] font-medium mb-[15px]">{editingRecord ? "Chỉnh sửa tài khoản" : "Thêm mới tài khoản"}</span>
-                    </div>
-                }
+                centered
                 zIndex={1005}
+                className="responsive-modal"
                 styles={{
                     mask: {
-                        backdropFilter: "blur(0px)" // tắt hiệu ứng mờ ảnh 
+                        backdropFilter: "blur(0px)"
                     },
-
                     container: {
                         padding: "20px 40px 30px 40px",
                     }
-                }
-                }
+                }}
                 footer={null}
                 onCancel={onClose}
                 destroyOnHidden
             >
-                {contextHolder}
-                <div className="flex flex-col items-center">
-
-                    <div className="h-[1px] bg-[#C0C0C0] w-full mb-[30px]"></div>
-
-                    <Form onFinish={handleSubmit(handleSubmitForm)} className="flex flex-col items-center justify-center md:min-w-[716px]">
+                <div className="flex flex-col items-center w-full">
+                    <div className="h-[1px] bg-[#C0C0C0] w-full mb-[20px] md:mb-[30px] mt-[9px]"></div>
+                    {/* //giới hạn toàn bộ form là 720px */}
+                    <Form onFinish={handleSubmit(handleSubmitForm)} className="flex flex-col items-center justify-center w-full max-w-full md:w-[720px]">
                         <FormItemController
                             name="name"
                             label="Họ và tên"
                             style={{ width: "100%", marginBottom: 20 }}
                             control={control}
                             required
-                            wrapperCol={{ style: { paddingLeft: 0 } }}
-                            labelCol={{
-                                style:
-                                {
-                                    minWidth: 200,
-                                    height: 40,
-                                    fontSize: 14,
-                                    fontWeight: 400,
-                                    textAlign: "left",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    color: "#404040",
-                                }
-                            }}
+                            wrapperCol={commonWrapperCol}
+                            labelCol={commonLabelCol}
                             render={(field) => (
                                 <Input
                                     {...field}
-                                    required
                                     aria-label="Họ và tên"
                                     className="w-full h-[40px] rounded-md p-2"
                                     placeholder="Nhập họ và tên"
@@ -274,24 +285,11 @@ export default function ModalAddAccount({ open, onClose, onSuccess, roleOptions,
                             style={{ width: "100%", marginBottom: 20 }}
                             control={control}
                             required
-                            wrapperCol={{ style: { paddingLeft: 0 } }}
-                            labelCol={{
-                                style:
-                                {
-                                    minWidth: 200,
-                                    height: 40,
-                                    fontSize: 14,
-                                    fontWeight: 400,
-                                    textAlign: "left",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    color: "#404040",
-                                }
-                            }}
+                            wrapperCol={commonWrapperCol}
+                            labelCol={commonLabelCol}
                             render={(field) => (
                                 <Input
                                     {...field}
-                                    required
                                     aria-label="Tên đăng nhập"
                                     className="w-full h-[40px] rounded-md p-2"
                                     placeholder="Nhập tên đăng nhập"
@@ -305,24 +303,11 @@ export default function ModalAddAccount({ open, onClose, onSuccess, roleOptions,
                             style={{ width: "100%", marginBottom: 20 }}
                             control={control}
                             required
-                            wrapperCol={{ style: { paddingLeft: 0 } }}
-                            labelCol={{
-                                style:
-                                {
-                                    minWidth: 200,
-                                    height: 40,
-                                    fontSize: 14,
-                                    fontWeight: 400,
-                                    textAlign: "left",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    color: "#404040",
-                                }
-                            }}
+                            wrapperCol={commonWrapperCol}
+                            labelCol={commonLabelCol}
                             render={(field) => (
                                 <Input
                                     {...field}
-                                    required
                                     aria-label="Mã nhân viên"
                                     className="w-full h-[40px] rounded-md p-2"
                                     placeholder="Nhập mã nhân viên"
@@ -336,24 +321,19 @@ export default function ModalAddAccount({ open, onClose, onSuccess, roleOptions,
                             style={{ width: "100%", marginBottom: 20 }}
                             control={control}
                             required
-                            wrapperCol={{ style: { paddingLeft: 0 } }}
-                            labelCol={{
-                                style:
-                                {
-                                    minWidth: 200,
-                                    height: 40,
-                                    fontSize: 14,
-                                    fontWeight: 400,
-                                    textAlign: "left",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    color: "#404040",
-                                }
-                            }}
+                            wrapperCol={commonWrapperCol}
+                            labelCol={commonLabelCol}
                             render={(field) => (
                                 <Input
-                                    {...field}
-                                    required
+                                    value={field.value}
+                                    onChange={(e) => {
+                                        // Update form value silently without triggering validation
+                                        setValue("email", e.target.value, { shouldValidate: false });
+                                    }}
+                                    onBlur={() => {
+                                        // Trigger validation only when leaving the input (on blur)
+                                        trigger("email");
+                                    }}
                                     aria-label="Email"
                                     className="w-full h-[40px] rounded-md p-2"
                                     placeholder="Nhập email"
@@ -367,20 +347,8 @@ export default function ModalAddAccount({ open, onClose, onSuccess, roleOptions,
                             style={{ width: "100%", marginBottom: 20 }}
                             control={control}
                             required
-                            wrapperCol={{ style: { paddingLeft: 0 } }}
-                            labelCol={{
-                                style:
-                                {
-                                    minWidth: 200,
-                                    height: 40,
-                                    fontSize: 14,
-                                    fontWeight: 400,
-                                    textAlign: "left",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    color: "#404040",
-                                }
-                            }}
+                            wrapperCol={commonWrapperCol}
+                            labelCol={commonLabelCol}
                             render={(field) => (
                                 <Select
                                     value={roleOptions && roleOptions.length > 0 ? (field.value || undefined) : undefined}
@@ -389,7 +357,7 @@ export default function ModalAddAccount({ open, onClose, onSuccess, roleOptions,
                                     style={{ height: 40 }}
                                     placeholder="Chọn vai trò"
                                     options={roleOptions || []}
-                                    className="w-full rounded-md"
+                                    className="w-full rounded-md  "
                                     suffixIcon={<img src="/icon.svg/dow.svg" alt="down" />}
                                 />
                             )}
@@ -400,20 +368,8 @@ export default function ModalAddAccount({ open, onClose, onSuccess, roleOptions,
                             label="Hình ảnh"
                             style={{ width: "100%" }}
                             control={control}
-                            wrapperCol={{ style: { paddingLeft: 0 } }}
-                            labelCol={{
-                                style:
-                                {
-                                    minWidth: 200,
-                                    height: 40,
-                                    fontSize: 14,
-                                    fontWeight: 400,
-                                    textAlign: "left",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    color: "#404040",
-                                }
-                            }}
+                            wrapperCol={commonWrapperCol}
+                            labelCol={commonLabelCol}
                             render={(field) => (
                                 <>
                                     <Upload
@@ -444,7 +400,7 @@ export default function ModalAddAccount({ open, onClose, onSuccess, roleOptions,
                             )}
                         />
 
-                        <div className="flex flex-row items-center justify-end gap-[20px] mt-[66px]">
+                        <div className="flex flex-row items-center justify-center gap-[20px] mt-[30px]">
                             <Button
                                 onClick={onClose}
                                 disabled={isSubmitting}

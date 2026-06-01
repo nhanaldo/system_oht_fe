@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Image from "next/image";
-import { Input, Space, message } from "antd";
+import { Input, Space } from "antd";
 import { SearchOutlined } from "@ant-design/icons";
 import CustomTable from "@/components/ui/CustomTable";
 import { getColumns } from "./ColumnTable";
@@ -10,6 +10,10 @@ import ModalThemeProvider from "@/components/ui/ModalThemeProvider";
 import ModalConfirmDelete from "@/components/ui/ModalConfirmDelete";
 import { deleteResource } from "../resourcesAction";
 import ModalAddResources from "./ModalAddResources";
+import { useToast } from "@/components/ui/Toast";
+
+import { useTableQuery } from "@/hook/useTableQuery";
+import { getResources } from "../resourcesAction";
 
 interface ResourceItem {
     id: string;
@@ -19,47 +23,46 @@ interface ResourceItem {
     [key: string]: any;
 }
 
-interface ResourcesTableProps {
-    data: ResourceItem[];
-    onRefresh?: () => void;
-}
-
-export default function ResourcesTable({ data, onRefresh }: ResourcesTableProps) {
+export default function ResourcesTable() {
     const [searchText, setSearchText] = useState("");
     const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
-    const [messageApi, messageContext] = message.useMessage();
+    const { showSuccess, showError } = useToast();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editData, setEditData] = useState<any>(null);
+
+    const { data: rawData, total, isLoading, refetch, onPageChange, onSearchChange, params } = useTableQuery<ResourceItem>({
+        queryKey: 'resources',
+        fetchFn: getResources,
+        initialParams: { page: 1, limit: 20 }
+    });
 
     // States for ModalConfirmDelete
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
-    const [deleteId, setDeleteId] = useState<string | null>(null);
+    const [deleteId, setDeleteId] = useState<string | string[] | null>(null);
 
     // Format serial numbers (STT)
     const formattedData = useMemo(() => {
-        if (!Array.isArray(data)) return [];
-        return data.map((item, index) => ({
+        if (!Array.isArray(rawData)) return [];
+        return rawData.map((item, index) => ({
             ...item,
-            stt: index + 1,
+            stt: (params.page - 1) * params.limit + index + 1,
             key: item.id
         }));
-    }, [data]);
+    }, [rawData, params.page, params.limit]);
 
-    const onSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setSearchText(e.target.value);
-    };
+
 
     // Search filter
     const filteredData = useMemo(() => {
-        if (!searchText.trim()) return formattedData;
-        const q = searchText.toLowerCase().trim();
+        const q = (params.search || "").toLowerCase().trim();
+        if (!q) return formattedData;
         return formattedData.filter(item =>
             (item.code || "").toLowerCase().includes(q) ||
             (item.name || "").toLowerCase().includes(q) ||
             (item.description || "").toLowerCase().includes(q)
         );
-    }, [formattedData, searchText]);
+    }, [formattedData, params.search]);
 
     const handleEdit = (record: any) => {
         setEditData(record);
@@ -71,19 +74,41 @@ export default function ResourcesTable({ data, onRefresh }: ResourcesTableProps)
         setIsDeleteModalOpen(true);
     };
 
+    const handleBulkDelete = () => {
+        if (selectedRowKeys.length === 0) return;
+        setDeleteId(selectedRowKeys.map(key => String(key)));
+        setIsDeleteModalOpen(true);
+    };
+
     const confirmDelete = async () => {
         if (!deleteId) return;
         setIsDeleting(true);
         try {
-            const res = await deleteResource(deleteId);
-            if (res.success) {
-                messageApi.success("Xóa resource thành công");
-                if (onRefresh) onRefresh();
+            if (Array.isArray(deleteId)) {
+                //  delete nhiều mục 
+                const deletePromises = deleteId.map(id => deleteResource(id));
+                const results = await Promise.all(deletePromises);// lời hứa promise
+
+                const failedCount = results.filter(r => !r.success).length;
+                if (failedCount === 0) {
+                    showSuccess(`Xóa ${deleteId.length} resource thành công`);
+                    setSelectedRowKeys([]);
+                } else {
+                    showError(`Có ${failedCount}/${deleteId.length} resource không thể xóa`);
+                }
             } else {
-                messageApi.error(res.error || "Không thể xóa resource");
+                // Single delete
+                const res = await deleteResource(deleteId);
+                if (res.success) {
+                    showSuccess("Xóa resource thành công");
+                } else {
+                    showError(res.error || "Không thể xóa resource");
+                }
             }
+
+            if (typeof refetch === 'function') refetch();
         } catch (err: any) {
-            messageApi.error(err.message || "Đã có lỗi khi thực thi lệnh xóa");
+            showError(err.message || "Đã có lỗi khi thực thi lệnh xóa");
         } finally {
             setIsDeleting(false);
             setIsDeleteModalOpen(false);
@@ -94,8 +119,6 @@ export default function ResourcesTable({ data, onRefresh }: ResourcesTableProps)
     return (
         <ModalThemeProvider>
             <div className="w-full h-full flex flex-col">
-                {messageContext}
-
                 {/* Header section */}
                 <div className="flex justify-between items-start mb-2 shrink-0">
                     <div className="min-w-0 flex-1 mr-2">
@@ -113,8 +136,16 @@ export default function ResourcesTable({ data, onRefresh }: ResourcesTableProps)
                             prefix={<SearchOutlined style={{ color: '#545454', fontSize: '18.34px', opacity: 0.6 }} />}
                             className="rounded-[8px] placeholder:text-[#545454] placeholder:text-[16px]"
                             style={{ width: '300px', fontSize: '16px', height: '40px' }}
-                            value={searchText}
-                            onChange={onSearchChange}
+                            value={params.search}
+                            onChange={(e) => onSearchChange(e.target.value)}
+                        />
+                        <Image
+                            src="/icon.svg/delete.svg"
+                            alt="Xóa"
+                            width={40}
+                            height={40}
+                            onClick={selectedRowKeys.length > 0 ? handleBulkDelete : undefined}
+                            className={`transition-all ${selectedRowKeys.length > 0 ? "cursor-pointer hover:opacity-80" : "opacity-30 cursor-not-allowed"}`}
                         />
                         <Image
                             src="/icon.svg/create.svg"
@@ -138,6 +169,13 @@ export default function ResourcesTable({ data, onRefresh }: ResourcesTableProps)
                         dataTable={filteredData}
                         columns={getColumns(handleEdit, handleDelete)}
                         keyIndex="id"
+                        loading={isLoading}
+                        pagination={{
+                            current: params.page,
+                            pageSize: params.limit,
+                            total,
+                            onChange: onPageChange,
+                        }}
                         rowSelection={{
                             selectedRowKeys,
                             onChange: (keys) => setSelectedRowKeys(keys),
@@ -148,10 +186,13 @@ export default function ResourcesTable({ data, onRefresh }: ResourcesTableProps)
 
                 <ModalConfirmDelete
                     open={isDeleteModalOpen}
-                    onClose={() => setIsDeleteModalOpen(false)}
+                    onClose={() => {
+                        setIsDeleteModalOpen(false);
+                        setDeleteId(null);
+                    }}
                     onConfirm={confirmDelete}
                     title="Thông báo"
-                    content="Bạn có chắc chắn muốn xóa resource này không?"
+                    content={Array.isArray(deleteId) ? `Bạn có chắc chắn muốn xóa ${deleteId.length} resource đã chọn không?` : "Bạn có chắc chắn muốn xóa resource này không?"}
                     loading={isDeleting}
                 />
 
@@ -162,9 +203,8 @@ export default function ResourcesTable({ data, onRefresh }: ResourcesTableProps)
                         setEditData(null);
                     }}
                     onSuccess={() => {
-                        if (onRefresh) onRefresh();
+                        if (typeof refetch === 'function') refetch();
                     }}
-                    onRefresh={onRefresh}
                     initialData={editData}
                 />
             </div>

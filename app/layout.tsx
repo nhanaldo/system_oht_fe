@@ -2,6 +2,7 @@
 import { Roboto } from "next/font/google";
 import "./globals.css";
 import { App, ConfigProvider } from 'antd';
+import { NotificationProvider } from "@/hook/notification/NotificationProvider";
 
 const roboto = Roboto({
     weight: ['300', '400', '500', '700'],
@@ -21,7 +22,11 @@ export default function RootLayout({
         <html lang="vi" className={roboto.variable}>
             <body className={roboto.className}>
                 <ConfigProvider theme={{ token: { fontFamily: 'var(--font-roboto), sans-serif' } }}>
-                    <App>{children}</App>
+                    <App>
+                        <NotificationProvider>
+                            {children}
+                        </NotificationProvider>
+                    </App>
                 </ConfigProvider>
             </body>
         </html>

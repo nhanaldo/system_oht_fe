@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useState } from 'react';
-import { Form, Input, Button, App } from 'antd';
+import { Form, Input, Button } from 'antd';
 import { useRouter } from 'next/navigation';
 import { updateAccountPassword } from '../../system/accounts/accountAction';
 import ModalThemeProvider from '@/components/ui/ModalThemeProvider';
+import { useToast } from '@/components/ui/Toast';
 
 interface ResetPasswordProps {
     userId: string;
@@ -15,25 +16,25 @@ export default function ResetPassword({ userId, onCancel }: ResetPasswordProps) 
     const router = useRouter();
     const [loading, setLoading] = useState(false);
     const [form] = Form.useForm();
-    const { message: messageApi } = App.useApp();
+    const { showSuccess, showError } = useToast();
 
     const handleUpdatePassword = async (values: any) => {
         if (!userId) return;
         if (values.new_password === values.old_password) {
-            messageApi.error('Mật khẩu mới không được giống mật khẩu cũ!');
+            showError('Mật khẩu mới không được giống mật khẩu cũ!');
             return;
         }
         if (values.new_password.length < 6) {
-            messageApi.error('Độ dài mật khẩu tối thiểu: 6 ký tự!');
+            showError('Độ dài mật khẩu tối thiểu: 6 ký tự!');
             return;
         }
         const asciiRegex = /^[\x21-\x7E]+$/;
         if (!asciiRegex.test(values.new_password)) {
-            messageApi.error('Mật khẩu không được chứa dấu hoặc khoảng trắng!');
+            showError('Mật khẩu không được chứa dấu hoặc khoảng trắng!');
             return;
         }
         if (values.new_password !== values.confirm_new_password) {
-            messageApi.error('Mật khẩu mới và Xác nhận mật khẩu không trùng khớp!');
+            showError('Mật khẩu mới và Xác nhận mật khẩu không trùng khớp!');
             return;
         }
         setLoading(true);
@@ -44,14 +45,14 @@ export default function ResetPassword({ userId, onCancel }: ResetPasswordProps) 
                 confirm_new_password: values.confirm_new_password,
             });
             if (res.success) {
-                messageApi.success('Thay đổi mật khẩu thành công!');
+                showSuccess('Thay đổi mật khẩu thành công!');
                 form.resetFields();
                 router.push('/home');
             } else {
-                messageApi.error(res.error || 'Thay đổi mật khẩu thất bại');
+                showError(res.error || 'Thay đổi mật khẩu thất bại');
             }
         } catch (err: any) {
-            messageApi.error(err.message || 'Đã xảy ra lỗi khi thay đổi mật khẩu');
+            showError(err.message || 'Đã xảy ra lỗi khi thay đổi mật khẩu');
         } finally {
             setLoading(false);
         }
@@ -77,7 +78,7 @@ export default function ResetPassword({ userId, onCancel }: ResetPasswordProps) 
                 >
                     <Input.Password
                         placeholder="Nhập mật khẩu cũ"
-                        className="rounded-md border-[#C0C0C0] h-[40px] text-[#484848]"
+                        className="rounded-md border-[#C0C0C0] h-[40px] !w-full lg:!w-[520px] text-[#484848]"
                     />
                 </Form.Item>
 
@@ -94,7 +95,7 @@ export default function ResetPassword({ userId, onCancel }: ResetPasswordProps) 
                         ({ getFieldValue }) => ({
                             validator(_, value) {
                                 if (!value || getFieldValue('old_password') !== value) {
-                                    return Promise.resolve();
+                                    return Promise.resolve();//chấp nhận và chuyển qua bước tiếp theo
                                 }
                                 return Promise.reject(new Error('Mật khẩu mới không được giống mật khẩu cũ!'));
                             },
@@ -105,7 +106,7 @@ export default function ResetPassword({ userId, onCancel }: ResetPasswordProps) 
                 >
                     <Input.Password
                         placeholder="Nhập mật khẩu mới"
-                        className="rounded-md border-[#C0C0C0] h-[40px] text-[#484848]"
+                        className="rounded-md border-[#C0C0C0] h-[40px] !w-full lg:!w-[520px] text-[#484848]"
                     />
                 </Form.Item>
 
@@ -128,7 +129,7 @@ export default function ResetPassword({ userId, onCancel }: ResetPasswordProps) 
                 >
                     <Input.Password
                         placeholder="Xác nhận mật khẩu mới"
-                        className="rounded-md border-[#C0C0C0] h-[40px] text-[#484848]"
+                        className="rounded-md border-[#C0C0C0] h-[40px] !w-full lg:!w-[520px] text-[#484848]"
                     />
                 </Form.Item>
 

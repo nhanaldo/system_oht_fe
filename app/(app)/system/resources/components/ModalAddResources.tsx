@@ -1,6 +1,6 @@
 "use client";
 
-import { Modal, Button, message, Input, Form } from "antd";
+import { Modal, Button, Input, Form } from "antd";
 import { useState, useEffect } from "react";
 import ModalThemeProvider from "@/components/ui/ModalThemeProvider";
 import { useForm } from "react-hook-form";
@@ -8,6 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import FormItemController from "@/components/ui/CustomController";
 import { addResource, updateResource } from "../resourcesAction";
+import { useToast } from "@/components/ui/Toast";
 
 const schema = z.object({
     name: z.string().min(1, "Vui lòng nhập tên resource"),
@@ -27,7 +28,7 @@ interface ModalAddResourcesProps {
 
 export default function ModalAddResources({ open, onClose, onSuccess, onRefresh, initialData }: ModalAddResourcesProps) {
     const [loading, setLoading] = useState(false);
-    const [messageApi, messageContext] = message.useMessage();
+    const { showSuccess, showError } = useToast();
 
     const isEdit = !!initialData;
 
@@ -61,35 +62,44 @@ export default function ModalAddResources({ open, onClose, onSuccess, onRefresh,
     const onSubmit = async (values: FormValues) => {
         setLoading(true);
         try {
-            const res = isEdit 
-                ? await updateResource(initialData.id, values) 
+            const res = isEdit
+                ? await updateResource(initialData.id, values)
                 : await addResource(values);
-            
+
             if (res.success) {
-                messageApi.success(isEdit ? "Cập nhật resource thành công" : "Thêm mới resource thành công");
+                showSuccess(isEdit ? "Cập nhật resource thành công" : "Thêm mới resource thành công");
                 if (onRefresh) onRefresh();
                 if (onSuccess) onSuccess();
                 onClose();
             } else {
-                messageApi.error(res.error || "Có lỗi xảy ra, vui lòng thử lại");
+                showError("Resources này đã tồn tại");
             }
         } catch (error: any) {
-            messageApi.error(error.message || "Có lỗi xảy ra, vui lòng thử lại");
+            showError("Có lỗi xảy ra, vui lòng thử lại");
             console.error(error);
         } finally {
             setLoading(false);
         }
     };
 
-    const commonLabelStyle = {
-        minWidth: 200,
-        height: 40,
-        fontSize: 14,
-        fontWeight: 400,
-        textAlign: "left" as const,
-        display: "flex",
-        alignItems: "center",
-        color: "#404040",
+    const commonLabelCol = {
+        md: { flex: '200px' },
+        xs: { span: 24 },
+        style: {
+            height: 40,
+            fontSize: 14,
+            fontWeight: 400,
+            textAlign: "left" as const,
+            display: "flex",
+            alignItems: "center",
+            color: "#404040",
+        }
+    };
+
+    const commonWrapperCol = {
+        md: { flex: 'auto' },
+        xs: { span: 24 },
+        style: { paddingLeft: 0, maxWidth: '100%' }
     };
 
     return (
@@ -101,7 +111,7 @@ export default function ModalAddResources({ open, onClose, onSuccess, onRefresh,
             width={900}
             centered
             destroyOnHidden
-            className="custom-modal-permissions"
+            className="responsive-modal"
             styles={{
                 mask: {
                     backdropFilter: "blur(0px)"
@@ -112,13 +122,12 @@ export default function ModalAddResources({ open, onClose, onSuccess, onRefresh,
                 }
             }}
         >
-            {messageContext}
-            <div className="flex flex-col items-center">
+            <div className="flex flex-col items-center w-full">
                 <div className="h-[1px] bg-[#C0C0C0] w-full mb-[30px] mt-[9px]"></div>
 
                 <Form
                     onFinish={handleSubmit(onSubmit)}
-                    className="flex flex-col items-center justify-center md:min-w-[716px]"
+                    className="flex flex-col items-center justify-center w-full max-w-full md:w-[720px]"
                 >
                     <FormItemController
                         control={control}
@@ -126,8 +135,8 @@ export default function ModalAddResources({ open, onClose, onSuccess, onRefresh,
                         label="Resource"
                         required
                         style={{ width: "100%", marginBottom: 20 }}
-                        labelCol={{ style: commonLabelStyle }}
-                        wrapperCol={{ style: { paddingLeft: 0 } }}
+                        labelCol={commonLabelCol}
+                        wrapperCol={commonWrapperCol}
                         render={(field) => (
                             <Input
                                 {...field}
@@ -144,8 +153,8 @@ export default function ModalAddResources({ open, onClose, onSuccess, onRefresh,
                             label="Code"
                             required
                             style={{ width: "100%", marginBottom: 20 }}
-                            labelCol={{ style: commonLabelStyle }}
-                            wrapperCol={{ style: { paddingLeft: 0 } }}
+                            labelCol={commonLabelCol}
+                            wrapperCol={commonWrapperCol}
                             render={(field) => (
                                 <Input
                                     {...field}
@@ -161,8 +170,12 @@ export default function ModalAddResources({ open, onClose, onSuccess, onRefresh,
                         name="description"
                         label="Mô tả"
                         style={{ width: "100%", marginBottom: 30 }}
-                        labelCol={{ style: commonLabelStyle }}
-                        wrapperCol={{ style: { paddingLeft: 0 } }}
+                        labelCol={commonLabelCol}
+                        wrapperCol={{
+                            md: { flex: '0 0 520px' },
+                            xs: { span: 24 },
+                            style: { paddingLeft: 0, maxWidth: '100%' }
+                        }}
                         render={(field) => (
                             <Input
                                 {...field}

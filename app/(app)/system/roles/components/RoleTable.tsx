@@ -5,7 +5,7 @@ import Image from "next/image";
 import { Role } from "@/types/role";
 import CustomTable from "@/components/ui/CustomTable";
 import { getColumns } from "./ColumnTable";
-import { Input, Button, Space, Modal, message, ConfigProvider } from "antd";
+import { Input, Button, Space, Modal, ConfigProvider } from "antd";
 import { SearchOutlined } from "@ant-design/icons";
 import dynamic from "next/dynamic";
 
@@ -14,6 +14,7 @@ const ModalPermissionMatrix = dynamic(() => import("./ModalPermissionMatrix"), {
 import ModalConfirmDelete from "@/components/ui/ModalConfirmDelete";
 import { deleteRole } from "../roleAction";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/components/ui/Toast";
 
 interface RoleTableProps {
     raw: Role[];
@@ -29,7 +30,7 @@ export default function RoleTable({ raw }: RoleTableProps) {
     const [deleteInfo, setDeleteInfo] = useState<{ isBatch: boolean, id?: string, content: string }>({ isBatch: false, content: '' });
     const [isDeleting, setIsDeleting] = useState(false);
     const [selectedRole, setSelectedRole] = useState<Role | null>(null);
-    const [messageApi, messageContext] = message.useMessage();
+    const { showSuccess, showError } = useToast();
     const router = useRouter();
 
     const roleOptions = raw.map(r => ({
@@ -73,29 +74,29 @@ export default function RoleTable({ raw }: RoleTableProps) {
             if (deleteInfo.isBatch) {
                 const res = await deleteRole(selectedRowKeys as string[]);
                 if (typeof res === 'string') {
-                    messageApi.error(res);
+                    showError(res);
                 } else if (res && res.success === false) {
-                    messageApi.error(res.error || 'Có lỗi xảy ra khi xóa');
+                    showError(res.error || 'Có lỗi xảy ra khi xóa');
                 } else {
-                    messageApi.success(`Đã xóa thành công ${selectedRowKeys.length} vai trò`);
+                    showSuccess(`Đã xóa thành công ${selectedRowKeys.length} vai trò`);
                     setSelectedRowKeys([]);
                     router.refresh();
                 }
             } else if (deleteInfo.id) {
                 const res = await deleteRole(deleteInfo.id);
                 if (typeof res === 'string') {
-                    messageApi.error(res);
+                    showError(res);
                 } else if (res && res.success === false) {
-                    messageApi.error(res.error || 'Có lỗi xảy ra khi xóa');
+                    showError(res.error || 'Có lỗi xảy ra khi xóa');
                 } else {
-                    messageApi.success('Xóa vai trò thành công');
+                    showSuccess('Xóa vai trò thành công');
                     setSelectedRowKeys(prev => prev.filter(key => key !== deleteInfo.id));
                     router.refresh();
                 }
             }
             setIsDeleteModalOpen(false);
         } catch (error) {
-            messageApi.error('Có lỗi xảy ra khi xóa');
+            showError('Có lỗi xảy ra khi xóa');
         } finally {
             setIsDeleting(false);
         }
@@ -110,7 +111,6 @@ export default function RoleTable({ raw }: RoleTableProps) {
 
     return (
         <div className="flex flex-col h-full min-h-0">
-            {messageContext}
             <div className="flex justify-between items-start mb-2 shrink-0">
                 <div className="min-w-0 flex-1 mr-2">
                     {/* leading-none: chiều cao của dòng bằng kích thước của phông chữ <=> line height = 100% 

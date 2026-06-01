@@ -3,7 +3,7 @@ import React from "react";
 
 import { useState, useMemo } from "react";
 import Image from "next/image";
-import { Input, Space, message, Modal, ConfigProvider } from "antd";
+import { Input, Space, Modal, ConfigProvider } from "antd";
 import { SearchOutlined } from "@ant-design/icons";
 import CustomTable from "@/components/ui/CustomTable";
 import { getColumns } from "./ColumnTable";
@@ -26,6 +26,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
+import { useToast } from "@/components/ui/Toast";
 
 interface MenuTreeItem {
     id: string;
@@ -104,7 +105,7 @@ const DraggableRow = ({ children, ...props }: DraggableRowProps) => {
 export default function PermissionsTable({ raw, onRefresh }: PermissionsTableProps) {
     const [searchText, setSearchText] = useState("");
     const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
-    const [messageApi, messageContext] = message.useMessage();
+    const { showSuccess, showError } = useToast();
     const router = useRouter();
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isAddSubModalOpen, setIsAddSubModalOpen] = useState(false);
@@ -214,7 +215,7 @@ export default function PermissionsTable({ raw, onRefresh }: PermissionsTablePro
 
         // Ensure they have the same parent (or both are root)
         if (activeNode.parent_id !== overNode.parent_id) {
-            messageApi.warning("Chỉ có thể sắp xếp các menu cùng cấp");
+            showError("Chỉ có thể sắp xếp các menu cùng cấp");
             return;
         }
 
@@ -245,13 +246,13 @@ export default function PermissionsTable({ raw, onRefresh }: PermissionsTablePro
             });
 
             if (res.success) {
-                messageApi.success("Sắp xếp chức năng thành công");
+                showSuccess("Sắp xếp chức năng thành công");
                 if (onRefresh) onRefresh();
             } else {
-                messageApi.error(res.error || "Không thể sắp xếp chức năng");
+                showError(res.error || "Không thể sắp xếp chức năng");
             }
         } catch (err: any) {
-            messageApi.error(err.message || "Lỗi khi sắp xếp");
+            showError(err.message || "Lỗi khi sắp xếp");
         }
     };
 
@@ -261,13 +262,13 @@ export default function PermissionsTable({ raw, onRefresh }: PermissionsTablePro
         try {
             const res = await deletePermission(deleteId);
             if (res.success) {
-                messageApi.success("Xóa chức năng thành công");
+                showSuccess("Xóa chức năng thành công");
                 if (onRefresh) onRefresh();
             } else {
-                messageApi.error(res.error || "Không thể xóa chức năng");
+                showError(res.error || "Không thể xóa chức năng");
             }
         } catch (err: any) {
-            messageApi.error(err.message || "Đã có lỗi khi thực thi lệnh xóa");
+            showError(err.message || "Đã có lỗi khi thực thi lệnh xóa");
         } finally {
             setIsDeleting(false);
             setIsDeleteModalOpen(false);
@@ -278,7 +279,6 @@ export default function PermissionsTable({ raw, onRefresh }: PermissionsTablePro
     return (
         <ModalThemeProvider>
             <div className="w-full h-full flex flex-col">
-                {messageContext}
 
                 {/* Header section matching exact design */}
                 <div className="flex justify-between items-start mb-2 shrink-0">

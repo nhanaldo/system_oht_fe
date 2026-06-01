@@ -88,3 +88,16 @@ export async function logoutAction() {
     
     redirect("/login");
 }
+
+
+// lưu id của warehouse vào cookie
+export async function setWarehouseIdAction(warehouseId: string) {
+    const cookieStore = await cookies();
+    cookieStore.set("selectedWarehouseId", warehouseId, {
+        httpOnly: false,
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 60 * 60 * 24 * 7
+    });
+}

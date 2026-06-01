@@ -82,10 +82,13 @@ export default function FormItemController<TFieldValues extends FieldValues = Fi
                         style={style}
                         className="relative mb-0"
                     >
-                        {/* chứa ô input  */}
+                        {/* chứa ô input  classname là thông báo lỗi khi người dùng nhập sai và khong reload trang  */}
                         {render(restField as ControllerRenderProps<TFieldValues>)}
                         {fieldState.error && (
-                            <div className="absolute top-full left-5 text-[#ff4d4f] h-[14px] leading-[14px] text-[12px] mt-1 font-normal">
+                            <div 
+                                className="absolute top-full !left-0 text-[#ff4d4f] h-[14px] leading-[14px] text-[12px] mt-1 font-normal"
+                                style={{ left: "0px" }}
+                            >
                                 {fieldState.error.message}
                             </div>
                         )}

@@ -2,20 +2,20 @@
 
 import { api } from '@/app/(app)/actions/api';
 
-export async function getResources(params?: { page?: number; limit?: number }) {
+export async function getResources(params?: { page?: number; limit?: number; search?: string }) {
     try {
         const query = new URLSearchParams();
         query.set('page', String(params?.page ?? 1));
         query.set('limit', String(params?.limit ?? 100));
-        const data = await api<any>(`resource?${query.toString()}`, {
+        if (params?.search) query.set('search', params.search);
+        return await api<any>(`resource?${query.toString()}`, {
             method: 'GET',
             headers: { 'Content-Type': 'application/json' },
             next: { revalidate: 0 },
         });
-        return { success: true, data };
     } catch (error: any) {
         if (error?.digest?.startsWith('NEXT_REDIRECT')) throw error;
-        return { success: false, error: error.message || 'Failed to fetch resources' };
+        throw error;
     }
 }
 

@@ -1,6 +1,6 @@
 'use server';
 
-import { updateTag } from 'next/cache';
+import { revalidateTag } from 'next/cache';
 import { cookies } from 'next/headers';
 import { api } from '@/app/(app)/actions/api';
 import { AccountFilterParams, AccountAddParams } from '@/types/account';
@@ -56,7 +56,7 @@ export async function getCurrentAccountProfile() {
         const cookieStore = await cookies();
         const accountId = cookieStore.get("accountId")?.value;
         if (!accountId) {
-             return { success: false, error: 'No account ID found' };
+            return { success: false, error: 'No account ID found' };
         }
         return await api(`/accounts/${accountId}/profile`, {
             method: 'GET',
@@ -86,8 +86,7 @@ export async function updateAccountProfile(id: string, body: { name?: string, av
                 body: JSON.stringify(body),
             }
         );
-
-        updateTag('accounts');
+        revalidateTag('accounts', 'max');
         return { success: true, data };
     } catch (error: any) {
         if (error?.digest?.startsWith('NEXT_REDIRECT')) throw error;
@@ -148,7 +147,7 @@ export async function addAccount(body: AccountAddParams) {
             }
         );
 
-        updateTag('accounts');
+        revalidateTag('accounts', 'max');
         return { success: true, data };
     } catch (error: any) {
         if (error?.digest?.startsWith('NEXT_REDIRECT')) throw error;
@@ -156,7 +155,7 @@ export async function addAccount(body: AccountAddParams) {
     }
 }
 
-export async function deleteAccount(ids: string | string[]) {
+export async function deleteAccount(ids: string | string[]) {// string xóa 1 hoặc nhiều 
     try {
         const idList = Array.isArray(ids) ? ids : [ids];
 
@@ -170,7 +169,7 @@ export async function deleteAccount(ids: string | string[]) {
             )
         );
 
-        updateTag('accounts');
+        revalidateTag('accounts', 'max');
         return { success: true, data: results };
     } catch (error: any) {
         if (error?.digest?.startsWith('NEXT_REDIRECT')) throw error;
@@ -191,7 +190,7 @@ export async function updateAccountStatus(id: string, isActive: boolean) {
             }
         );
 
-        updateTag('accounts');
+        revalidateTag('accounts', 'max');
         return { success: true, data };
     } catch (error: any) {
         if (error?.digest?.startsWith('NEXT_REDIRECT')) throw error;
@@ -212,7 +211,7 @@ export async function updateAccount(id: string, body: any) {
             }
         );
 
-        updateTag('accounts');
+        revalidateTag('accounts', 'max');
         return { success: true, data };
     } catch (error: any) {
         if (error?.digest?.startsWith('NEXT_REDIRECT')) throw error;
@@ -247,7 +246,7 @@ export async function updateAccountWarehouses(id: string, warehouseIds: string[]
             }
         );
 
-        updateTag('accounts');
+        revalidateTag('accounts', 'max');
         return { success: true, data };
     } catch (error: any) {
         if (error?.digest?.startsWith('NEXT_REDIRECT')) throw error;

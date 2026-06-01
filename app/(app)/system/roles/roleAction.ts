@@ -1,6 +1,6 @@
 'use server';
 
-import { updateTag } from 'next/cache';
+import { revalidateTag } from 'next/cache';
 import { api } from '@/app/(app)/actions/api';
 import { RoleFilterParams, RoleResponse, Role, RoleAddParams } from '@/types/role';
 
@@ -43,7 +43,7 @@ export async function addRole(body: RoleAddParams) {
                 body: JSON.stringify(body),
             }
         );
-        updateTag('roles');
+        revalidateTag('roles', 'max');
         return { success: true, data };
     } catch (error: any) {
         if (error?.digest?.startsWith('NEXT_REDIRECT')) throw error;
@@ -65,7 +65,7 @@ export async function deleteRole(ids: string | string[]) {
             )
         );
 
-        updateTag('roles');
+        revalidateTag('roles', 'max');
         return { success: true, data: results };
     } catch (error: any) {
         if (error?.digest?.startsWith('NEXT_REDIRECT')) throw error;
@@ -82,7 +82,7 @@ export async function updateRole(id: string, body: { name: string; description?:
             },
             body: JSON.stringify(body),
         });
-        updateTag('roles');
+        revalidateTag('roles', 'max');
         return { success: true, data };
     } catch (error: any) {
         if (error?.digest?.startsWith('NEXT_REDIRECT')) throw error;
@@ -116,7 +116,7 @@ export async function syncRolePermissions(id: string, permissionIds: string[]) {
             },
             body: JSON.stringify({ permission_ids: permissionIds }),
         });
-        updateTag('roles');
+        revalidateTag('roles', 'max');
         return { success: true, data };
     } catch (error: any) {
         if (error?.digest?.startsWith('NEXT_REDIRECT')) throw error;

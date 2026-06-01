@@ -5,7 +5,7 @@ import Image from "next/image";
 import { loginAction } from "@/app/(app)/actions/authAction";
 import { useRouter } from "next/navigation";
 import { log } from "console";
-import { App } from 'antd'; // Import App
+import { useToast } from "@/components/ui/Toast";
 
 export default function LoginForm() {
     const [showPassword, setShowPassword] = useState(false);
@@ -14,7 +14,7 @@ export default function LoginForm() {
     const [errors, setErrors] = useState({ username: "", password: "", general: "" });
     const [isLoading, setIsLoading] = useState(false);
     const router = useRouter();
-    const { message } = App.useApp()
+    const { showSuccess, showError } = useToast();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -41,7 +41,7 @@ export default function LoginForm() {
                 if (result.success) {
                     // Chuyển hướng khi đăng nhập thành công
                     router.push("/home"); // Thay bằng route trang chủ thực tế của bạn
-                    message.success("Đăng nhập thành công");
+                    showSuccess("Đăng nhập thành công");
                 } else {
                     console.log("Đăng nhập thất bại", result);
                     setErrors({ ...newErrors, general: result.error || "Đăng nhập thất bại" });

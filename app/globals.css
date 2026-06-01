@@ -1,11 +1,91 @@
 @import "tailwindcss";
 @import "overlayscrollbars/overlayscrollbars.css";
 
+html {
+    margin: 0;
+    padding: 0;
+}
+
 body {
+    margin: 0;
+    padding: 0;
     background-color: #f8fafc;
     color: #0f172a;
     font-family: system-ui, -apple-system, sans-serif;
 }
+
+/* ===== Custom Toast Notification ===== */
+/* .ant-message {
+    position: fixed !important;
+    top: 24px !important;
+    right: 24px !important;
+    left: auto !important;
+    width: auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-end !important;
+}
+*/
+.custom-toast-notice .ant-message-notice-content {
+    padding: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+/* Override Ant default animations for custom toast */
+.custom-toast-notice.ant-move-up-enter,
+.custom-toast-notice.ant-move-up-appear {
+    animation: toast-slide-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+}
+
+.custom-toast-notice.ant-move-up-leave {
+    animation: toast-fade-out 0.3s ease forwards !important;
+}
+
+@keyframes toast-slide-in {
+
+    /* Trạng thái bắt đầu */
+    0% {
+        /* ẩn bên ngoài và trong suốt */
+        transform: translateX(-100%);
+        opacity: 0;
+    }
+
+    /* Trạng thái kết thúc */
+    100% {
+        /* Phần tử lướt về lại đúng vị trí ban đầu của nó. */
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes toast-fade-out {
+    0% {
+        transform: translateX(0);
+        opacity: 1;
+    }
+
+    100% {
+        transform: translateX(-50px);
+        opacity: 0;
+    }
+}
+
+.ant-message-notice-wrapper {
+    padding: 0 !important;
+}
+
+.ant-message-custom-content {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0 !important;
+}
+
+/* Ẩn icon mặc định của Ant Design message */
+.ant-message-custom-content>.anticon {
+    display: none !important;
+}
+
 
 /* magin cho popup logout  */
 .custom-logout-popconfirm .ant-popconfirm-message {
@@ -17,14 +97,17 @@ body {
     margin-right: 8px !important;
 }
 
-/*thêm mới account trong modal*/
-
+.ant-collapse-panel.ant-collapse-panel-active {
+    border-top: 0px;
+}
 
 /* Remove default margin and padding from modal header */
 .ant-modal-header {
     margin-bottom: 0 !important;
     padding: 0 !important;
 }
+
+/* Xóa bo góc và viền kép tiếp giáp giữa header và body khi mở rộng Collapse panel */
 
 /* màu của nút đóng */
 .ant-modal-close-x {
@@ -63,12 +146,32 @@ body {
     padding: 0 !important;
 }
 
-.ant-form-item-control-input-content {
-    width: 520px !important;
-    height: 40px !important;
+.ant-form-item-control-input-content,
+.ant-form-item-control-input {
+    min-height: 40px;
+    width: 100%;
+}
+
+/* Responsive Modal Styles */
+.responsive-modal {
+    max-width: 95vw !important;
+}
+
+@media (max-width: 768px) {
+    .responsive-modal .ant-modal-content {
+        padding: 16px 16px 24px 16px !important;
+    }
+
+    .ant-form-item-label {
+        padding-bottom: 4px !important;
+    }
 }
 
 
+
+.ant-col.ant-form-item-label.css-dev-only-do-not-override-tql0nm.css-var-_r_1s_ {
+    padding-bottom: 0px !important;
+}
 
 /* ===== HEADER ===== */
 .fixed-layout-table .ant-table-container,
@@ -126,8 +229,8 @@ body {
     background-color: #ffffff !important;
     margin: 0 !important;
     padding: 8px 16px !important;
-    border-top: 1px solid #f0f0f0 !important;
     width: 100% !important;
+    min-width: 0 !important;
 }
 
 .fixed-layout-table .ant-pagination-total-text {
@@ -135,9 +238,23 @@ body {
     font-size: 14px !important;
     color: #404040 !important;
     font-family: 'Roboto', sans-serif !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    min-width: 0 !important;
 }
 
 /* Nút Prev/Next và số trang */
+.fixed-layout-table .ant-pagination-prev,
+.fixed-layout-table .ant-pagination-next {
+    min-width: 34px !important;
+    width: 34px !important;
+    height: 34px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
 .fixed-layout-table .ant-pagination-prev .ant-pagination-item-link,
 .fixed-layout-table .ant-pagination-next .ant-pagination-item-link,
 .fixed-layout-table .ant-pagination-item {
@@ -148,11 +265,96 @@ body {
     border-radius: 6px !important;
     background-color: #ffffff !important;
     min-width: 34px !important;
+    width: 34px !important;
     height: 34px !important;
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
     transition: all 0.3s !important;
+}
+
+/* Tùy chỉnh ô nhập số trang (quick jumper) bằng kích thước với nút số 1 */
+.fixed-layout-table .ant-pagination-options-quick-jumper {
+    display: inline-flex !important;
+    align-items: center !important;
+    height: 34px !important;
+    font-size: 14px !important;
+    font-family: 'Roboto', sans-serif !important;
+    color: #404040 !important;
+    margin-inline-start: 12px !important;
+}
+
+.fixed-layout-table .ant-pagination-options-quick-jumper input {
+    border: 1px solid #d9d9d9 !important;
+    font-size: 14px !important;
+    font-family: 'Roboto', sans-serif !important;
+    font-weight: 400 !important;
+    border-radius: 6px !important;
+    background-color: #ffffff !important;
+    width: 34px !important;
+    height: 34px !important;
+    text-align: center !important;
+    padding: 0 !important;
+    margin: 0 8px !important;
+    outline: none !important;
+    transition: all 0.3s !important;
+    box-sizing: border-box !important;
+}
+
+.fixed-layout-table .ant-pagination-options-quick-jumper input:hover,
+.fixed-layout-table .ant-pagination-options-quick-jumper input:focus {
+    border-color: #076EB8 !important;
+}
+
+/* Tùy chỉnh bộ chọn kích thước trang (size changer) đồng bộ chiều cao 34px */
+.fixed-layout-table .ant-pagination-options-size-changer .ant-select-selector {
+    height: 34px !important;
+    padding: 0 8px !important;
+    border-radius: 6px !important;
+    display: flex !important;
+    align-items: center !important;
+    border-color: #d9d9d9 !important;
+}
+
+.fixed-layout-table .ant-pagination-options-size-changer .ant-select-selector:hover,
+.fixed-layout-table .ant-pagination-options-size-changer .ant-select-selector:focus {
+    border-color: #076EB8 !important;
+}
+
+/* Responsive Pagination for Smaller Viewports */
+@media (max-width: 768px) {
+
+    .fixed-layout-table .ant-table-wrapper .ant-pagination,
+    .fixed-layout-table .ant-pagination {
+        padding: 0px 4px !important;
+        gap: 2px !important;
+    }
+
+    .fixed-layout-table .ant-pagination-total-text {
+        font-size: 12px !important;
+        max-width: 100px !important;
+    }
+
+    .fixed-layout-table .ant-pagination-prev,
+    .fixed-layout-table .ant-pagination-next {
+        min-width: 20px !important;
+        width: 20px !important;
+        height: 20px !important;
+    }
+
+    .fixed-layout-table .ant-pagination-prev .ant-pagination-item-link,
+    .fixed-layout-table .ant-pagination-next .ant-pagination-item-link,
+    .fixed-layout-table .ant-pagination-item {
+        min-width: 20px !important;
+        width: 20px !important;
+        height: 20px !important;
+        font-size: 10px !important;
+        border-radius: 4px !important;
+    }
+
+    .fixed-layout-table .ant-pagination-options {
+        display: none !important;
+    }
 }
 
 /* Trạng thái Active và Hover khớp với màu theme của chuyển trang  */
@@ -196,8 +398,277 @@ body {
     background-color: #fafafa;
 }
 
-/*  chiều dài thanh cuộn scoll */
-.os-scrollbar-handle {
+/*  chiều rộng (độ dày) thanh cuộn scroll */
+.os-scrollbar-vertical .os-scrollbar-handle {
     width: 8px !important;
+}
+
+.os-scrollbar-horizontal .os-scrollbar-handle {
+    height: 8px !important;
+}
+
+.os-scrollbar-handle {
     background-color: #d9d9d9 !important;
+    border-radius: 4px !important;
+}
+
+/* Đưa thanh cuộn sát rạt mép bên phải và bên dưới của workflow steps*/
+.os-scrollbar {
+    padding: 0 !important;
+}
+
+.os-scrollbar-vertical {
+    right: 0 !important;
+    width: 8px !important;
+}
+
+.os-scrollbar-horizontal {
+    bottom: 0 !important;
+    height: 8px !important;
+}
+
+
+
+
+/* Tránh scrollbar đè lên header của permission table */
+.permission-scroll-container .os-scrollbar-vertical {
+    top: 42px !important;
+}
+
+.permission-table .ant-table-thead>tr>th {
+    background-color: #076EB8 !important;
+    color: white !important;
+    font-weight: 400 !important;
+    font-size: 16px !important;
+    padding: 8px 12px !important;
+    border-inline-end: none !important;
+    border-right: none !important;
+}
+
+.permission-table .ant-table-thead>tr>th.ant-table-cell-scrollbar {
+    background-color: #076EB8 !important;
+    box-shadow: none !important;
+}
+
+/* td.ant-table-cell {
+    align-items: center !important;
+    justify-content: center !important;
+    display: flex !important;
+} */
+
+
+.permission-table .ant-table-measure-row {
+    display: none !important;
+}
+
+.permission-table .ant-table-thead>tr>th::before {
+    display: none !important;
+}
+
+.permission-table .ant-table-tbody>tr.parent-row {
+    background-color: #EAF6FF !important;
+    font-weight: 500 !important;
+    font-size: 14px !important;
+}
+
+.permission-table .ant-table-tbody>tr.parent-row td {
+    background-color: #EAF6FF !important;
+    border-inline-end: none !important;
+    border-right: none !important;
+}
+
+.permission-table .ant-table-tbody>tr>td {
+    padding: 6px 12px !important;
+    vertical-align: middle !important;
+}
+
+@media (max-width: 768px) {
+    .mobile-title {
+        display: none !important;
+    }
+}
+
+@media (max-width: 1024px) {
+    .mobile-warehouse-name {
+        display: none !important;
+    }
+}
+
+/* Tùy chỉnh OverlayScrollbars để thanh cuộn lơ lửng */
+.os-theme-dark.os-theme-hover {
+    --os-handle-bg: rgba(0, 0, 0, 0.2);
+    --os-handle-bg-hover: rgba(0, 0, 0, 0.3);
+    --os-handle-bg-active: rgba(0, 0, 0, 0.4);
+}
+
+/* Sửa lỗi tràn thẻ (tag overflow) của Ant Design Select mode multiple */
+.ant-select-multiple {
+    height: auto !important;
+    min-height: 40px;
+
+}
+
+.ant-select-multiple .ant-select-selector {
+    height: auto !important;
+    min-height: 40px !important;
+    padding-top: 3px !important;
+    padding-bottom: 3px !important;
+    align-items: center !important;
+}
+
+/* Xóa viền focus (khoảng trắng/viền thừa) khi Alt + Tab hoặc quay lại trang cho Segmented */
+.ant-segmented,
+.ant-segmented *,
+.ant-segmented *:focus,
+.ant-segmented *:focus-visible,
+.ant-segmented *:focus-within,
+.ant-segmented *::after,
+.ant-segmented *::before,
+.ant-segmented-item::after,
+.ant-segmented-item::before {
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+/* Xóa viền focus của Ant Design Switch */
+.ant-switch,
+.ant-switch:focus,
+.ant-switch:focus-visible,
+.ant-switch:focus-within {
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+/* Màu chữ trong các tùy chọn Select dropdown popup */
+.ant-select-item-option-content {
+    color: #545454 !important;
+}
+
+/* .ant-table-cell {
+    /* text-align: center; */
+/* display: flex;
+height: 100vh;
+align-items: center;
+justify-content: center;
+} */
+
+/* Tự động căn giữa cụm nút Hành động của cột cuối cùng (sử dụng ant-space) */
+.fixed-layout-table .ant-table-tbody>tr>td:last-child .ant-space {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+.ant-segmented-item-label {
+    height: 35px !important;
+
+}
+
+/* Mặc định giới hạn chiều cao menu xổ xuống tránh bị bung toàn màn hình */
+.rc-virtual-list-holder {
+    max-height: 250px !important;
+    overflow-y: auto !important;
+}
+
+/* KHI MENU ĐƯỢC BỌC BỞI OverlayScrollbarsComponent: 
+   Tắt thanh cuộn mặc định bên trong để tránh lỗi "scroll đè scroll" */
+/* .os-viewport .rc-virtual-list-holder {
+    max-height: none !important;
+    overflow: hidden !important;
+} */
+
+/* Bỏ padding cho hàng mở rộng (expanded row) */
+.no-padding-expanded-row>td.ant-table-cell {
+    padding: 0 !important;
+}
+
+/* Padding 6px cho checkbox ở bảng con */
+.nested-child-table .ant-table-selection-column {
+    width: 40px !important;
+}
+
+/* Custom header cho bảng con */
+.nested-child-table .ant-table-thead>tr>th {
+    background-color: #e8f4ff !important;
+    color: #076eb8 !important;
+    font-size: 16px !important;
+    font-weight: 400 !important;
+}
+
+/* Làm đẹp thanh cuộn mặc định (native scrollbar) cho các menu xổ xuống (Select, Dropdown) */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* Custom Ant Design Sidebar Submenu Down Chevron */
+.ant-menu-submenu-arrow {
+    color: #1378C0 !important;
+}
+
+/* Hide the submenu down chevron when the sidebar is shrunk on smaller screens */
+@media (max-width: 1024px) {
+    .ant-menu-submenu-arrow {
+        display: none !important;
+    }
+}
+
+/* ==========================================================================
+   CUSTOM APP FULLSCREEN MODE
+   ========================================================================== */
+.app-fullscreen-mode .ant-layout-header,
+.app-fullscreen-mode header,
+.app-fullscreen-mode .ant-layout-sider,
+.app-fullscreen-mode .ant-layout-footer {
+    display: none !important;
+}
+
+.app-fullscreen-mode .ant-layout {
+    height: 100vh !important;
+    width: 100vw !important;
+}
+
+/* Scoped layout overrides for main content wrapper */
+.app-fullscreen-mode .mobile-content-padding {
+    padding: 16px !important;
+    margin: 0 !important;
+    background: rgb(241, 245, 249) !important;
+}
+
+/* Ensure the direct child container has a premium white background, 20px border radius, and overflow hidden */
+.app-fullscreen-mode .mobile-content-padding>div {
+    background: #ffffff !important;
+    border-radius: 10px !important;
+    overflow: hidden !important;
+    border: none !important;
+}
+
+/* Hide warehouse static view page headers */
+.app-fullscreen-mode .mobile-content-padding h2.shrink-0 {
+    display: none !important;
+}
+
+/* Preserve the premium map container's border, shadow, background, and rounded corners in fullscreen */
+.app-fullscreen-mode .mobile-content-padding .border-\[\#D6E4F0\] {
+    border: 1px solid #D6E4F0 !important;
+    border-radius: 10px !important;
+    background-color: #F8FCFF !important;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
+}
+
+.app-fullscreen-mode .mobile-content-padding .rounded-xl {
+    border-radius: 20px !important;
 }

@@ -2,7 +2,7 @@
 
 import { api } from '@/app/(app)/actions/api';
 
-import { updateTag } from 'next/cache';
+import { revalidateTag } from 'next/cache';
 import fs from 'fs';
 import path from 'path';
 
@@ -37,8 +37,9 @@ export async function addPermission(body: any) {
                 body: JSON.stringify(body),
             }
         );
+        console.log("data", data);
 
-        updateTag('menu-tree');
+        revalidateTag('menu-tree', 'max');
         return { success: true, data };
     } catch (error: any) {
         if (error?.digest?.startsWith('NEXT_REDIRECT')) throw error;
@@ -59,7 +60,7 @@ export async function updatePermission(id: string, body: any) {
             }
         );
 
-        updateTag('menu-tree');
+        revalidateTag('menu-tree', 'max');
         return { success: true, data };
     } catch (error: any) {
         if (error?.digest?.startsWith('NEXT_REDIRECT')) throw error;
@@ -94,7 +95,7 @@ export async function deletePermission(id: string) {
             }
         );
 
-        updateTag('menu-tree');
+        revalidateTag('menu-tree', 'max');
         return { success: true, data };
     } catch (error: any) {
         if (error?.digest?.startsWith('NEXT_REDIRECT')) throw error;
@@ -132,7 +133,7 @@ export async function reorderMenu(body: { menu_id: string; new_order_number: num
             }
         );
 
-        updateTag('menu-tree');
+        revalidateTag('menu-tree', 'max');
         return { success: true, data };
     } catch (error: any) {
         if (error?.digest?.startsWith('NEXT_REDIRECT')) throw error;
