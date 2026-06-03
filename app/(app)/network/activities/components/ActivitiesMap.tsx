@@ -108,7 +108,25 @@ const ActivitiesMapInner: React.FC<ActivitiesMapInnerProps> = ({
                     <Tooltip title={isFullscreen ? "Thoát toàn màn hình" : "Toàn màn hình"}>
                         <button
                             type="button"
-                            onClick={() => setIsFullscreen(!isFullscreen)}
+                            onClick={() => {
+                                if (!document.fullscreenElement) {
+                                    document.documentElement.requestFullscreen().then(() => {
+                                        setIsFullscreen(true);
+                                    }).catch((err) => {
+                                        console.error(`Error attempting to enable fullscreen: ${err.message}`);
+                                        setIsFullscreen(true); // Fallback to CSS-only fullscreen
+                                    });
+                                } else {
+                                    if (document.exitFullscreen) {
+                                        document.exitFullscreen().then(() => {
+                                            setIsFullscreen(false);
+                                        }).catch(err => {
+                                            console.error(err);
+                                            setIsFullscreen(false);
+                                        });
+                                    }
+                                }
+                            }}
                             className="flex items-center justify-center w-[32px] h-[32px] rounded-lg border border-[rgba(3,103,204,0.3)] hover:border-[#076eb8] text-[#076eb8] hover:bg-[#e6f4ff] transition-all bg-white cursor-pointer shadow-sm active:scale-95 outline-none focus:outline-none"
                         >
                             {isFullscreen ? <FullscreenExitOutlined className="text-[16px]" /> : <FullscreenOutlined className="text-[16px]" />}
@@ -143,6 +161,22 @@ export default function ActivitiesMap() {
     useEffect(() => {
         selectedIdRef.current = selectedWarehouseId;
     }, [selectedWarehouseId]);
+
+    // Lắng nghe sự kiện thoát fullscreen bằng phím Esc
+    useEffect(() => {
+        const handleFullscreenChange = () => {
+            if (!document.fullscreenElement) {
+                setIsFullscreen(false);
+            } else {
+                setIsFullscreen(true);
+            }
+        };
+
+        document.addEventListener('fullscreenchange', handleFullscreenChange);
+        return () => {
+            document.removeEventListener('fullscreenchange', handleFullscreenChange);
+        };
+    }, []);
 
     // Đồng bộ class toàn màn hình lên thẻ root HTML
     useEffect(() => {

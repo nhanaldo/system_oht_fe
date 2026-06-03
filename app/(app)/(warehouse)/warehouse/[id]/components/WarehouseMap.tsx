@@ -698,6 +698,10 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ showDevices = false }) => {
                 >
                   <div className="font-bold text-[#076eb8] border-b border-[#E8F2FA] pb-1 mb-1 ">{hoveredArea.code}</div>
                   <div className="flex items-center justify-between gap-2">
+                    <span className="text-[#888888] ">Vị trí:</span>
+                    <span className="text-[#545454] font-semibold">{code}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
                     <span className="text-[#888888] ">Mã QR:</span>
                     <span className="text-[#545454] font-semibold">{qrCode}</span>
                   </div>
@@ -844,23 +848,21 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ showDevices = false }) => {
                     alignItems: 'center',
                     justifyContent: 'center',
                     zIndex: (hoveredDeviceId === device.id || pinnedDeviceId === device.id) ? 200 : finalZIndex,
-
-                    pointerEvents: 'auto',
-                    cursor: 'pointer',
-                  }}
-                  onMouseEnter={() => setHoveredDeviceId(device.id)}
-                  onMouseLeave={() => { if (pinnedDeviceId !== device.id) setHoveredDeviceId(null); }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setPinnedDeviceId(prev => prev === device.id ? null : device.id);
+                    pointerEvents: 'none',
                   }}
                 >
                   {/* Icon Shuttle/Lifter */}
                   <img
                     src={`/svgMap/${iconName}`}
                     className="w-[30px] h-[20px] object-contain relative z-30"
-
                     alt={device.code}
+                    style={{ pointerEvents: 'auto', cursor: 'pointer' }}
+                    onMouseEnter={() => setHoveredDeviceId(device.id)}
+                    onMouseLeave={() => { if (pinnedDeviceId !== device.id) setHoveredDeviceId(null); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPinnedDeviceId(prev => prev === device.id ? null : device.id);
+                    }}
                   />
 
                   {/* Tooltip khi hover hoặc khi đã pin (click) */}

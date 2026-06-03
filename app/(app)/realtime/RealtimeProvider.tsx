@@ -22,6 +22,7 @@ let globalSocket: Socket | null = null;
 
 export const RealtimeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [socket, setSocket] = useState<Socket | null>(null);
+  // 1. Chạy logic kết nối Socket
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
@@ -99,6 +100,7 @@ export const RealtimeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   return (
     <RealtimeContext.Provider value={{ socket, isConnected }}>
+      {/* 3. Đặt các component con (children) vào bên trong vùng phủ sóng */}
       {children}
     </RealtimeContext.Provider>
   );
