@@ -689,14 +689,38 @@ export async function deleteWarehouse(id: string) {
     }
 }
 
-export async function findAllDevices(params?: { search?: string, page?: number, limit?: number }) {
+// export async function findAllDevices(params?: { search?: string, page?: number, limit?: number }) {
+//     try {
+//         const query = new URLSearchParams();
+//         if (params?.search) query.set('search', params.search);
+//         if (params?.page) query.set('page', params.page.toString());
+//         if (params?.limit) query.set('limit', params.limit.toString());
+
+//         const url = query.toString() ? `/device?${query.toString()}` : '/device';
+
+//         const data = await api(
+//             url,
+//             {
+//                 method: 'GET',
+//                 headers: {
+//                     'Content-Type': 'application/json',
+//                 },
+//             }
+//         );
+//         return data;
+//     } catch (error: any) {
+//         if (error?.digest?.startsWith('NEXT_REDIRECT')) throw error;
+//         return { error: error?.message || 'Failed to get devices' };
+//     }
+// }
+
+export async function getLocations(warehouseId: string, params?: { page?: number, limit?: number }) {
     try {
         const query = new URLSearchParams();
-        if (params?.search) query.set('search', params.search);
         if (params?.page) query.set('page', params.page.toString());
         if (params?.limit) query.set('limit', params.limit.toString());
 
-        const url = query.toString() ? `/device?${query.toString()}` : '/device';
+        const url = query.toString() ? `/warehouse/${warehouseId}/locations?${query.toString()}` : `/warehouse/${warehouseId}/locations`;
 
         const data = await api(
             url,
@@ -710,6 +734,6 @@ export async function findAllDevices(params?: { search?: string, page?: number, 
         return data;
     } catch (error: any) {
         if (error?.digest?.startsWith('NEXT_REDIRECT')) throw error;
-        return { error: error?.message || 'Failed to get devices' };
+        return { error: error?.message || 'Failed to get locations' };
     }
 }

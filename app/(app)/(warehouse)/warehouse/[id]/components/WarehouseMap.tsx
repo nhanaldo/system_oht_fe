@@ -15,14 +15,25 @@ const CELL_SIZE = 30;
  * Xử lý các logic: vẽ map, zoom, pan, select cells
  */
 // Ngay đầu Component, nó sử dụng hook useWarehouseConfig() để lấy ra các State và các hàm cập nhật từ Context:
-const WarehouseMap: React.FC = () => {
+interface WarehouseMapProps {
+  showDevices?: boolean;
+}
+
+const WarehouseMap: React.FC<WarehouseMapProps> = ({ showDevices = false }) => {
   const {
     activeTab, selectedCells, setSelectedCells, scale, setScale,
     nodes, floors, areas, getTakenCells, positionItems, initialEditingKeys,
     images, rows, columns, updateArea, editingId, setEditingId, setInitialEditingKeys,
     posDirections, posName, posQrCode, currentWarehouseFloorId, allProducts, categories,
-    setActiveTab, readOnly, allDevices, allDeviceTypes
+    setActiveTab, readOnly, allDevices, allDeviceTypes, allLocations
   } = useWarehouseConfig();
+
+  useEffect(() => {
+    if (readOnly && showDevices) {
+      // console.log("Nodes with qrCode:", Object.values(nodes).filter(n => n.qrCode).map(n => ({ key: n.key, name: n.name, qrCode: n.qrCode })));
+      // console.log("All devices:", allDevices.map(d => ({ code: d.code, metadata: d.metadata })));
+    }
+  }, [nodes, allDevices, readOnly, showDevices]);
 
   const scrollContainerRef = React.useRef<HTMLDivElement>(null);// Khung cuộn bản đồ
   const containerRef = React.useRef<HTMLDivElement>(null);// Vùng chứa bản đồ (dùng tính tọa độ chuột)
@@ -38,10 +49,13 @@ const WarehouseMap: React.FC = () => {
 
   const [visibleRange, setVisibleRange] = useState({
     rStart: 0, rEnd: 30,
-    cStart: 0, cEnd: 40
+    cStart: 0, cEnd: 40,
   });
 
   const [hoveredCell, setHoveredCell] = useState<string | null>(null);
+  const [hoveredDeviceId, setHoveredDeviceId] = useState<string | null>(null);
+  const [pinnedDeviceId, setPinnedDeviceId] = useState<string | null>(null);// gim khi onclick
+
 
   //Tính toán sơ bộ toạ độ bằng useMemo (Dòng 47 - 121)
   //Trước khi vẽ, bản đồ cần biết nhanh toạ độ nào thuộc về tầng nào hoặc khu vực nào. 
@@ -243,7 +257,7 @@ const WarehouseMap: React.FC = () => {
     }
   }, [editingId]); // Only trigger when we start editing a new item
 
-
+  //Sử dụng requestAnimationFrame để giới hạn tần suất vẽ lại Canvas tối đa bằng tần số quét màn hình (60 FPS), loại bỏ lag.
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -335,6 +349,21 @@ const WarehouseMap: React.FC = () => {
         if (imgName && images[imgName]) {
           ctx.drawImage(images[imgName], c * CELL_SIZE, r * CELL_SIZE, CELL_SIZE, CELL_SIZE);
         }
+
+        // hiển thị location lên map 
+        if (readOnly && showDevices && allLocations && allLocations.length > 0 && nodeConfig) {
+          const hasOccupiedGoods = allLocations.some(loc => {
+            const matchesNode = loc.node_id && nodeConfig.nodeId && loc.node_id.trim().toUpperCase() === nodeConfig.nodeId.trim().toUpperCase();
+            const matchesQr = loc.qrcode && nodeConfig.qrCode && loc.qrcode.trim().toUpperCase() === nodeConfig.qrCode.trim().toUpperCase();
+            const matchesZone = nodeConfig.areaType === 'storage';
+            return (matchesNode || matchesQr) && matchesZone && loc.is_occupied;
+          });
+          if (hasOccupiedGoods && images['goods.svg']) {
+            const iconSize = 20;
+            const offset = (CELL_SIZE - iconSize) / 2;
+            ctx.drawImage(images['goods.svg'], c * CELL_SIZE + offset, r * CELL_SIZE + offset, iconSize, iconSize);
+          }
+        }
       }
     }
 
@@ -359,7 +388,7 @@ const WarehouseMap: React.FC = () => {
         ctx.stroke();
       }
     }
-  }, [visibleRange, selectedCells, activeTab, floorNodes, areaNodes, nodeMap, areaMap, cellToAreaMap, cellToPositionItemMap, positionItemByKeyMap, storageAreas, images, scale, editingId, initialEditingKeys, rows, columns, posDirections, posName, posQrCode]);
+  }, [visibleRange, selectedCells, activeTab, floorNodes, areaNodes, nodeMap, areaMap, cellToAreaMap, cellToPositionItemMap, positionItemByKeyMap, storageAreas, images, scale, editingId, initialEditingKeys, rows, columns, posDirections, posName, posQrCode, allLocations, allDevices, showDevices]);
 
   /**
    * Bắt đầu sự kiện kéo chuột (drag) để chọn nhiều ô
@@ -617,8 +646,8 @@ const WarehouseMap: React.FC = () => {
               </div>
             )} */}
 
-            {/* Static Labels for Storage Areas (Only in Area tab or readOnly, hide when hovering/interacting) */}
-            {(activeTab === 'area' || readOnly) && !hoveredCell && !selectionStateRef.current.isSelecting && storageAreas.map(area => {
+            {/* Hiển thị tên khu vực và sản phẩm đối với giám sát hoạt động thì ko hiển thị && !showDevices */}
+            {(activeTab === 'area' || (readOnly && !showDevices)) && !hoveredCell && !selectionStateRef.current.isSelecting && storageAreas.map(area => {
               const product = allProducts?.find(p => p.id?.toString() === area.product_id?.toString());
               const category = product ? categories?.find(c => c.id?.toString() === product.category_id?.toString()) : null;
 
@@ -637,111 +666,338 @@ const WarehouseMap: React.FC = () => {
                     whiteSpace: 'nowrap'
                   }}
                 >
-                  <span className="text-[#076EB8] text-[12px] font-bold leading-tight">{productLabel}</span>
+                  <span className="text-[#076eb8] text-[12px] font-bold leading-tight">{productLabel}</span>
                 </div>
               );
             })}
 
-            {/* Hover Label (for other types or when hovering specifically) */}
-            {((hoveredNode) || (hoveredArea && hoveredArea.name && hoveredArea.name.trim() !== '')) && !selectionStateRef.current.isSelecting && (
-              <div
-                className="absolute pointer-events-none bg-[#076EB8] text-white px-2 py-1 rounded shadow-lg text-[10px] font-medium z-30 whitespace-nowrap"
-                style={{
-                  left: (hoveredCell!.split(',').map(Number)[1] * CELL_SIZE) + CELL_SIZE / 2,
-                  top: (hoveredCell!.split(',').map(Number)[0] * CELL_SIZE) - 6,
-                  transform: 'translate(-50%, -100%)'
-                }}
-              >
-                {hoveredNode ? (
-                  <div className="flex flex-col">
-                    <span>{`X: ${hoveredNode.x || 0}`}</span>
-                    <span>{`Y: ${hoveredNode.y || 0}`}</span>
-                    <span>{`Z: ${hoveredNode.z || 0}`}</span>
-                  </div>
-                ) : hoveredArea?.name}
-              </div>
-            )}
+            {/* Hover hiển thị tên khu vực chứa hàng và chi tiết vị trí */}
+            {/* {hoveredArea && hoveredArea.areaType === 'storage' && hoveredArea.code && hoveredArea.code.trim() !== '' && !selectionStateRef.current.isSelecting && (() => { */}
+            {readOnly && showDevices && hoveredArea && hoveredArea.areaType === 'storage' && hoveredArea.code && hoveredArea.code.trim() !== '' && !selectionStateRef.current.isSelecting && !hoveredDeviceId && (() => {
 
-            {/* Devices Overlay on Map */}
-            {readOnly && allDevices && allDevices.length > 0 && Object.values(nodes)
-              .map((node) => {
-                // Find if there is a device at this node by comparing qrCode in metadata with node.qrCode
-                const matchedDevice = allDevices.find((device) => {
-                  let deviceQr = '';
-                  if (device.metadata) {
-                    try {
-                      const meta = typeof device.metadata === 'string' ? JSON.parse(device.metadata) : device.metadata;
-                      deviceQr = meta?.qrCode || '';
-                    } catch (e) {
-                      if (typeof device.metadata === 'string') {
-                        const match = device.metadata.match(/"qrCode"\s*:\s*"([^"]+)"/);
-                        if (match) deviceQr = match[1];
-                      }
-                    }
+              const nodeConfig = hoveredCell ? nodeMap.get(hoveredCell) : null;
+              const location = allLocations?.find(loc => {
+                const matchesNode = loc.node_id && nodeConfig?.nodeId && loc.node_id.trim().toUpperCase() === nodeConfig.nodeId.trim().toUpperCase();
+                const matchesQr = loc.qrcode && nodeConfig?.qrCode && loc.qrcode.trim().toUpperCase() === nodeConfig.qrCode.trim().toUpperCase();
+                return matchesNode || matchesQr;
+              });
+
+              const code = location?.code || nodeConfig?.name || 'N/A';
+              const qrCode = location?.qrcode || nodeConfig?.qrCode || 'N/A';
+              const isOccupied = location ? location.is_occupied : false;
+
+              return (
+                <div
+                  className="absolute pointer-events-none bg-white text-[#484848] p-3 rounded-lg shadow-xl text-[11px] font-medium z-50 border border-[#D6E4F0] flex flex-col gap-1.5 min-w-[170px]"
+                  style={{
+                    left: (hoveredCell!.split(',').map(Number)[1] * CELL_SIZE) + CELL_SIZE / 2,
+                    top: (hoveredCell!.split(',').map(Number)[0] * CELL_SIZE) - 6,
+                    transform: 'translate(-50%, -100%)',
+                    zIndex: 100
+                  }}
+                >
+                  <div className="font-bold text-[#076eb8] border-b border-[#E8F2FA] pb-1 mb-1 ">{hoveredArea.code}</div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[#888888] ">Mã QR:</span>
+                    <span className="text-[#545454] font-semibold">{qrCode}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[#888888]">Trạng thái:</span>
+                    <span className={isOccupied ? 'text-green-500 font-semibold' : 'text-[#076eb8] font-semibold'}>
+                      {isOccupied ? 'Đang chứa hàng' : 'Ô trống'}
+                    </span>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Hiển thị devices trên map */}
+            {readOnly && showDevices && allDevices && allDevices.length > 0 && allDevices.map((device) => {
+              // Trích xuất qrCode của thiết bị
+              let deviceQr = '';
+              if (device.metadata) {
+                try {
+                  let meta = typeof device.metadata === 'string' ? JSON.parse(device.metadata) : device.metadata;
+                  if (typeof meta === 'string') {
+                    meta = JSON.parse(meta);
                   }
-                  return deviceQr && node.qrCode && deviceQr.trim().toUpperCase() === node.qrCode.trim().toUpperCase();
+                  deviceQr = meta?.qrCode || meta?.qrcode || '';
+                } catch (e) {
+                  if (typeof device.metadata === 'string') {
+                    const match = device.metadata.match(/"qr[cC]ode"\s*:\s*"([^"]+)"/);
+                    if (match) deviceQr = match[1];
+                  }
+                }
+              }
+
+              if (!deviceQr) return null;
+
+              // Tìm ô lưới tương ứng với qrCode của thiết bị trên tầng hiện tại
+              const node = Object.values(nodes).find((n) => {
+                const prefix = `wFloor_${currentWarehouseFloorId}:`;
+                return n.key.startsWith(prefix) && n.qrCode && n.qrCode.trim().toUpperCase() === deviceQr.trim().toUpperCase();
+              });
+
+              if (!node) return null;
+
+              const coordPart = node.key.split(':')[1];
+              const [row, col] = coordPart.split(',').map(Number);
+
+              // Tìm loại thiết bị bằng device_type_id
+              const matchedDeviceType = allDeviceTypes?.find(
+                (dt) => dt.id === device.device_type_id
+              );
+              const typeCode = device.device_type_code || matchedDeviceType?.code || 'SHUTTLE';
+
+              // Kiểm tra packageStatus\":0 ở devices để set icon cho shuttle 
+              let packageStatusVal: number | undefined = undefined;
+              if (device.metadata) {
+                try {
+                  let meta = typeof device.metadata === 'string' ? JSON.parse(device.metadata) : device.metadata;
+                  if (typeof meta === 'string') {
+                    meta = JSON.parse(meta);
+                  }
+                  if (meta.packageStatus !== undefined) {
+                    packageStatusVal = Number(meta.packageStatus);
+                  }
+                } catch (e) {
+                  if (typeof device.metadata === 'string') {
+                    const match = device.metadata.match(/"packageStatus"\s*:\s*(\d+)/);
+                    if (match) packageStatusVal = parseInt(match[1], 10);
+                  }
+                }
+              }
+
+              // Get tương ứng shuttle icon (st1, st2, st3) hoặc lifter
+              const typeIndex = allDeviceTypes ? allDeviceTypes.findIndex((dt) => dt.id === device.device_type_id) : 0;
+              let iconName = 'st5-shuttle.svg';
+              const codeUpper = typeCode.toUpperCase();
+              const isLifter = codeUpper === 'LIFTER' || codeUpper.includes('LIFTER');
+
+              if (isLifter) {
+                iconName = 'lifter.svg';
+              } else if (packageStatusVal === 0) {
+                iconName = 'st5-shuttle.svg';
+              } else if (packageStatusVal === 1) {
+                iconName = 'st4-shuttle.svg';
+              } else {
+                if (codeUpper === 'SHUTTLE' || codeUpper.includes('ST5')) {
+                  iconName = 'st5-shuttle.svg';
+                } else if (codeUpper.includes('2D') || codeUpper.includes('ST5')) {
+                  iconName = 'st5-shuttle.svg';
+                } else if (codeUpper.includes('4D') || codeUpper.includes('ST4')) {
+                  iconName = 'st4-shuttle.svg';
+                } else {
+                  if (typeIndex === 0) iconName = 'st4-shuttle.svg';
+                  else if (typeIndex === 1) iconName = 'st1-shuttle.svg';
+                  else iconName = 'st5-shuttle.svg';
+                }
+              }
+
+              // Parse status để style badge màu trạng thái
+              // hover đối với shutte
+              const devStatus = device.status?.toUpperCase() || 'OFFLINE';
+
+              // Quy định Z-Index: Đặt Shuttle (36) đè lên Lifter (20) nếu chúng ở cùng 1 ô lưới
+              const finalZIndex = isLifter ? 20 : 36;
+
+              // Trích xuất thông tin tooltip từ metadata
+              let deviceQrDisplay = '';
+              let batteryPercentage: number | null = null;
+              let packageStatus: number | null = null;
+              let currentTask: string | null = null;
+              if (device.metadata) {
+                try {
+                  let meta = typeof device.metadata === 'string' ? JSON.parse(device.metadata) : device.metadata;
+                  if (typeof meta === 'string') meta = JSON.parse(meta);
+                  deviceQrDisplay = meta?.qrCode || meta?.qrcode || '';
+                  if (meta?.batteryPercentage !== undefined) batteryPercentage = Number(meta.batteryPercentage);
+                  if (meta?.packageStatus !== undefined) packageStatus = Number(meta.packageStatus);
+                  if (meta?.currentTask !== undefined) currentTask = String(meta.currentTask);
+                } catch (e) { }
+              }
+
+              const isHovered = hoveredDeviceId === device.id;
+
+              // Badge màu theo trạng thái
+              const statusLabel: Record<string, { label: string; bg: string; text: string; dot: string }> = {
+                OFFLINE: { label: 'Offline', bg: 'bg-gray-100', text: 'text-gray-600', dot: 'bg-gray-400' },
+                ONLINE: { label: 'Online', bg: 'bg-blue-50', text: 'text-blue-700', dot: 'bg-blue-500' },
+                IDLE: { label: 'Đang hoạt động', bg: 'bg-blue-50', text: 'text-blue-700', dot: 'bg-blue-400' },
+                ERROR: { label: 'Lỗi', bg: 'bg-red-50', text: 'text-red-600', dot: 'bg-red-500' },
+                FAULT: { label: 'Lỗi', bg: 'bg-red-50', text: 'text-red-600', dot: 'bg-red-500' },
+                RUNNING: { label: 'Running', bg: 'bg-green-50', text: 'text-green-700', dot: 'bg-green-500' },
+                CHARGING: { label: 'Sạc pin', bg: 'bg-yellow-50', text: 'text-yellow-700', dot: 'bg-yellow-400' },
+              };
+              const statusInfo = statusLabel[devStatus] ?? { label: devStatus, bg: 'bg-gray-100', text: 'text-gray-600', dot: 'bg-gray-400' };
+
+              return (
+                <div
+                  key={`device-overlay-${device.id}`}
+                  className="absolute transition-all duration-300 ease-in-out"
+                  style={{
+                    left: col * CELL_SIZE,
+                    top: row * CELL_SIZE,
+                    width: CELL_SIZE,
+                    height: CELL_SIZE,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: (hoveredDeviceId === device.id || pinnedDeviceId === device.id) ? 200 : finalZIndex,
+
+                    pointerEvents: 'auto',
+                    cursor: 'pointer',
+                  }}
+                  onMouseEnter={() => setHoveredDeviceId(device.id)}
+                  onMouseLeave={() => { if (pinnedDeviceId !== device.id) setHoveredDeviceId(null); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setPinnedDeviceId(prev => prev === device.id ? null : device.id);
+                  }}
+                >
+                  {/* Icon Shuttle/Lifter */}
+                  <img
+                    src={`/svgMap/${iconName}`}
+                    className="w-[30px] h-[20px] object-contain relative z-30"
+
+                    alt={device.code}
+                  />
+
+                  {/* Tooltip khi hover hoặc khi đã pin (click) */}
+                  {(isHovered || pinnedDeviceId === device.id) && (() => {
+                    // Nếu device gần cuối bản đồ → hiển thị phía trên (bottom), ngược lại phía dưới (top)
+                    const showAbove = row >= rows - 5;
+                    return (
+                      <div
+                        className="absolute pointer-events-none bg-white border border-[#D6E4F0] rounded-lg shadow-xl text-[11px] font-medium z-50 min-w-[300px] p-3 flex flex-col gap-1.5"
+                        style={{
+                          left: CELL_SIZE / 2,
+                          ...(showAbove
+                            ? { bottom: CELL_SIZE + 2 }
+                            : { top: CELL_SIZE + 2 }),
+                          transform: 'translateX(-50%)',
+                          boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+                        }}
+                      >
+                        {/* Mũi tên — trỏ lên khi tooltip ở dưới, trỏ xuống khi tooltip ở trên */}
+                        <div style={{
+                          position: 'absolute',
+                          ...(showAbove ? { bottom: -6 } : { top: -6 }),
+                          left: '50%',
+                          transform: 'translateX(-50%)',
+                          width: 0,
+                          height: 0,
+                          borderLeft: '6px solid transparent',
+                          borderRight: '6px solid transparent',
+                          ...(showAbove
+                            ? { borderTop: '6px solid #D6E4F0' }
+                            : { borderBottom: '6px solid #D6E4F0' }),
+                        }} />
+                        <div style={{
+                          position: 'absolute',
+                          ...(showAbove ? { bottom: -5 } : { top: -5 }),
+                          left: '50%',
+                          transform: 'translateX(-50%)',
+                          width: 0,
+                          height: 0,
+                          borderLeft: '5px solid transparent',
+                          borderRight: '5px solid transparent',
+                          ...(showAbove
+                            ? { borderTop: '5px solid white' }
+                            : { borderBottom: '5px solid white' }),
+                        }} />
+
+                        {/* Header: dot + Code (trái) | % Pin (phải, chỉ Shuttle) */}
+                        <div className="font-bold text-[#076eb8] border-b border-[#E8F2FA] pb-1.5 mb-0.5 flex items-center justify-between gap-1.5">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className={`w-2 h-2 rounded-full flex-shrink-0 ${statusInfo.dot}`} />
+                            <span className="truncate">{device.code}</span>
+                          </div>
+                          {!isLifter && batteryPercentage !== null && (
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                              <img
+                                src="/icon.svg/pin.svg"
+                                className="w-[14px] h-[14px] object-contain flex-shrink-0"
+                                alt="pin"
+                              />
+                              <span className={`text-[10px] font-semibold ${batteryPercentage > 50 ? 'text-green-600' : batteryPercentage > 20 ? 'text-yellow-600' : 'text-red-600'}`}>
+                                {batteryPercentage}%
+                              </span>
+                            </div>
+
+                          )}
+                        </div>
+
+                        {/* QR Code */}
+                        {deviceQrDisplay && (
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[#888] flex-shrink-0">Vị Trí:</span>
+                            <span className="text-[#333] font-semibold">{node ? `${node.name} (${deviceQrDisplay})` : deviceQrDisplay}</span>
+                          </div>
+                        )}
+
+                        {/* Trạng thái */}
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[#888] flex-shrink-0">Trạng thái:</span>
+                          <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold ${statusInfo.bg} ${statusInfo.text}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${statusInfo.dot}`} />
+                            {statusInfo.label}
+                          </span>
+                        </div>
+
+                        {/* Hàng hóa - chỉ hiển thị với Shuttle */}
+                        {!isLifter && packageStatus !== null && (
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[#888] flex-shrink-0">Hàng hóa:</span>
+                            <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold ${packageStatus === 1 ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500'
+                              }`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${packageStatus === 1 ? 'bg-green-500' : 'bg-gray-400'
+                                }`} />
+                              {packageStatus === 1 ? 'Có mang hàng' : 'Không mang hàng'}
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Nhiệm vụ hiện tại - chỉ Shuttle */}
+                        {!isLifter && currentTask && (
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[#888] flex-shrink-0">Nhiệm vụ:</span>
+                            <span className="text-[#333] font-semibold text-right">{currentTask}</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+
+              );
+            })}
+
+
+            {/* Hiển thị goods lên ô lifter (đè lên lifter) */}
+            {readOnly && showDevices && allLocations && allLocations.length > 0 && allLocations
+              .filter(loc => loc.is_occupied)
+              .map((loc) => {
+                const node = Object.values(nodes).find((n) => {
+                  const prefix = `wFloor_${currentWarehouseFloorId}:`;
+                  const matchesNode = loc.node_id && n.nodeId && loc.node_id.trim().toUpperCase() === n.nodeId.trim().toUpperCase();
+                  const matchesQr = loc.qrcode && n.qrCode && loc.qrcode.trim().toUpperCase() === n.qrCode.trim().toUpperCase();
+                  const matchesZone = n.areaType === 'lifter';
+                  return n.key.startsWith(prefix) && (matchesNode || matchesQr) && matchesZone;
                 });
 
-                if (!matchedDevice) return null;
-
-                // Ensure node belongs to current warehouse floor
-                const prefix = `wFloor_${currentWarehouseFloorId}:`;
-                if (!node.key.startsWith(prefix)) return null;
+                if (!node) return null;
 
                 const coordPart = node.key.split(':')[1];
                 const [row, col] = coordPart.split(',').map(Number);
 
-                // Find device type using device_type_id
-                const matchedDeviceType = allDeviceTypes?.find(
-                  (dt) => dt.id === matchedDevice.device_type_id
-                );
-                const typeCode = matchedDevice.device_type_code || matchedDeviceType?.code || 'SHUTTLE';
-
-                // Get corresponding shuttle icon (st1, st2, st3)
-                const typeIndex = allDeviceTypes ? allDeviceTypes.findIndex((dt) => dt.id === matchedDevice.device_type_id) : 0;
-                let iconName = 'st1-shuttle.svg';
-                const codeUpper = typeCode.toUpperCase();
-                if (codeUpper === 'SHUTTLE' || codeUpper.includes('ST1')) {
-                  iconName = 'st1-shuttle.svg';
-                } else if (codeUpper.includes('2D') || codeUpper.includes('ST2')) {
-                  iconName = 'st2-shuttle.svg';
-                } else if (codeUpper.includes('4D') || codeUpper.includes('ST3')) {
-                  iconName = 'st3-shuttle.svg';
-                } else {
-                  // Fallback by list index
-                  if (typeIndex === 0) iconName = 'st1-shuttle.svg';
-                  else if (typeIndex === 1) iconName = 'st2-shuttle.svg';
-                  else iconName = 'st3-shuttle.svg';
-                }
-
-                // Parse status for premium styling
-                const devStatus = matchedDevice.status?.toUpperCase() || 'OFFLINE';
-                let statusBg = 'bg-[#076EB8]';
-                let statusBorder = 'border-[#0367CC]';
-                let statusColor = 'text-white';
-                let dotColor = 'bg-[#52c41a]'; // Green for standard active
-
-                if (devStatus === 'OFFLINE') {
-                  statusBg = 'bg-[#F3F4F6]';
-                  statusBorder = 'border-[#D1D5DB]';
-                  statusColor = 'text-[#4B5563]';
-                  dotColor = 'bg-[#9CA3AF]';
-                } else if (devStatus === 'ERROR' || devStatus === 'FAULT') {
-                  statusBg = 'bg-[#FEE2E2]';
-                  statusBorder = 'border-[#FCA5A5]';
-                  statusColor = 'text-[#DC2626]';
-                  dotColor = 'bg-[#EF4444]';
-                } else if (devStatus === 'ONLINE' || devStatus === 'IDLE') {
-                  statusBg = 'bg-[#EFF6FF]';
-                  statusBorder = 'border-[#BFDBFE]';
-                  statusColor = 'text-[#1E40AF]';
-                  dotColor = 'bg-[#3B82F6]';
-                }
+                // zIndex:InBound (33) Lifter (30) < Goods (35) < Shuttle (45)
+                const goodsZIndex = 35;
 
                 return (
                   <div
-                    key={`device-overlay-${matchedDevice.id}`}
-                    className="absolute pointer-events-none transition-all duration-300 ease-in-out"
+                    key={`goods-lifter-overlay-${loc.id || loc.qrcode}`}
+                    className="absolute pointer-events-none"
                     style={{
                       left: col * CELL_SIZE,
                       top: row * CELL_SIZE,
@@ -750,34 +1006,14 @@ const WarehouseMap: React.FC = () => {
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      zIndex: 35,
+                      zIndex: goodsZIndex,
                     }}
                   >
-                    {/* Pulsing effect ring for active shuttles */}
-                    {devStatus !== 'OFFLINE' && (
-                      <div className="absolute w-[24px] h-[24px] rounded-full bg-[#3B82F6]/20 animate-ping z-10" />
-                    )}
-
-                    {/* Shuttle SVG Icon */}
                     <img
-                      src={`/svgMap/${iconName}`}
-                      className="w-[22px] h-[16px] object-contain relative z-30 transition-transform duration-300 hover:scale-110"
-                      alt={matchedDevice.code}
+                      src="/svgMap/goods.svg"
+                      className="w-[20px] h-[20px] object-contain"
+                      alt="goods on lifter"
                     />
-
-                    {/* Premium Label indicating Shuttle Code and Status */}
-                    <div
-                      className={`absolute pointer-events-none ${statusBg} ${statusColor} border ${statusBorder} px-1.5 py-0.5 rounded shadow-md font-bold text-[9px] z-40 whitespace-nowrap flex items-center gap-1`}
-                      style={{
-                        left: CELL_SIZE / 2,
-                        top: -4,
-                        transform: 'translate(-50%, -100%)',
-                        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-                      }}
-                    >
-                      <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`} />
-                      <span>{matchedDevice.code}</span>
-                    </div>
                   </div>
                 );
               })}

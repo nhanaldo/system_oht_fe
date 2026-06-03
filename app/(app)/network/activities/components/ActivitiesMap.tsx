@@ -119,7 +119,7 @@ const ActivitiesMapInner: React.FC<ActivitiesMapInnerProps> = ({
 
             {/* Khung sơ đồ bản đồ thật */}
             <div className="flex-1 min-h-0 relative w-full bg-[#F8FCFF] rounded-lg overflow-hidden border border-[#D6E4F0] shadow-sm">
-                <WarehouseMap />
+                <WarehouseMap showDevices={true} />
             </div>
         </div>
     );

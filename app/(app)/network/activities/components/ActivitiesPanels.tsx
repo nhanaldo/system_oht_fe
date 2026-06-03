@@ -204,8 +204,8 @@ export default function ActivitiesPanels() {
                 : mappedDevices.filter(d => d.error);
 
     return (
-        <OverlayScrollbarsComponent 
-            className="w-full h-full" 
+        <OverlayScrollbarsComponent
+            className="w-full h-full"
             options={{ scrollbars: { visibility: 'hidden' } }}
         >
             <div className="flex flex-col gap-4 w-full pr-[10px] pb-[10px]">
@@ -358,7 +358,7 @@ export default function ActivitiesPanels() {
                                 onClick={() => setActiveDeviceFilter('inactive')}
                                 className={`cursor-pointer transition-all duration-200 pb-[1px] border-b-[1px] ${activeDeviceFilter === 'inactive' ? 'font-bold text-gray-500 border-gray-500' : 'font-normal text-gray-500 border-transparent'}`}
                             >
-                                Không hoạt động ({devInactiveCount})
+                                Đang bận ({devInactiveCount})
                             </span>
                             <span
                                 onClick={() => setActiveDeviceFilter('error')}

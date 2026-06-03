@@ -4,8 +4,10 @@ import { hasAnyDirection, getSelectedTileName } from './warehouse-types';
 import type {
   TabKey, WarehouseModule, FloorConfig, AreaConfig, PositionConfig, DirectionFlags
 } from './warehouse-types';
-import { TowerProps, getTower, getTowerFloor, getZone, getNode, getWarehouseFloor, getZoneType, getWarehouse, getWarehouseById, getCategory, getProduct, getDevices } from '../../warehouseAcction';
+import { TowerProps, getTower, getTowerFloor, getZone, getNode, getWarehouseFloor, getZoneType, getWarehouse, getWarehouseById, getCategory, getProduct, getDevices, getLocations } from '../../warehouseAcction';
 import { getDeviceTypes } from '@/app/(app)/workflows/list/workflowsAction';
+import { useRealtime } from '@/app/(app)/realtime/RealtimeProvider';
+import { useWarehouseSocket } from './useWarehouseSocket';
 // giúp map và sideBar chia sẽ dữ liệu với nhau 
 //Quan trọng hơn, đây là nơi chứa dữ liệu sống chạy trong ứng dụng bằng React State (useState). 
 // Nó là bộ não tính toán xem ô nào đang chọn, dữ liệu tầng nào đang được load.
@@ -68,6 +70,7 @@ interface WarehouseConfigContextType {
   nodes: Record<string, PositionConfig>;
   allDevices: any[];
   allDeviceTypes: any[];
+  allLocations: any[];
 
   // Position Edit Preview State
   posDirections: DirectionFlags;
@@ -109,6 +112,7 @@ export const WarehouseConfigProvider: React.FC<{
   initialFloors?: number;
   readOnly?: boolean;
 }> = ({ children, warehouseId, initialRows = 14, initialColumns = 38, initialModules = 1, initialFloors = 1, readOnly = false }) => {
+  const { socket } = useRealtime();// lấy socket đã được thiết lập ( kết nối )
   const [rows, setRows] = useState(initialRows);
   const [columns, setColumns] = useState(initialColumns);
   const [floorsCount, setFloorsCount] = useState(initialFloors);
@@ -123,6 +127,7 @@ export const WarehouseConfigProvider: React.FC<{
   const [warehouseFloors, setWarehouseFloors] = useState<any[]>([]);
   const [allDevices, setAllDevices] = useState<any[]>([]);
   const [allDeviceTypes, setAllDeviceTypes] = useState<any[]>([]);
+  const [allLocations, setAllLocations] = useState<any[]>([]);
   const [currentWarehouseFloorId, setCurrentWarehouseFloorId] = useState<string>("");
   const [zoneTypes, setZoneTypes] = useState<any[]>([]);
   const [warehouses, setWarehouses] = useState<any[]>([]);
@@ -162,7 +167,7 @@ export const WarehouseConfigProvider: React.FC<{
   React.useEffect(() => {
     const directions = ['up', 'down', 'left', 'right', 'straight-horizontal', 'straight-vertical', 'corner-lu', 'corner-ru', 'corner-ld', 'corner-rd', 't-up', 't-down', 't-left', 't-right', 'corner'];
     const suffixes = ['', '-import', '-export', '-wait', '-charge', '-storage', '-moving', '-lifter'];
-    const svgNames = ['node.svg', 'st1-shuttle.svg', 'st2-shuttle.svg', 'st3-shuttle.svg'];
+    const svgNames = ['node.svg', 'st1-shuttle.svg', 'st2-shuttle.svg', 'st3-shuttle.svg', 'lifter.svg', 'goods.svg'];
     suffixes.forEach(s => { if (s) svgNames.push(s.substring(1) + '.svg'); });
     directions.forEach(d => {
       suffixes.forEach(s => {
@@ -220,7 +225,7 @@ export const WarehouseConfigProvider: React.FC<{
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const [towerData, wFloorData, zoneTypeData, warehouseListData, allProductData, deviceData, deviceTypeData] = await Promise.all([
+        const [towerData, wFloorData, zoneTypeData, warehouseListData, allProductData, deviceData, deviceTypeData, locationData] = await Promise.all([
           getTower(warehouseId),
           getWarehouseFloor(warehouseId),
           getZoneType(),
@@ -228,6 +233,7 @@ export const WarehouseConfigProvider: React.FC<{
           getProduct(warehouseId, ''),
           getDevices(warehouseId, { page: 1, limit: 1000 }),
           getDeviceTypes(),
+          getLocations(warehouseId, { page: 1, limit: 1000 }),
         ]);
 
         const rawTowers = getElements(towerData);
@@ -289,6 +295,11 @@ export const WarehouseConfigProvider: React.FC<{
           const rawDeviceTypes = getElements(deviceTypeData.data);
           setAllDeviceTypes(rawDeviceTypes);
         }
+
+        const rawLocations = getElements(locationData);
+        if (rawLocations.length > 0) {
+          setAllLocations(rawLocations);
+        }
       } catch (error) {
         console.error("Error fetching initial data:", error);
       } finally {
@@ -298,6 +309,15 @@ export const WarehouseConfigProvider: React.FC<{
 
     fetchData();
   }, [warehouseId, globalRefreshCounter]);
+
+  // đồng bộ hóa và cập nhật tức thời vị trí của shuttle cũng như các ô 
+  //khi có sự thay đổi từ hệ thống thực tế (backend gửi tín hiệu qua Socket.IO
+  useWarehouseSocket({
+    socket,
+    warehouseId,
+    setAllLocations,
+    setAllDevices
+  });
 
   // Initial floor selection logic
   React.useEffect(() => {
@@ -853,7 +873,7 @@ export const WarehouseConfigProvider: React.FC<{
       selectedCategory, products, categories, setSelectedCategories,
       warehouseFloors, currentWarehouseFloorId, setCurrentWarehouseFloorId,
       zoneTypes, warehouses, restoreSnapshot, isLoading, refreshGlobal, refreshFloor,
-      allProducts, allDevices, allDeviceTypes,
+      allProducts, allDevices, allDeviceTypes, allLocations,
       zonesToDelete, towerFloorsToDelete, clearDeleteQueue, readOnly
     }}>
       {children}

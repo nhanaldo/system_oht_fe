@@ -719,7 +719,7 @@ function ProfileInner({ id }: { id: string }) {
                                 </svg>
                             }
                         />
-
+                        {/* chuyển tab ở cấu hình  */}
                         <ConfigProvider
                             theme={{
                                 components: {

@@ -6,6 +6,7 @@ import { Layout } from 'antd';
 import SideBar from './SideBar';
 import HeaderComponent from '@/components/ui/HeaderComponent';
 import { OverlayScrollbarsComponent } from "overlayscrollbars-react";
+import { RealtimeProvider } from '../realtime/RealtimeProvider';
 
 const { Header, Sider, Content, Footer } = Layout;
 
@@ -108,8 +109,9 @@ export default function AppLayoutComponents({ children, menuData = [], username 
                             height: '100%'
                         }}
                     >
-
-                        {children}
+                        <RealtimeProvider>
+                            {children}
+                        </RealtimeProvider>
                     </Content>
 
                     {/* Footer */}
