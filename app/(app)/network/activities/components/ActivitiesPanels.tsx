@@ -211,7 +211,7 @@ export default function ActivitiesPanels() {
             <div className="flex flex-col gap-4 w-full pr-[10px] pb-[10px]">
 
                 {/* Panel 1: Danh sách thực hiện (Dynamic API) */}
-                <div className="bg-white rounded-lg border border-[rgba(3,103,204,0.3)] shadow-[0px_4px_4px_0px_#0000000D] flex flex-col overflow-hidden h-[243px]">
+                <div className="bg-white rounded-lg border border-[rgba(3,103,204,0.3)] shadow-[0px_4px_4px_0px_#0000000D] flex flex-col overflow-hidden h-[240px]">
                     <div className="pt-[8px] pl-[10px] border-b border-[rgba(3,103,204,0.3)]  pb-[7px] font-normal text-[#484848] text-[14px] leading-none">Danh sách thực hiện</div>
                     <OverlayScrollbarsComponent
                         className="text-[11px] px-[10px] py-[10px] leading-none text-[#545454]"

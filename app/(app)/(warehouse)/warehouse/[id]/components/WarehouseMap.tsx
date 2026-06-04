@@ -825,12 +825,12 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ showDevices = false }) => {
 
               // Badge màu theo trạng thái
               const statusLabel: Record<string, { label: string; bg: string; text: string; dot: string }> = {
-                OFFLINE: { label: 'Offline', bg: 'bg-gray-100', text: 'text-gray-600', dot: 'bg-gray-400' },
-                ONLINE: { label: 'Online', bg: 'bg-blue-50', text: 'text-blue-700', dot: 'bg-blue-500' },
-                IDLE: { label: 'Đang hoạt động', bg: 'bg-blue-50', text: 'text-blue-700', dot: 'bg-blue-400' },
+                OFFLINE: { label: 'Mất kết nối', bg: 'bg-gray-100', text: 'text-gray-600', dot: 'bg-gray-400' },
+                ONLINE: { label: 'Đã kết nối', bg: 'bg-blue-50', text: 'text-blue-700', dot: 'bg-blue-500' },
+                IDLE: { label: 'Đang chờ lệnh', bg: 'bg-blue-50', text: 'text-blue-700', dot: 'bg-blue-400' },
                 ERROR: { label: 'Lỗi', bg: 'bg-red-50', text: 'text-red-600', dot: 'bg-red-500' },
                 FAULT: { label: 'Lỗi', bg: 'bg-red-50', text: 'text-red-600', dot: 'bg-red-500' },
-                RUNNING: { label: 'Running', bg: 'bg-green-50', text: 'text-green-700', dot: 'bg-green-500' },
+                RUNNING: { label: 'Đang hoạt động', bg: 'bg-green-50', text: 'text-green-700', dot: 'bg-green-500' },
                 CHARGING: { label: 'Sạc pin', bg: 'bg-yellow-50', text: 'text-yellow-700', dot: 'bg-yellow-400' },
               };
               const statusInfo = statusLabel[devStatus] ?? { label: devStatus, bg: 'bg-gray-100', text: 'text-gray-600', dot: 'bg-gray-400' };
