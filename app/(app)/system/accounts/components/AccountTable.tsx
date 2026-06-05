@@ -232,12 +232,12 @@ export default function AccountTable({ roleOptions, warehouseOptions }: AccountT
 
     return (
         <div className="flex flex-col h-full min-h-0">
-            <div className="flex justify-between items-start mb-2 shrink-0">
+            <div className="flex justify-between items-start mb-[5px] shrink-0">
                 <div className="min-w-0 flex-1 mr-2">
                     {/* leading-none: chiều cao của dòng bằng kích thước của phông chữ <=> line height = 100% 
                     Letter spacing: 0% <=> tracking-normal khoảng cách giữa các chữ cái ở mức mặc định, không giãn cũng không ép.*/}
                     <h2 className="text-[#373838] font-roboto font-medium leading-none tracking-normal lg:text-[16px] text-[14px] truncate">Quản lý tài khoản</h2>
-                    <p className="text-[#5F5D5D] font-roboto font-regular leading-normal tracking-normal mt-1 lg:text-[14px] text-[12px] truncate">Đã chọn: {selectedRowKeys.length} mục</p>
+                    <p className="text-[#5F5D5D] !leading-none font-roboto font-regular leading-normal tracking-normal mt-[8px] lg:text-[14px] text-[12px] truncate">Đã chọn: {selectedRowKeys.length} mục</p>
                 </div>
                 <ConfigProvider
                     theme={{
@@ -301,7 +301,7 @@ export default function AccountTable({ roleOptions, warehouseOptions }: AccountT
                 </ConfigProvider>
             </div>
 
-            <div className="w-full h-[1px] bg-gray-200 mb-3 shrink-0"></div>
+            <div className="w-full h-[1px] bg-gray-200 mb-[10px] shrink-0"></div>
             <div className="flex-1 min-h-0">
                 <CustomTable
                     dataTable={filteredData}

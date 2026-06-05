@@ -38,6 +38,7 @@ export function useTableQuery<T = any>({
 }: UseTableQueryProps<T>) {
     const [params, setParams] = useState({
         search: "",
+        status: "",
         page: 1,
         limit: 20,
         ...initialParams
@@ -112,6 +113,7 @@ export function useTableQuery<T = any>({
 
     return {
         params,
+        setParams,
         onPageChange,
         onSearchChange,
         data,

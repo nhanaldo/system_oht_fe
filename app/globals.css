@@ -516,6 +516,20 @@ body {
     align-items: center !important;
 }
 
+/* Fix lỗi icon xóa có nền xám (dấu x) trong Select multiple tag */
+.ant-select-selection-item-remove {
+    background: transparent !important;
+    color: #999 !important;
+}
+
+.ant-select-selection-item-remove:hover {
+    color: #ff4d4f !important;
+}
+
+.ant-select-selection-item-remove>* {
+    background: transparent !important;
+}
+
 /* Xóa viền focus (khoảng trắng/viền thừa) khi Alt + Tab hoặc quay lại trang cho Segmented */
 .ant-segmented,
 .ant-segmented *,
@@ -605,14 +619,21 @@ justify-content: center;
     background: transparent;
 }
 
-::-webkit-scrollbar-thumb {
+/* ::-webkit-scrollbar-thumb {
     background: #c1c1c1;
-    border-radius: 10px;
+    border-radius: 8px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
     background: #a8a8a8;
+} */
+
+/* Đổi màu thanh cuộn giả của Ant Design Select (rc-virtual-list) */
+.rc-virtual-list-scrollbar-thumb {
+    background: #d9d9d9 !important;
+    width: 8px !important;
 }
+
 
 /* Custom Ant Design Sidebar Submenu Down Chevron */
 .ant-menu-submenu-arrow {
@@ -671,4 +692,10 @@ justify-content: center;
 
 .app-fullscreen-mode .mobile-content-padding .rounded-xl {
     border-radius: 20px !important;
+}
+
+/* Fix line-height of Ant Design Picker inputs */
+.ant-picker .ant-picker-input>input {
+    line-height: unset !important;
+    color: #484848 !important;
 }

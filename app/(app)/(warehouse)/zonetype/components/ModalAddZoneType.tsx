@@ -39,8 +39,6 @@ export default function ModalAddZoneType({ open, onClose, onSuccess, editingReco
         }
     });
 
-    const canSubmit = isDirty;
-
     useEffect(() => {
         if (editingRecord && open) {
             reset({

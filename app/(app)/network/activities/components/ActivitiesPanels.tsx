@@ -69,17 +69,28 @@ export default function ActivitiesPanels() {
 
     // Định kỳ 5 giây cập nhật lại danh sách lệnh và thiết bị để theo dõi thời gian thực sử dụng polling
     useEffect(() => {
-        const interval = setInterval(() => {
-            const currentCookieId = getCookie('selectedWarehouseId');
-            if (currentCookieId !== warehouseIdRef.current) {
-                setWarehouseId(currentCookieId || '');
-                setLoading(true);
-                setDevicesLoading(true);
-                fetchJobsData(currentCookieId || '');
-                fetchDevicesData(currentCookieId || '');
-            } else {
-                fetchJobsData(currentCookieId || '');
-                fetchDevicesData(currentCookieId || '');
+        let isFetching = false;
+        const interval = setInterval(async () => {
+            if (isFetching) return;
+            isFetching = true;
+            try {
+                const currentCookieId = getCookie('selectedWarehouseId');
+                if (currentCookieId !== warehouseIdRef.current) {
+                    setWarehouseId(currentCookieId || '');
+                    setLoading(true);
+                    setDevicesLoading(true);
+                    await Promise.all([
+                        fetchJobsData(currentCookieId || ''),
+                        fetchDevicesData(currentCookieId || '')
+                    ]);
+                } else {
+                    await Promise.all([
+                        fetchJobsData(currentCookieId || ''),
+                        fetchDevicesData(currentCookieId || '')
+                    ]);
+                }
+            } finally {
+                isFetching = false;
             }
         }, 5000);
 

@@ -37,6 +37,13 @@ export default function ModalThemeProvider({ children }: ModalThemeProviderProps
                         colorText: "#484848",
                         colorTextDisabled: "#484848",
                     },
+                    DatePicker: {
+                        colorPrimary: "#d9d9d9",
+                        colorPrimaryHover: "#d9d9d9",
+                        controlOutline: "transparent",
+                        colorText: "#484848",
+                        colorTextDisabled: "#484848",
+                    },
                     Button: {
                         controlOutline: "transparent",
                     },

@@ -61,10 +61,10 @@ export const RealtimeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     const onLocationChanged = (data: any) => {
       try {
-        console.log('[Socket] Nhận sự kiện LOCATION_CHANGED thành công:', data);
-        logLocationChangedServer(data);
+        // console.log('[Socket] Nhận sự kiện LOCATION_CHANGED thành công:', data);
+        // logLocationChangedServer(data);
       } catch (err) {
-        console.error('[Socket] Lỗi xử lý sự kiện LOCATION_CHANGED thất bại:', err);
+        // console.error('[Socket] Lỗi xử lý sự kiện LOCATION_CHANGED thất bại:', err);
       }
     };
 
@@ -73,7 +73,7 @@ export const RealtimeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         // console.log('[Socket] Nhận sự kiện DEVICE_MOVED thành công:', data);
         // logDeviceMovedServer(data);
       } catch (err) {
-        console.error('[Socket] Lỗi xử lý sự kiện DEVICE_MOVED thất bại:', err);
+        // console.error('[Socket] Lỗi xử lý sự kiện DEVICE_MOVED thất bại:', err);
       }
     };
 

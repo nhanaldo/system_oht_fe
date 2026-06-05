@@ -8,9 +8,14 @@ import { revalidateTag } from 'next/cache';
  * Lấy danh sách thùng (Container) theo ID kho
  * @param warehouseId ID của kho
  */
-export async function getContainers(warehouseId: string) {
+export async function getContainers(warehouseId: string, params?: { limit?: number; page?: number; search?: string }) {
     try {
-        const url = `/warehouse/${warehouseId}/containers`;
+        const query = new URLSearchParams();
+        if (params?.limit != null) query.set('limit', String(params.limit));
+        if (params?.page != null) query.set('page', String(params.page));
+        if (params?.search) query.set('search', params.search);
+
+        const url = query.toString() ? `/warehouse/${warehouseId}/containers?${query.toString()}` : `/warehouse/${warehouseId}/containers`;
 
         const data = await api<ContainerResponse>(url, {
             method: 'GET',
