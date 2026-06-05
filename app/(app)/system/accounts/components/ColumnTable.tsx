@@ -80,7 +80,7 @@ export const getColumns = (
         {
             title: 'STT',
             key: 'index',
-            width: 71,
+            width: 80,
             className: 'stt-column',
             render: (_: any, __: any, index: number) => index + 1,
             align: 'center',
@@ -117,7 +117,7 @@ export const getColumns = (
             title: 'Email',
             dataIndex: 'email',
             key: 'email',
-            width: 228,
+            width: 250,
             align: 'left',
             onCell: () => ({ style: { paddingLeft: '10px' } }),
             onHeaderCell: () => ({ style: { textAlign: 'center' } }),
@@ -204,7 +204,7 @@ export const getColumns = (
             title: 'Hành động',
             key: 'action',
             align: 'center',
-            width: 161,
+            width: 140,
             render: (_: any, record: Account) => (
                 <Space >
                     <Tooltip title="Chỉnh sửa">

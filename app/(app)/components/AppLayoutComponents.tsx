@@ -37,6 +37,16 @@ export default function AppLayoutComponents({ children, menuData = [], username 
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
+    useEffect(() => {
+        if (collapsed) {
+            document.body.classList.remove('sidebar-expanded');
+            document.body.classList.add('sidebar-collapsed');
+        } else {
+            document.body.classList.remove('sidebar-collapsed');
+            document.body.classList.add('sidebar-expanded');
+        }
+    }, [collapsed]);
+
     if (!mounted) {
         return (
             <div style={{ height: '100vh', width: '100vw', background: '#f8f9fa', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>

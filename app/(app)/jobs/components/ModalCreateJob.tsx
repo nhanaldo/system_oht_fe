@@ -268,7 +268,9 @@ export default function ModalCreateJob({
                                     options={[
                                         { label: 'BOTTOM', value: 'BOTTOM' },
                                         { label: 'TOP', value: 'TOP' },
+
                                     ]}
+                                    suffixIcon={<img src="/icon.svg/dow.svg" alt="down" />}
                                 />
                             )}
                         />

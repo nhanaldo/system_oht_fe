@@ -14,15 +14,25 @@ interface GetJobsColumnsProps {
     };
     jobType: 'IMPORT' | 'EXPORT';
     containers?: any[];
+    onViewDetail?: (id: string) => void;
 }
 
-export const getJobsColumns = ({ params, jobType, containers }: GetJobsColumnsProps): ColumnsType<any> => [
+export const getJobsColumns = ({ params, jobType, containers, onViewDetail }: GetJobsColumnsProps): ColumnsType<any> => [
     {
         title: 'STT',
+        align: 'center',
         key: 'index',
         width: 60,
         render: (_: any, __: any, index: number) => (params.page - 1) * params.limit + index + 1,
         // onHeaderCell: () => ({ style: { textAlign: 'center' } }),
+    },
+    {
+        title: 'Mã lệnh',
+        align: 'center',
+        width: 170,
+        dataIndex: 'code',
+        key: 'code',
+        render: (val: string) => val || '-',
     },
     {
         title: 'Mã Pallet',
@@ -46,7 +56,7 @@ export const getJobsColumns = ({ params, jobType, containers }: GetJobsColumnsPr
         title: 'Sản phẩm',
         align: 'center',
         dataIndex: ['input', 'sku_code'],
-        width: 200,
+        width: 180,
         key: 'sku_code',
         render: (val: string) => <span className='text-[#076eb8]'>{val || '-'}</span>,
     },
@@ -69,30 +79,27 @@ export const getJobsColumns = ({ params, jobType, containers }: GetJobsColumnsPr
     {
         title: jobType === 'EXPORT' ? 'Vị trí xuất' : 'Vị trí lưu trữ',
         align: 'center',
-        width: 143,
+        width: 110,
         dataIndex: ['input', jobType === 'EXPORT' ? 'pickup_location_code' : 'target_location_code'],
         key: 'location_code',
         render: (val: string) => val || '-',
     },
-    {
-        title: 'Kho',
-        align: 'center',
-        width: 106,
-        dataIndex: 'warehouse_name',
-        key: 'warehouse_name',
-        render: (val: string) => val || '-',
-    },
+
     {
         title: 'Loại lệnh',
         align: 'center',
-        width: 120,
+        width: 110,
         dataIndex: 'job_type',
         key: 'job_type',
-        render: (val: string) => (
-            <span style={{ color: '#1849d6' }}>
-                {val || (jobType === 'IMPORT' ? 'Nhập kho' : 'Xuất kho')}
-            </span>
-        ),
+        render: (val: string) => {
+            const v = val?.toUpperCase();
+            const displayVal = v === 'IMPORT' ? 'Nhập kho' : v === 'EXPORT' ? 'Xuất kho' : val;
+            return (
+                <span style={{ color: '#1849d6' }}>
+                    {displayVal || (jobType === 'IMPORT' ? 'Nhập kho' : 'Xuất kho')}
+                </span>
+            );
+        },
         onHeaderCell: () => ({ style: { textAlign: 'center' } }),
     },
     {
@@ -170,16 +177,17 @@ export const getJobsColumns = ({ params, jobType, containers }: GetJobsColumnsPr
         align: 'center',
         key: 'action',
         width: 120,
-        render: () => (
+        render: (_, record: any) => (
             <Space size={12}>
-                <Tooltip title="Chỉnh sửa">
+                <Tooltip title="Xem chi tiết">
                     <Image
                         src="/icon.svg/look.svg"
-                        alt="Chỉnh sửa"
+                        alt="Xem chi tiết"
                         width={18}
                         height={18}
                         style={{ width: '18px', height: '18px', flexShrink: 0 }}
                         className="cursor-pointer hover:opacity-80 transition-opacity"
+                        onClick={() => onViewDetail?.(record.id)}
                     />
                 </Tooltip>
                 <Tooltip title="Xóa">

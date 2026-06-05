@@ -28,11 +28,10 @@ function ToastContent({
                 borderStyle: "solid",
                 borderWidth: "0px 0px 1px 3px",
                 borderColor: isSuccess ? "#52C41A" : "#ff4d4f",
-                padding: "12px 16px",
+                padding: "6px 16px",
                 minWidth: 300,
                 maxWidth: 420,
-                minHeight: 42,
-                maxHeight: 64,
+                minHeight: 32,
                 boxShadow: "0px 2px 8px 0px rgba(0, 0, 0, 0.15)",
                 opacity: 1,
             }}
@@ -53,7 +52,7 @@ function ToastContent({
                     fontSize: 14,
                     fontWeight: 400,
                     color: "#374151",
-                    lineHeight: "1.5",
+                    lineHeight: "1.4",
                 }}
             >
                 {message}

@@ -699,3 +699,10 @@ justify-content: center;
     line-height: unset !important;
     color: #484848 !important;
 }
+
+/* Ẩn các control trong JobsTable khi ở chế độ mobile và sidebar đang mở */
+@media (max-width: 1024px) {
+    body.sidebar-expanded .mobile-hide-on-sidebar {
+        display: none !important;
+    }
+}

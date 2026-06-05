@@ -72,3 +72,22 @@ export async function createOutboundJob(warehouseId: string, payload: any) {
         return { success: false, error: error?.message || 'Failed to create outbound job' };
     }
 }
+
+export async function getJobDetail(warehouseId: string, id: string) {
+    try {
+        const url = `/warehouse/${warehouseId}/job/${id}`;
+        const data = await api(url, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            next: {
+                revalidate: 0,
+            }
+        });
+        return { success: true, data };
+    } catch (error: any) {
+        if (error?.digest?.startsWith('NEXT_REDIRECT')) throw error;
+        return { success: false, error: error?.message || 'Failed to get job detail' };
+    }
+}

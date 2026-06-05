@@ -11,6 +11,7 @@ import { getJobs } from '../jobAction';
 import { getJobsColumns } from './JobsColumnTable';
 import { getContainers } from '../../inventory/containers/containersAction';
 import ModalCreateJob from './ModalCreateJob';
+import JobsView from './JobsView';
 import dayjs from 'dayjs';
 
 interface JobsTableProps {
@@ -22,6 +23,7 @@ function JobsTableInner({ jobType, warehouseId }: JobsTableProps & { warehouseId
     const [dateRange, setDateRange] = useState<any>(null);
     const [containers, setContainers] = useState<any[]>([]);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const [viewJobId, setViewJobId] = useState<string | null>(null);
 
     useEffect(() => {
         const fetchContainers = async () => {
@@ -51,7 +53,12 @@ function JobsTableInner({ jobType, warehouseId }: JobsTableProps & { warehouseId
         }
     });
 
-    const columns = getJobsColumns({ params, jobType, containers });
+    const columns = getJobsColumns({
+        params,
+        jobType,
+        containers,
+        onViewDetail: (id) => setViewJobId(id),
+    });
 
     // Lọc dữ liệu ở phía client vì API chưa hỗ trợ search
     const filteredData = data.filter((item: any) => {
@@ -95,7 +102,7 @@ function JobsTableInner({ jobType, warehouseId }: JobsTableProps & { warehouseId
     return (
         <ModalThemeProvider>
             <div className="flex flex-col h-full min-h-0">
-                <div className="flex justify-between items-start mb-2 shrink-0">
+                <div className="flex justify-between items-start mb-[5px] shrink-0">
                     <div className="min-w-0 flex-1 mr-2">
                         <h2 className="text-[#373838] font-roboto font-medium leading-none tracking-normal lg:text-[16px] text-[14px] truncate">Quản lý lệnh {jobType === 'IMPORT' ? 'nhập' : 'xuất'} kho</h2>
                         {/* <p className="text-[#5F5D5D] font-roboto font-regular leading-normal tracking-normal mt-1 lg:text-[14px] text-[12px] truncate">Tổng cộng: {filteredData.length} mục</p> */}
@@ -122,24 +129,18 @@ function JobsTableInner({ jobType, warehouseId }: JobsTableProps & { warehouseId
                             }
                         }}
                     >
-                        <Space style={{ gap: 15 }} className="flex-wrap justify-end">
+                        <Space style={{ gap: 15 }} className="flex-wrap justify-end jobs-table-controls">
                             <Input
                                 placeholder="Nhập vào tìm kiếm"
                                 prefix={<SearchOutlined style={{ color: '#545454', fontSize: '18.34px', opacity: 0.6 }} />}
-                                className="rounded-[8px] placeholder:text-[#545454] placeholder:text-[16px]"
-                                style={{ width: '300px', fontSize: '16px', height: '40px' }}
+                                className="rounded-[8px] placeholder:text-[#545454] placeholder:text-[16px] !w-[120px] lg:!w[300px] mobile-hide-on-sidebar"
+                                style={{ width: 300, fontSize: '16px', height: '40px' }}
                                 value={searchText}
                                 onChange={(e) => setSearchText(e.target.value)}
                             />
-                            {/* <Select placeholder="Kho" className="w-32 h-[40px]" >
-                            {/* Options */}
-                            {/* </Select> */}
-                            {/* <Select placeholder="Loại lệnh" className="w-32 h-[40px]" >
-                            {/* Options */}
-                            {/* </Select> */}
                             <Select
                                 placeholder="Trạng thái"
-                                className="w-[168px] h-[40px] "
+                                className="lg:!w-[168px] !h-[40px] mobile-hide-on-sidebar"
                                 value={params.status || undefined}
                                 // allowClear
                                 onChange={(val) => {
@@ -149,6 +150,7 @@ function JobsTableInner({ jobType, warehouseId }: JobsTableProps & { warehouseId
                                         page: 1
                                     }));
                                 }}
+                                suffixIcon={<img src="/icon.svg/dow.svg" alt="down" />}
 
                             >
                                 <Select.Option value="">Tất cả trạng thái</Select.Option>
@@ -159,7 +161,7 @@ function JobsTableInner({ jobType, warehouseId }: JobsTableProps & { warehouseId
                             </Select>
                             <DatePicker.RangePicker
                                 format="DD/MM/YYYY"
-                                className="w-[246px] h-[40px] !text-[#484848]"
+                                className="!hidden lg:!inline-flex lg:!w-[246px] h-[40px] !text-[#484848] mobile-hide-on-sidebar"
                                 value={dateRange}
                                 onChange={(dates) => setDateRange(dates)}
                                 allowClear={false}
@@ -171,7 +173,7 @@ function JobsTableInner({ jobType, warehouseId }: JobsTableProps & { warehouseId
                                 alt="Thêm"
                                 width={40}
                                 height={40}
-                                className="cursor-pointer hover:opacity-80 transition-opacity"
+                                className="cursor-pointer hover:opacity-80 transition-opacity "
                                 onClick={() => setIsCreateModalOpen(true)}
                             />
                         </Space>
@@ -183,6 +185,13 @@ function JobsTableInner({ jobType, warehouseId }: JobsTableProps & { warehouseId
                     onClose={() => setIsCreateModalOpen(false)}
                     onSuccess={() => refetch()}
                     jobType={jobType}
+                    warehouseId={warehouseId}
+                />
+
+                <JobsView
+                    open={viewJobId !== null}
+                    onClose={() => setViewJobId(null)}
+                    jobId={viewJobId || ''}
                     warehouseId={warehouseId}
                 />
 
