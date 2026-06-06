@@ -21,15 +21,18 @@ export default function AppLayoutComponents({ children, menuData = [], username 
     const [collapsed, setCollapsed] = useState(false);
     const [mounted, setMounted] = useState(false);
     const [siderWidth, setSiderWidth] = useState(280);
+    const [isMobile, setIsMobile] = useState(false);
 
     useEffect(() => {
         setMounted(true);
 
         const handleResize = () => {
             if (window.innerWidth < 1024) {
-                setSiderWidth(200);
+                setSiderWidth(280); // Khi hiển thị dạng overlay, bề rộng thoải mái hơn
+                setIsMobile(true);
             } else {
                 setSiderWidth(280);
+                setIsMobile(false);
             }
         };
         handleResize();
@@ -45,6 +48,12 @@ export default function AppLayoutComponents({ children, menuData = [], username 
             document.body.classList.remove('sidebar-collapsed');
             document.body.classList.add('sidebar-expanded');
         }
+        // phát sự kiện giả lập resize sau khi side bar đóng mở 
+        // 
+        // const timer = setTimeout(() => {
+        //     window.dispatchEvent(new Event('resize'));
+        // }, 300);
+        // return () => clearTimeout(timer);
     }, [collapsed]);
 
     if (!mounted) {
@@ -70,7 +79,15 @@ export default function AppLayoutComponents({ children, menuData = [], username 
                 username={username}
             />
 
-            <Layout style={{ height: 'calc(100vh - 64px)' }}>
+            <Layout style={{ height: 'calc(100vh - 64px)', position: 'relative' }}>
+                {/* Backdrop mờ khi mở Sidebar trên mobile */}
+                {isMobile && !collapsed && (
+                    <div
+                        className="absolute inset-0 bg-black/40 z-[98]"
+                        onClick={() => setCollapsed(true)}
+                    />
+                )}
+
                 {/* Sidebar */}
                 <Sider
                     trigger={null}
@@ -78,7 +95,7 @@ export default function AppLayoutComponents({ children, menuData = [], username 
                     collapsed={collapsed}
                     collapsedWidth={0}
                     width={siderWidth}
-                    breakpoint="md"
+                    breakpoint="lg"
                     onBreakpoint={(broken) => {
                         setCollapsed(broken);
                     }}
@@ -86,7 +103,13 @@ export default function AppLayoutComponents({ children, menuData = [], username 
                     style={{
                         height: '100%',
                         overflow: 'hidden',
-                        background: '#ffffff'
+                        background: '#ffffff',
+                        position: isMobile ? 'absolute' : 'relative',
+                        zIndex: isMobile ? 99 : 1,
+                        left: 0,
+                        top: 0,
+                        bottom: 0,
+                        boxShadow: isMobile && !collapsed ? '4px 0 10px rgba(0,0,0,0.1)' : 'none'
                     }}
                 >
                     <OverlayScrollbarsComponent
@@ -99,7 +122,8 @@ export default function AppLayoutComponents({ children, menuData = [], username 
                         }}
                         style={{ maxHeight: '100%' }}
                     >
-                        <SideBar collapse={collapsed} menuItems={menuData} isAdmin={isAdmin} />
+                        {/* //Tự động đóng Sidebar khi nhấn chọn Menu (Mobile) */}
+                        <SideBar collapse={collapsed} menuItems={menuData} isAdmin={isAdmin} onMenuClick={() => { if (isMobile) setCollapsed(true); }} />
                     </OverlayScrollbarsComponent>
                 </Sider>
 

@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useWarehouseConfig } from './WarehouseContext';
 import { hasAnyDirection, getSelectedTileName, AreaConfig, PositionConfig } from './warehouse-types';
+import { useOverlayScrollbars } from 'overlayscrollbars-react';
 
 const CELL_SIZE = 30;
 // bản đồ tương tác trực quan để hiển thị bên trái màn hình ( dạng lưới Grid)
@@ -46,6 +47,20 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ showDevices = false }) => {
     startClientX?: number;
     startClientY?: number;
   }>({ isSelecting: false, startX: 0, startY: 0 });
+
+  const [init] = useOverlayScrollbars({
+    defer: true,
+    options: { scrollbars: { autoHide: 'leave', theme: 'os-theme-dark os-theme-hover' } }
+  });
+
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      init({
+        target: scrollContainerRef.current,
+        elements: { viewport: scrollContainerRef.current }
+      });
+    }
+  }, [init, scrollContainerRef]);
 
   const [visibleRange, setVisibleRange] = useState({
     rStart: 0, rEnd: 30,
@@ -582,7 +597,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ showDevices = false }) => {
   return (
     <div className="flex flex-col flex-1 select-none overflow-hidden relative h-full">
       {/* đặt ref chỗ này vì có overflow tạo thanh cuộn  */}
-      <div ref={scrollContainerRef} className="overflow-auto custom-scrollbar flex-1 relative">
+      <div ref={scrollContainerRef} className="overflow-auto flex-1 relative">
         <div
           className="relative ml-6 mt-6 pr-10 pb-10 origin-top-left"
           //  Hệ thống dùng vòng lặp sinh ra các nhãn cột dựa theo số cột giới hạn bởi columns 
@@ -1031,7 +1046,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ showDevices = false }) => {
       </div>
 
       {/* Zoom Controls - bottom right */}
-      <div className="absolute bottom-2 right-2 md:bottom-4 md:right-4 flex flex-col bg-white border border-gray-200 rounded-lg shadow-sm z-20 overflow-hidden">
+      <div className="absolute bottom-2 right-2 md:bottom-4 md:right-4 flex flex-col bg-white border border-gray-200 rounded-lg shadow-sm z-[300] overflow-hidden">
         <button
           onClick={() => setScale(Math.min(2, scale + 0.1))}
           className="w-7 h-7 md:w-8 md:h-8 flex items-center !text-[#076eb8] justify-center text-gray-600 hover:bg-gray-50 transition-colors text-sm md:text-lg font-bold"

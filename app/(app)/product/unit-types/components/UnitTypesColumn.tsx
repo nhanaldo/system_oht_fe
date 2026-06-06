@@ -28,6 +28,7 @@ export const getUnitTypesColumns = (
         {
             title: 'Mô tả',
             dataIndex: 'description',
+            width: 400,
             key: 'description',
             render: (text: string, record: UnitType) => text || record.discripsion || '',
             onHeaderCell: () => ({ style: { textAlign: 'center' } })

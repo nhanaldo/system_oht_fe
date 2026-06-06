@@ -166,7 +166,7 @@ export default function ContainersTable({ raw, warehouseId }: ContainersTablePro
                                         style={{ color: "#545454", fontSize: "18.34px", opacity: 0.6 }}
                                     />
                                 }
-                                className="rounded-[8px] placeholder:text-[#545454]"
+                                className="rounded-[8px] placeholder:text-[#545454] !w-[200px] lg:!w-[300px]"
                                 style={{
                                     width: "300px",
                                     height: "40px",
@@ -178,14 +178,14 @@ export default function ContainersTable({ raw, warehouseId }: ContainersTablePro
                             />
 
 
-                            <div className="flex items-center gap-[15px]">
+                            <div className="flex items-center gap-[15px] ">
                                 <Image
                                     src="/icon.svg/printer.svg"
                                     title="In pallet"
                                     alt="In"
                                     width={40}
                                     height={40}
-                                    className="cursor-pointer hover:opacity-80 transition-opacity"
+                                    className="cursor-pointer hover:opacity-80 transition-opacity hidden lg:block"
                                 />
                                 <Image
                                     src="/icon.svg/create.svg"

@@ -190,7 +190,7 @@ export default function WorkflowTable({ raw = [] }: WorkflowTableProps) {
                         <Input
                             placeholder="Nhập vào tìm kiếm"
                             prefix={<SearchOutlined style={{ color: "#545454", fontSize: "18.34px", opacity: 0.6 }} />}
-                            className="rounded-[8px] placeholder:text-[#545454] placeholder:text-[16px]"
+                            className="rounded-[8px] placeholder:text-[#545454] placeholder:text-[16px] !w-[200px] lg:!w-[300px]"
                             style={{ width: "300px", fontSize: "16px", height: "40px" }}
                             value={searchText}
                             onChange={onSearchChange}

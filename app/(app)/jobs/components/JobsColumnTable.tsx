@@ -79,7 +79,7 @@ export const getJobsColumns = ({ params, jobType, containers, onViewDetail }: Ge
     {
         title: jobType === 'EXPORT' ? 'Vị trí xuất' : 'Vị trí lưu trữ',
         align: 'center',
-        width: 110,
+        width: 120,
         dataIndex: ['input', jobType === 'EXPORT' ? 'pickup_location_code' : 'target_location_code'],
         key: 'location_code',
         render: (val: string) => val || '-',

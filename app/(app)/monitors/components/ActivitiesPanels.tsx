@@ -5,12 +5,14 @@ import { DownOutlined } from '@ant-design/icons';
 import { OverlayScrollbarsComponent } from 'overlayscrollbars-react';
 import { getJobs } from '../activitiesAction';
 import { getDevices } from '@/app/(app)/(warehouse)/warehouse/warehouseAcction';
+import { getContainers } from '@/app/(app)/inventory/containers/containersAction';
 
 export default function ActivitiesPanels() {
     const [jobs, setJobs] = useState<any[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const [activeStatus, setActiveStatus] = useState<'all' | 'dispatched' | 'waiting' | 'active' | 'completed' | 'failed'>('all');
     const [warehouseId, setWarehouseId] = useState<string>('');
+    const [containers, setContainers] = useState<any[]>([]);
 
     // State cho thiết bị
     const [devices, setDevices] = useState<any[]>([]);
@@ -60,11 +62,28 @@ export default function ActivitiesPanels() {
         }
     };
 
+    const fetchContainersData = async (wId: string) => {
+        if (!wId) {
+            setContainers([]);
+            return;
+        }
+        try {
+            const res: any = await getContainers(wId, { limit: 1000 });
+            if (res.success && res.data) {
+                const elements = res.data.elements || res.data.data || res.data.rows || (Array.isArray(res.data) ? res.data : []);
+                setContainers(elements);
+            }
+        } catch (err) {
+            console.error("Failed to load containers from API:", err);
+        }
+    };
+
     useEffect(() => {
         const cookieWId = getCookie('selectedWarehouseId');
         setWarehouseId(cookieWId || '');
         fetchJobsData(cookieWId || '');
         fetchDevicesData(cookieWId || '');
+        fetchContainersData(cookieWId || '');
     }, []);
 
     // Định kỳ 5 giây cập nhật lại danh sách lệnh và thiết bị để theo dõi thời gian thực sử dụng polling
@@ -81,12 +100,14 @@ export default function ActivitiesPanels() {
                     setDevicesLoading(true);
                     await Promise.all([
                         fetchJobsData(currentCookieId || ''),
-                        fetchDevicesData(currentCookieId || '')
+                        fetchDevicesData(currentCookieId || ''),
+                        fetchContainersData(currentCookieId || '')
                     ]);
                 } else {
                     await Promise.all([
                         fetchJobsData(currentCookieId || ''),
-                        fetchDevicesData(currentCookieId || '')
+                        fetchDevicesData(currentCookieId || ''),
+                        fetchContainersData(currentCookieId || '')
                     ]);
                 }
             } finally {
@@ -177,11 +198,22 @@ export default function ActivitiesPanels() {
 
         const typeMapped = job.job_type === 'IMPORT' ? 'Nhập kho' : (job.job_type === 'EXPORT' ? 'Xuất kho' : job.job_type);
 
+        let pltCode = job.input?.container_code || job.output?.container_code || '';
+        const containerId = job.container_id || job.input?.container_id || job.output?.container_id;
+
+        // Ưu tiên tra cứu mã pallet từ containerId nếu là lệnh Xuất kho
+        if (job.job_type === 'EXPORT' && containerId) {
+            const foundContainer = containers.find((c: any) => c.id === containerId);
+            if (foundContainer && foundContainer.code) {
+                pltCode = foundContainer.code;
+            }
+        }
+
         return {
             id: job.id,
             type: typeMapped,
             code: job.code || '',
-            plt: job.input?.container_code || '',
+            plt: pltCode,
             desc: job.input?.sku_code || '',
             status: statusMapped
         };
@@ -216,17 +248,17 @@ export default function ActivitiesPanels() {
 
     return (
         <OverlayScrollbarsComponent
-            className="w-full h-full"
-            options={{ scrollbars: { visibility: 'hidden' } }}
+            className="w-full h-auto lg:h-full "
+            options={{ scrollbars: { visibility: "hidden", theme: 'os-theme-dark os-theme-hover' } }}
         >
-            <div className="flex flex-col gap-4 w-full pr-[10px] pb-[10px]">
+            <div className="flex flex-col gap-4 w-full pb-[10px]">
 
                 {/* Panel 1: Danh sách thực hiện (Dynamic API) */}
                 <div className="bg-white rounded-lg border border-[rgba(3,103,204,0.3)] shadow-[0px_4px_4px_0px_#0000000D] flex flex-col overflow-hidden h-[240px]">
                     <div className="pt-[8px] pl-[10px] border-b border-[rgba(3,103,204,0.3)]  pb-[7px] font-normal text-[#484848] text-[14px] leading-none">Danh sách thực hiện</div>
                     <OverlayScrollbarsComponent
                         className="text-[11px] px-[10px] py-[10px] leading-none text-[#545454]"
-                        options={{ scrollbars: { autoHide: 'leave', visibility: 'auto' } }}
+                        options={{ scrollbars: { autoHide: 'leave', theme: 'os-theme-dark os-theme-hover' } }}
                     >
                         <div className="flex gap-[10px] whitespace-nowrap">
                             <span
@@ -267,7 +299,7 @@ export default function ActivitiesPanels() {
                             </span>
                         </div>
                     </OverlayScrollbarsComponent>
-                    <OverlayScrollbarsComponent className="flex-1  !pr-[10px] !pb-[10px] !pl-[10px]" options={{ scrollbars: { autoHide: 'leave' } }}>
+                    <OverlayScrollbarsComponent className="flex-1  !pr-[10px] !pb-[10px] !pl-[10px]" options={{ scrollbars: { autoHide: 'leave', theme: 'os-theme-dark os-theme-hover' } }}>
                         {loading ? (
                             <div className="flex h-full items-center justify-center !pt-[0px] !pr-[10px] !pb-[10px] !pl-[10px]">
                                 <h1>đang tải...</h1>
@@ -333,7 +365,7 @@ export default function ActivitiesPanels() {
                 {/* Panel 2: Log hệ thống */}
                 <div className="bg-white rounded-lg border border-[rgba(3,103,204,0.3)] shadow-[0px_4px_4px_0px_#0000000D] flex flex-col overflow-hidden h-[243px]">
                     <div className="pt-[8px] pl-[10px] border-b border-[rgba(3,103,204,0.3)]  pb-[7px] font-normal text-[#484848] text-[14px] leading-none">Log hệ thống</div>
-                    <OverlayScrollbarsComponent className="flex-1 px-[20px] py-[10px]" options={{ scrollbars: { autoHide: 'leave' } }}>
+                    <OverlayScrollbarsComponent className="flex-1 px-[20px] py-[10px]" options={{ scrollbars: { autoHide: 'leave', theme: 'os-theme-dark os-theme-hover' } }}>
                         <div className="flex flex-col ">
                             {mockSystemLogs.map((log, idx) => (
                                 <div key={idx} className="flex gap-2 text-[12px] h-[35px] items-center border-b-[0.5px] border-[#E7ECFC] min-w-0" >
@@ -379,7 +411,7 @@ export default function ActivitiesPanels() {
                             </span>
                         </div>
                     </OverlayScrollbarsComponent>
-                    <OverlayScrollbarsComponent className="flex-1  !pr-[10px] !pb-[10px] !pl-[10px]" options={{ scrollbars: { autoHide: 'leave' } }}>
+                    <OverlayScrollbarsComponent className="flex-1  !pr-[10px] !pb-[10px] !pl-[10px]" options={{ scrollbars: { autoHide: 'leave', theme: 'os-theme-dark os-theme-hover' } }}>
                         {devicesLoading ? (
                             <div className="flex h-full items-center justify-center !pt-[0px] !pr-[10px] !pb-[10px] !pl-[10px]">
                                 <h1 className="text-[12px] text-gray-500 font-normal">đang tải...</h1>

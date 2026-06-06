@@ -147,7 +147,7 @@ export default function CustomTable<T extends object>({
                         {...rest}
                         pagination={rest.pagination === false ? false : {
                             pageSize: 20,
-                            className: 'h-[32px] !p-0 !mt-[20px]',
+                            className: 'h-[32px] !p-0 !mt-[10px] ',
                             showSizeChanger: false,
                             showTotal: (total) => `Hiển thị 20 trong tổng ${total}`,
                             placement: ['bottomEnd'] as const,

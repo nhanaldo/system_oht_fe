@@ -18,9 +18,9 @@ export async function logSocketConnectionServer(status: 'success' | 'failure' | 
  */
 export async function logLocationChangedServer(data: any) {
   try {
-    //console.log(`\x1b[36m[Socket.IO Server Log] Nhận sự kiện LOCATION_CHANGED thành công: \x1b[0m`, JSON.stringify(data));
+    // console.log(`\x1b[36m[Socket.IO Server Log] Nhận sự kiện LOCATION_CHANGED thành công: \x1b[0m`, JSON.stringify(data));
   } catch (err) {
-    //console.error(`\x1b[31m[Socket.IO Server Log] Nhận sự kiện LOCATION_CHANGED nhưng bị lỗi parse: \x1b[0m`, err);
+    // console.error(`\x1b[31m[Socket.IO Server Log] Nhận sự kiện LOCATION_CHANGED nhưng bị lỗi parse: \x1b[0m`, err);
   }
 }
 
@@ -29,9 +29,9 @@ export async function logLocationChangedServer(data: any) {
  */
 export async function logDeviceMovedServer(data: any) {
   try {
-    //console.log(`\x1b[35m[Socket.IO Server Log] Nhận sự kiện DEVICE_MOVED thành công: \x1b[0m`, JSON.stringify(data));
+    // console.log(`\x1b[35m[Socket.IO Server Log] Nhận sự kiện DEVICE_MOVED thành công: \x1b[0m`, JSON.stringify(data));
   } catch (err) {
-    //console.error(`\x1b[31m[Socket.IO Server Log] Nhận sự kiện DEVICE_MOVED nhưng bị lỗi parse: \x1b[0m`, err);
+    // console.error(`\x1b[31m[Socket.IO Server Log] Nhận sự kiện DEVICE_MOVED nhưng bị lỗi parse: \x1b[0m`, err);
   }
 }
 

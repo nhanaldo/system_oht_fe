@@ -137,9 +137,9 @@ export default function CategoriesTable({ raw, warehouseId }: CategoriesTablePro
                                         style={{ color: "#545454", fontSize: "18.34px", opacity: 0.6 }}
                                     />
                                 }
-                                className="rounded-[8px] placeholder:text-[#545454] "
+                                className="rounded-[8px] placeholder:text-[#545454] !w-[200px] lg:!w-[300px] "
                                 style={{
-                                    width: "300px",
+                                    // width: "300px",
                                     height: "40px",
                                     fontFamily: "Roboto",
                                     fontSize: "16px",
@@ -167,7 +167,7 @@ export default function CategoriesTable({ raw, warehouseId }: CategoriesTablePro
                                         hasSelected &&
                                         handleDeleteClick(selectedRowKeys.map((k) => String(k)))
                                     }
-                                    className={`transition-opacity ${hasSelected
+                                    className={`hidden lg:block transition-opacity ${hasSelected
                                         ? "cursor-pointer hover:opacity-80"
                                         : "opacity-50 cursor-not-allowed"
                                         }`}

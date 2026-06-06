@@ -853,29 +853,52 @@ export const WarehouseConfigProvider: React.FC<{
     // console.log('selected category: ', id);
 
   }, []);
+  const contextValue = React.useMemo(() => ({
+    modules, floors, areas, nodes, positionItems,
+    images, rows, columns,
+    floorsCount, modulesCount, warehouseName,
+    activeTab, selectedCells, scale, editingId,
+    updateModule,
+    addFloor, updateFloor, removeFloor, saveFloorNodes,
+    addArea, updateArea, removeArea, saveAreaNodes,
+    addPositionItem, updatePositionItem, removePositionItem, discardUnsaved,
+    upsertNodes, removeNodes, copyFloorConfig, clearModifiedFlags,
+    setActiveTab, setSelectedCells, setScale, setEditingId, setInitialEditingKeys,
+    getAllFloorNodes, getAllAreaNodes, getTakenCells, getFloorNodes,
+    initialEditingKeys,
+    posDirections, setPosDirections,
+    posName, setPosName,
+    posQrCode, setPosQrCode,
+    selectedCategory, products, categories, setSelectedCategories,
+    warehouseFloors, currentWarehouseFloorId, setCurrentWarehouseFloorId,
+    zoneTypes, warehouses, restoreSnapshot, isLoading, refreshGlobal, refreshFloor,
+    allProducts, allDevices, allDeviceTypes, allLocations,
+    zonesToDelete, towerFloorsToDelete, clearDeleteQueue, readOnly
+  }), [
+    modules, floors, areas, nodes, positionItems,
+    images, rows, columns,
+    floorsCount, modulesCount, warehouseName,
+    activeTab, selectedCells, scale, editingId,
+    updateModule,
+    addFloor, updateFloor, removeFloor, saveFloorNodes,
+    addArea, updateArea, removeArea, saveAreaNodes,
+    addPositionItem, updatePositionItem, removePositionItem, discardUnsaved,
+    upsertNodes, removeNodes, copyFloorConfig, clearModifiedFlags,
+    setActiveTab, setSelectedCells, setScale, setEditingId, setInitialEditingKeys,
+    getAllFloorNodes, getAllAreaNodes, getTakenCells, getFloorNodes,
+    initialEditingKeys,
+    posDirections, setPosDirections,
+    posName, setPosName,
+    posQrCode, setPosQrCode,
+    selectedCategory, products, categories, setSelectedCategories,
+    warehouseFloors, currentWarehouseFloorId, setCurrentWarehouseFloorId,
+    zoneTypes, warehouses, restoreSnapshot, isLoading, refreshGlobal, refreshFloor,
+    allProducts, allDevices, allDeviceTypes, allLocations,
+    zonesToDelete, towerFloorsToDelete, clearDeleteQueue, readOnly
+  ]);
+
   return (
-    <WarehouseConfigContext.Provider value={{
-      modules, floors, areas, nodes, positionItems,
-      images, rows, columns,
-      floorsCount, modulesCount, warehouseName,
-      activeTab, selectedCells, scale, editingId,
-      updateModule,
-      addFloor, updateFloor, removeFloor, saveFloorNodes,
-      addArea, updateArea, removeArea, saveAreaNodes,
-      addPositionItem, updatePositionItem, removePositionItem, discardUnsaved,
-      upsertNodes, removeNodes, copyFloorConfig, clearModifiedFlags,
-      setActiveTab, setSelectedCells, setScale, setEditingId, setInitialEditingKeys,
-      getAllFloorNodes, getAllAreaNodes, getTakenCells, getFloorNodes,
-      initialEditingKeys,
-      posDirections, setPosDirections,
-      posName, setPosName,
-      posQrCode, setPosQrCode,
-      selectedCategory, products, categories, setSelectedCategories,
-      warehouseFloors, currentWarehouseFloorId, setCurrentWarehouseFloorId,
-      zoneTypes, warehouses, restoreSnapshot, isLoading, refreshGlobal, refreshFloor,
-      allProducts, allDevices, allDeviceTypes, allLocations,
-      zonesToDelete, towerFloorsToDelete, clearDeleteQueue, readOnly
-    }}>
+    <WarehouseConfigContext.Provider value={contextValue}>
       {children}
     </WarehouseConfigContext.Provider>
   );

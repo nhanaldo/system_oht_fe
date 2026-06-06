@@ -1240,10 +1240,6 @@ function ProfileInner({ id }: { id: string }) {
                 </Modal>
 
                 <style jsx global>{`
-                .custom-scrollbar::-webkit-scrollbar { height: 6px; width: 6px; }
-                .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
-                .custom-scrollbar::-webkit-scrollbar-thumb { background: #d1d1d1; border-radius: 10px; }
-                .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #b1b1b1; }
             `}</style>
             </div>
         </ModalThemeProvider>

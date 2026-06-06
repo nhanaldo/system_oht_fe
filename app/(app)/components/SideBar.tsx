@@ -23,13 +23,14 @@ interface SideBarProps {
     pathname?: string;
     menuItems?: MenuTreeItem[];
     isAdmin?: boolean;
+    onMenuClick?: () => void;
 }
 
 const IconRenderer = ({ iconName, style, className }: { iconName?: string; style?: React.CSSProperties; className?: string }) => {
     return <DynamicIcon iconName={iconName} style={style} className={className} />;
 };
 
-const SideBar = ({ collapse, pathname: propPathname, menuItems, isAdmin = false }: SideBarProps) => {
+const SideBar = ({ collapse, pathname: propPathname, menuItems, isAdmin = false, onMenuClick }: SideBarProps) => {
     const currentPathname = usePathname();
     const pathname = propPathname || currentPathname;
 
@@ -207,6 +208,10 @@ const SideBar = ({ collapse, pathname: propPathname, menuItems, isAdmin = false 
                 selectedKeys={selectedKey ? [selectedKey] : []}
                 defaultOpenKeys={defaultOpenKeys}
                 items={buildMenuItems}
+                // /Gọi hàm đóng bên ngoài truyền vào khi nhấn vào bất kỳ mục nào của Menu
+                onClick={() => {
+                    if (onMenuClick) onMenuClick();
+                }}
             />
         </ConfigProvider>
     );

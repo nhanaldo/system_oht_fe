@@ -26,7 +26,7 @@ export const RealtimeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
-    const socketUrl = process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'http://10.14.80.72:7777';
+    const socketUrl = process.env.NEXT_PUBLIC_WEBSOCKET_URL;
     // kết nối socket.io
     if (!globalSocket) {
       console.log(`[Socket] Khởi tạo kết nối tới server Socket.IO: ${socketUrl}`);
@@ -61,10 +61,10 @@ export const RealtimeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     const onLocationChanged = (data: any) => {
       try {
-        // console.log('[Socket] Nhận sự kiện LOCATION_CHANGED thành công:', data);
-        // logLocationChangedServer(data);
+        console.log('[Socket] Nhận sự kiện LOCATION_CHANGED thành công:', data);
+        logLocationChangedServer(data);
       } catch (err) {
-        // console.error('[Socket] Lỗi xử lý sự kiện LOCATION_CHANGED thất bại:', err);
+        console.error('[Socket] Lỗi xử lý sự kiện LOCATION_CHANGED thất bại:', err);
       }
     };
 
@@ -73,7 +73,7 @@ export const RealtimeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         // console.log('[Socket] Nhận sự kiện DEVICE_MOVED thành công:', data);
         // logDeviceMovedServer(data);
       } catch (err) {
-        // console.error('[Socket] Lỗi xử lý sự kiện DEVICE_MOVED thất bại:', err);
+        console.error('[Socket] Lỗi xử lý sự kiện DEVICE_MOVED thất bại:', err);
       }
     };
 
@@ -98,8 +98,10 @@ export const RealtimeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     };
   }, []);
 
+  const contextValue = React.useMemo(() => ({ socket, isConnected }), [socket, isConnected]);
+
   return (
-    <RealtimeContext.Provider value={{ socket, isConnected }}>
+    <RealtimeContext.Provider value={contextValue}>
       {/* 3. Đặt các component con (children) vào bên trong vùng phủ sóng */}
       {children}
     </RealtimeContext.Provider>

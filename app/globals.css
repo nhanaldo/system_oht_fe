@@ -226,6 +226,8 @@ body {
     display: flex !important;
     align-items: center !important;
     justify-content: flex-end !important;
+    flex-wrap: nowrap !important;
+    /* Cấm rớt dòng */
     background-color: #ffffff !important;
     margin: 0 !important;
     padding: 8px 16px !important;
@@ -241,6 +243,8 @@ body {
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
+    flex: 1 1 0% !important;
+    /* 0% để ép buộc nó phải co lại trước thay vì đẩy rớt dòng */
     min-width: 0 !important;
 }
 
@@ -332,7 +336,6 @@ body {
 
     .fixed-layout-table .ant-pagination-total-text {
         font-size: 12px !important;
-        max-width: 100px !important;
     }
 
     .fixed-layout-table .ant-pagination-prev,
@@ -496,9 +499,10 @@ body {
 
 /* Tùy chỉnh OverlayScrollbars để thanh cuộn lơ lửng */
 .os-theme-dark.os-theme-hover {
-    --os-handle-bg: rgba(0, 0, 0, 0.2);
-    --os-handle-bg-hover: rgba(0, 0, 0, 0.3);
-    --os-handle-bg-active: rgba(0, 0, 0, 0.4);
+    --os-size: 8px;
+    --os-handle-bg: #d9d9d9;
+    --os-handle-bg-hover: #c1c1c1;
+    --os-handle-bg-active: #a8a8a8;
 }
 
 /* Sửa lỗi tràn thẻ (tag overflow) của Ant Design Select mode multiple */
@@ -609,15 +613,7 @@ justify-content: center;
     font-weight: 400 !important;
 }
 
-/* Làm đẹp thanh cuộn mặc định (native scrollbar) cho các menu xổ xuống (Select, Dropdown) */
-::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-}
 
-::-webkit-scrollbar-track {
-    background: transparent;
-}
 
 /* ::-webkit-scrollbar-thumb {
     background: #c1c1c1;
@@ -627,6 +623,26 @@ justify-content: center;
 ::-webkit-scrollbar-thumb:hover {
     background: #a8a8a8;
 } */
+
+/* Custom scrollbar class for components that need styled scrollbars (like WarehouseMap) */
+.custom-scrollbar::-webkit-scrollbar {
+    height: 6px;
+    width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #d1d1d1;
+    border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #b1b1b1;
+}
 
 /* Đổi màu thanh cuộn giả của Ant Design Select (rc-virtual-list) */
 .rc-virtual-list-scrollbar-thumb {
@@ -705,4 +721,19 @@ justify-content: center;
     body.sidebar-expanded .mobile-hide-on-sidebar {
         display: none !important;
     }
+}
+
+/* ẩn thanh cuộn nhưng vẫn có thể cuộn */
+.ant-modal-wrap.ant-modal-centered {
+    overflow-y: auto;
+    -ms-overflow-style: none;
+    /* IE and Edge */
+    scrollbar-width: none;
+    /* Firefox */
+}
+
+/* ẩn thanh cuộn nhưng vẫn có thể cuộn */
+.ant-modal-wrap.ant-modal-centered::-webkit-scrollbar {
+    display: none;
+    /* Chrome, Safari and Opera */
 }

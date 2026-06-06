@@ -39,6 +39,7 @@ export const getColumns = (
             title: 'Mô tả',
             dataIndex: 'description',
             key: 'description',
+            width: 400,
             align: 'center',
             onCell: () => ({ style: { paddingLeft: '10px' } }),
             onHeaderCell: () => ({ style: { textAlign: 'center' } }),

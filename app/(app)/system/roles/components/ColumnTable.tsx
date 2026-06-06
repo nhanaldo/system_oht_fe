@@ -50,6 +50,7 @@ export const getColumns = (
             title: 'Mô tả',
             dataIndex: 'description',
             key: 'description',
+            width: 450,
             className: "text-left",
             render: (text: string) => text || '',
             onHeaderCell: () => ({

@@ -134,8 +134,8 @@ export default function RoleTable({ raw }: RoleTableProps) {
                         <Input
                             placeholder="Nhập vào tìm kiếm"
                             prefix={<SearchOutlined style={{ color: '#545454', fontSize: '18.34px', opacity: 0.6 }} />}
-                            className="rounded-[8px] placeholder:text-[#545454]"
-                            style={{ width: '300px', height: '40px', fontFamily: 'Roboto', fontSize: '16px' }}
+                            className="rounded-[8px] placeholder:text-[#545454] !lg:w-[300px] !w-[200px]"
+                            style={{ height: '40px', fontFamily: 'Roboto', fontSize: '16px' }}
                             value={searchText}
                             onChange={onSearchChange}
                         />

@@ -234,18 +234,18 @@ export default function ProductTable({ warehouseId, categoryOptions, uomOptions,
                             }
                         }}
                     >
-                        <Space style={{ gap: 15 }}>
+                        <Space >
                             <Input
                                 placeholder="Nhập vào tìm kiếm"
                                 prefix={<SearchOutlined style={{ color: '#545454', fontSize: '18.34px', opacity: 0.6 }} />}
-                                className="rounded-[8px] placeholder:text-[#545454] placeholder:text-[16px]"
+                                className="rounded-[8px] placeholder:text-[#545454] placeholder:text-[16px] !w-[200px] lg:!w-[300px]"
                                 style={{ width: '260px', fontSize: '16px', height: '40px' }}
                                 value={searchText}
                                 onChange={onSearchChange}
                             />
                             <Select
                                 placeholder="Quy cách"
-                                className="w-[120px] h-[40px] text-[16px] font-roboto"
+                                className="!w-[180px] lg:!w-[120px] h-[40px] text-[16px] font-roboto !hidden !lg:block"
                                 style={{ height: '40px', width: '120px', color: '#54545499' }}
                                 value={specificationFilter}
                                 onChange={setSpecificationFilter}
@@ -257,12 +257,12 @@ export default function ProductTable({ warehouseId, categoryOptions, uomOptions,
                             />
                             <Select
                                 placeholder="Trạng thái"
-                                className="w-[120px] h-[40px] text-[16px] font-roboto"
+                                className="w-[120px] h-[40px] text-[16px] font-roboto !hidden mobile-hide-on-sidebar lg:!inline-flex"
                                 style={{ height: '40px', width: '120px', color: '#54545499' }}
                                 value={statusFilter}
                                 onChange={setStatusFilter}
                                 options={[
-                                    { label: 'Tất cả', value: 'all' },
+                                    { label: 'Chọn tất cả', value: 'all' },
                                     { label: 'Hoạt động', value: 'active' },
                                     { label: 'Khóa', value: 'inactive' }
                                 ]}
@@ -270,7 +270,7 @@ export default function ProductTable({ warehouseId, categoryOptions, uomOptions,
                             />
                             <Select
                                 placeholder="Phẩm cấp"
-                                className="w-[160px] h-[40px] text-[16px] font-roboto"
+                                className="w-[160px] h-[40px] text-[16px] font-roboto !hidden mobile-hide-on-sidebar lg:!inline-flex"
                                 style={{ height: '40px', width: '160px', color: '#54545499' }}
                                 value={categoryFilter}
                                 onChange={setCategoryFilter}
@@ -303,7 +303,7 @@ export default function ProductTable({ warehouseId, categoryOptions, uomOptions,
                                 width={40}
                                 height={40}
                                 onClick={handleBatchDelete}
-                                className={`cursor-pointer hover:opacity-80 transition-opacity ${selectedRowKeys.length === 0 ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''
+                                className={`!lg:block hidden cursor-pointer hover:opacity-80 transition-opacity ${selectedRowKeys.length === 0 ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''
                                     }`}
                             />
                             <Image

@@ -5,8 +5,6 @@ import { useRouter } from 'next/navigation';
 import React, { useState, useEffect } from 'react';
 import { Layout, Button, Avatar, Dropdown, Space, Badge, Popover, App, Popconfirm, Input } from 'antd';
 import {
-    MenuFoldOutlined,
-    MenuUnfoldOutlined,
     BellOutlined,
     DownOutlined,
     LogoutOutlined,
@@ -185,14 +183,30 @@ export default function HeaderComponent({ collapsed, setCollapsed, username }: H
                 {/* Toggle Button */}
                 <Button
                     type="text"
-                    icon={collapsed ? <MenuUnfoldOutlined style={{ color: '#000000' }} /> : <MenuFoldOutlined style={{ color: '#000000' }} />}
+                    icon={
+                        <img
+                            src="/icon.svg/MenuFold.svg"
+                            alt="menu-toggle"
+                            style={{
+                                width: '20px',
+                                height: '20px',
+                                transform: collapsed ? 'scaleX(-1)' : 'none',
+                                transition: 'transform 0.2s ease',
+                                display: 'inline-block',
+                                verticalAlign: 'middle'
+                            }}
+                        />
+                    }
                     onClick={() => setCollapsed(!collapsed)}
                     style={{
                         fontSize: '18px',
                         width: 64,
                         height: 64,
                         flexShrink: 0,
-                        color: '#000000'
+                        color: '#000000',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
                     }}
                 />
 

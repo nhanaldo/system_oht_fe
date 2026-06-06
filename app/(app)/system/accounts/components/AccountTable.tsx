@@ -238,8 +238,8 @@ export default function AccountTable({ roleOptions, warehouseOptions }: AccountT
                     <div className="min-w-0 flex-1 mr-2">
                         {/* leading-none: chiều cao của dòng bằng kích thước của phông chữ <=> line height = 100% 
                     Letter spacing: 0% <=> tracking-normal khoảng cách giữa các chữ cái ở mức mặc định, không giãn cũng không ép.*/}
-                        <h2 className="text-[#373838] font-roboto font-medium leading-none tracking-normal lg:text-[16px] text-[14px] truncate">Quản lý tài khoản</h2>
-                        <p className="text-[#5F5D5D] !leading-none font-roboto font-regular leading-normal tracking-normal mt-[8px] lg:text-[14px] text-[12px] truncate">Đã chọn: {selectedRowKeys.length} mục</p>
+                        <h2 className="text-[#373838] font-roboto font-medium leading-none tracking-normal  lg:text-[16px] text-[14px] truncate">Quản lý tài khoản</h2>
+                        <p className="text-[#5F5D5D] !leading-none font-roboto font-regular leading-normal tracking-normal mt-[8px] lg:text-[14px] text-[12px] truncate ">Đã chọn: {selectedRowKeys.length} mục</p>
                     </div>
                     <ConfigProvider
                         theme={{
@@ -262,7 +262,7 @@ export default function AccountTable({ roleOptions, warehouseOptions }: AccountT
                             <Input
                                 placeholder="Nhập vào tìm kiếm"
                                 prefix={<SearchOutlined style={{ color: '#545454', fontSize: '18.34px', opacity: 0.6 }} />}
-                                className="rounded-[8px] placeholder:text-[#545454] placeholder:text-[16px]"
+                                className="rounded-[8px] placeholder:text-[#545454] placeholder:text-[16px] !w-[200px] lg:!w-[300px]"
                                 style={{ width: '300px', fontSize: '16px', height: '40px' }}
                                 value={params.search}
                                 onChange={(e) => onSearchChange(e.target.value)}
@@ -275,7 +275,7 @@ export default function AccountTable({ roleOptions, warehouseOptions }: AccountT
                                     </svg>
                                 }
 
-                                className="w-[108px] h-[40px] text-[16px] font-roboto font-normal"
+                                className="lg:!w-[108px] !w-[80px] h-[40px] text-[16px] font-roboto font-normal !hidden !lg:block"
                                 style={{ height: '40px', width: '108px', fontFamily: 'Roboto', fontSize: '16px' }}
                                 value={selectedRoleFilter}
                                 onChange={(val) => setSelectedRoleFilter(val)}
