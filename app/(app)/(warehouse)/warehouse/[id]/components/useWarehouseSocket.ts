@@ -11,6 +11,8 @@ export const useWarehouseSocket = ({
   setAllLocations: React.Dispatch<React.SetStateAction<any[]>>;
   setAllDevices: React.Dispatch<React.SetStateAction<any[]>>;
 }) => {
+  // File này hoàn toàn mù tịt về giao diện, nó không biết vẽ bản đồ là gì. Nó chỉ ôm cái socket và 
+  // túc trực 24/24 nghe ngóng 2 tín hiệu: DEVICE_MOVED và LOCATION_CHANGED
   // đồng bộ hóa và cập nhật tức thời vị trí của shuttle cũng như các ô 
   //khi có sự thay đổi từ hệ thống thực tế (backend gửi tín hiệu qua Socket.IO
   useEffect(() => {

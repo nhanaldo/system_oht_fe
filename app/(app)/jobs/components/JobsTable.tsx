@@ -47,8 +47,8 @@ function JobsTableInner({ jobType, warehouseId }: JobsTableProps & { warehouseId
         fetchFn: getJobs,
         initialParams: {
             job_type: jobType,
-            limit: 20,
-            page: 1,
+            // limit: 20,
+            total: '',
             warehouse_id: warehouseId || '',
         }
     });
@@ -133,7 +133,7 @@ function JobsTableInner({ jobType, warehouseId }: JobsTableProps & { warehouseId
                             <Input
                                 placeholder="Nhập vào tìm kiếm"
                                 prefix={<SearchOutlined style={{ color: '#545454', fontSize: '18.34px', opacity: 0.6 }} />}
-                                className="rounded-[8px] placeholder:text-[#545454] placeholder:text-[16px] !w-[120px] lg:!w[300px] mobile-hide-on-sidebar"
+                                className="rounded-[8px] placeholder:text-[#545454] placeholder:text-[16px] !w-[120px] lg:!w-[300px] mobile-hide-on-sidebar"
                                 style={{ width: 300, fontSize: '16px', height: '40px' }}
                                 value={searchText}
                                 onChange={(e) => setSearchText(e.target.value)}
@@ -204,7 +204,7 @@ function JobsTableInner({ jobType, warehouseId }: JobsTableProps & { warehouseId
                         pagination={{
                             current: params.page,
                             pageSize: params.limit,
-                            total: filteredData.length,
+                            total: total,
                             onChange: onPageChange,
                         }}
                     />

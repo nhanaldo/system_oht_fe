@@ -31,8 +31,9 @@ export default function ResourcesTable() {
     const [editData, setEditData] = useState<any>(null);
 
     const { data: rawData, total, isLoading, refetch, onPageChange, onSearchChange, params } = useTableQuery<ResourceItem>({
-        queryKey: 'resources',
-        fetchFn: getResources,
+        queryKey: 'resources', //queryKey: 'resources': Đặt tên (ID) cho dữ liệu của bảng này là resources. Nhờ cái tên này, lát nữa nếu bạn thêm mới hoặc xóa một "resource", 
+        // bạn chỉ cần gọi invalidateQueries({ queryKey: 'resources' }) là bảng này sẽ tự động tải lại dữ liệu mới nhất.
+        fetchFn: getResources, //  Dữ liệu gửi về 1 dict như này 
         initialParams: { page: 1, limit: 20 }
     });
 

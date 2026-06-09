@@ -32,7 +32,7 @@ export const RealtimeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       console.log(`[Socket] Khởi tạo kết nối tới server Socket.IO: ${socketUrl}`);
       globalSocket = io(socketUrl, {
         transports: ['websocket'],
-        autoConnect: false,
+        autoConnect: false, // Chuẩn bị sẵn dây cáp nối tới Server đi, nhưng khoan hãy bấm nút kết nối
       });
     }
 
@@ -81,9 +81,10 @@ export const RealtimeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     socketInstance.on('connect_error', onConnectError);
     socketInstance.on('disconnect', onDisconnect);
     socketInstance.on('LOCATION_CHANGED', onLocationChanged);
-    socketInstance.on('DEVICE_MOVED', onDeviceMoved);
+    socketInstance.on('DEVICE_MOVED', onDeviceMoved);//chộp được sự kiện từ server
 
-    // gọi lệnh kết nối 
+    // gọi lệnh kết nối toàn cục
+    // useWarehouseSocket cục bộ chỉ lắng nghe sau khi socket đã được kết nối 
     if (!socketInstance.connected) {
       socketInstance.connect();
     }
@@ -94,7 +95,7 @@ export const RealtimeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       socketInstance.off('connect_error', onConnectError);
       socketInstance.off('disconnect', onDisconnect);
       socketInstance.off('LOCATION_CHANGED', onLocationChanged);
-      socketInstance.off('DEVICE_MOVED', onDeviceMoved);
+      socketInstance.off('DEVICE_MOVED', onDeviceMoved);// tắt nếu chuyển trang
     };
   }, []);
 

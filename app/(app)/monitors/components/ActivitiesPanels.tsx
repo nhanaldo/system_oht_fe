@@ -35,7 +35,7 @@ export default function ActivitiesPanels() {
 
     const fetchJobsData = async (wId: string) => {
         try {
-            const res: any = await getJobs({ warehouse_id: wId, limit: 100 });
+            const res: any = await getJobs({ warehouse_id: wId, limit: 10000 });
             const elements = res?.elements || res?.data || res?.rows || (Array.isArray(res) ? res : []);
             setJobs(elements);
         } catch (err) {

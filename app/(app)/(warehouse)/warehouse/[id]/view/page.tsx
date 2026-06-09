@@ -69,6 +69,7 @@ const MapViewer: React.FC = () => {
 export default function WarehouseViewPage({ params }: { params: Promise<{ id: string }> }) {
     const resolvedParams = React.use(params);
     const searchParams = useSearchParams();
+    //Đọc thông số cấu hình bản đồ từ thanh địa chỉ (URL), nếu không có thì lấy giá trị mặc định, và chuyển nó thành số học
     const rows = parseInt(searchParams.get('rows') || '14', 10);
     const columns = parseInt(searchParams.get('columns') || '38', 10);
 

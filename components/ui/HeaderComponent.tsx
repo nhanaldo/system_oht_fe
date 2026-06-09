@@ -183,6 +183,7 @@ export default function HeaderComponent({ collapsed, setCollapsed, username }: H
                 {/* Toggle Button */}
                 <Button
                     type="text"
+                    className="mobile-toggle-btn"
                     icon={
                         <img
                             src="/icon.svg/MenuFold.svg"
@@ -315,6 +316,7 @@ export default function HeaderComponent({ collapsed, setCollapsed, username }: H
                 disabled={warehouses.length === 0 || isSetupMode}
             >
                 <div
+                    className="mobile-warehouse-btn"
                     style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -343,7 +345,7 @@ export default function HeaderComponent({ collapsed, setCollapsed, username }: H
             </Dropdown>
             {/* User Actions */}
             <div className="mobile-header-padding" style={{ display: 'flex', alignItems: 'center', paddingRight: '24px', flexShrink: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <div className="mobile-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                     <Popover
                         content={<div style={{ padding: '8px', color: '#545454' }}>Chưa có thông báo</div>}
                         title={<span style={{ fontWeight: 600 }}>Thông báo</span>}
@@ -367,7 +369,7 @@ export default function HeaderComponent({ collapsed, setCollapsed, username }: H
                                 </Avatar>
                             )}
                             <span className="mobile-user-name" style={{ fontWeight: 400, fontSize: '16px', color: '#545454', fontFamily: "roboto", lineHeight: 1, fontStyle: "normal", whiteSpace: 'nowrap' }}>{username}</span>
-                            <DownOutlined style={{ fontSize: '12px', color: '#292D32', flexShrink: 0 }} />
+                            <DownOutlined className="mobile-user-arrow" style={{ fontSize: '12px', color: '#292D32', flexShrink: 0 }} />
                         </div>
                     </Dropdown>
                 </div>

@@ -13,7 +13,7 @@ export default async function RootLayout({
     const username = cookieStore.get("username")?.value || "Admin";
     const accountCode = cookieStore.get("accountCode")?.value || "";
     const isAdmin = accountCode.toUpperCase().startsWith("ADM");
-
+    // 1. Nếu không có token -> đá về trang login
     if (!token) {
         redirect("/login");
     }

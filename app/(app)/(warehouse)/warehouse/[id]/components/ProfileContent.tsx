@@ -657,7 +657,7 @@ function ProfileInner({ id }: { id: string }) {
 
     return (
         <ModalThemeProvider>
-            <div className="flex flex-col bg-white rounded-[20px] min-h-full font-inter relative overflow-y-auto lg:overflow-hidden">
+            <div className="flex flex-col bg-white rounded-[20px] min-h-full font-inter relative overflow-y-auto lg:overflow-hidden no-scrollbar">
                 {contextHolder}
                 {isLoading && (
                     <div className="absolute inset-0 z-[2000] flex items-center justify-center bg-white/70 backdrop-blur-[2px] ">
@@ -752,8 +752,7 @@ function ProfileInner({ id }: { id: string }) {
                                     defer
                                     options={{
                                         scrollbars: {
-                                            autoHide: 'leave',
-                                            autoHideDelay: 500,
+                                            visibility: 'hidden',
                                         },
                                     }}
                                     className="w-full max-h-[580px] lg:max-h-[calc(100vh-280px)]"
@@ -809,8 +808,7 @@ function ProfileInner({ id }: { id: string }) {
                                     defer
                                     options={{
                                         scrollbars: {
-                                            autoHide: 'leave',
-                                            autoHideDelay: 500,
+                                            visibility: 'hidden',
                                         },
                                     }}
                                     className="w-full max-h-[580px] lg:max-h-[calc(100vh-280px)]"
@@ -967,8 +965,7 @@ function ProfileInner({ id }: { id: string }) {
                                     defer
                                     options={{
                                         scrollbars: {
-                                            autoHide: 'leave',
-                                            autoHideDelay: 500,
+                                            visibility: 'hidden',
                                         },
                                     }}
                                     className="w-full max-h-[580px] lg:max-h-[calc(100vh-280px)]"
@@ -1114,8 +1111,7 @@ function ProfileInner({ id }: { id: string }) {
                                 defer
                                 options={{
                                     scrollbars: {
-                                        autoHide: 'leave',
-                                        autoHideDelay: 500,
+                                        visibility: 'hidden',
                                     },
                                 }}
                                 className="w-full max-h-[580px] lg:max-h-[calc(100vh-280px)]"
