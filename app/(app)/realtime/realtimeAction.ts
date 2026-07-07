@@ -35,3 +35,24 @@ export async function logDeviceMovedServer(data: any) {
   }
 }
 
+/**
+ * Ghi log sự kiện NEW_TASK_LOG ra terminal của server Node.js
+ */
+export async function logNewTaskLogServer(data: any) {
+  try {
+    // console.log(`\n\x1b[34m[Socket.IO Server Log] Nhận sự kiện NEW_TASK_LOG: \x1b[0m`, JSON.stringify(data));
+  } catch (err) {
+    // console.error(`\n\x1b[31m[Socket.IO Server Log] Nhận sự kiện NEW_TASK_LOG nhưng bị lỗi parse: \x1b[0m`, err);
+  }
+}
+
+/**
+ * Ghi log sự kiện TASK_STATUS_CHANGED ra terminal của server Node.js
+ */
+export async function logTaskStatusChangedServer(data: any) {
+  try {
+    // console.log(`\n\x1b[34m[Socket.IO Server Log] Nhận sự kiện TASK_STATUS_CHANGED (Lộ trình Shuttle/Lifter): \x1b[0m`, JSON.stringify(data));
+  } catch (err) {
+    // console.error(`\n\x1b[31m[Socket.IO Server Log] Nhận sự kiện TASK_STATUS_CHANGED nhưng bị lỗi parse: \x1b[0m`, err);
+  }
+}

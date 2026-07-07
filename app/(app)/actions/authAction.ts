@@ -69,7 +69,7 @@ export async function loginAction(credentials: LoginParams) {
         console.error("Login action error:", error);
 
         // Trích xuất message lỗi từ backend (nếu có)
-        const errorMessage = error?.data?.message || error?.statusText || 'Kết nối server thất bại :((. Vui lòng thử lại sau).';
+        const errorMessage = error?.data?.message || error?.statusText || 'Kết nối server thất bại :(( Vui lòng thử lại sau !';
 
         return {
             success: false,

@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { mockSystemLogs, mockStats } from '../mockData';
 import { DownOutlined } from '@ant-design/icons';
 import { OverlayScrollbarsComponent } from 'overlayscrollbars-react';
+import { useRealtime } from '@/app/(app)/realtime/RealtimeProvider';
 import { getJobs } from '../activitiesAction';
 import { getDevices } from '@/app/(app)/(warehouse)/warehouse/warehouseAcction';
 import { getContainers } from '@/app/(app)/inventory/containers/containersAction';
@@ -18,6 +19,71 @@ export default function ActivitiesPanels() {
     const [devices, setDevices] = useState<any[]>([]);
     const [devicesLoading, setDevicesLoading] = useState<boolean>(true);
     const [activeDeviceFilter, setActiveDeviceFilter] = useState<'all' | 'active' | 'inactive' | 'error'>('all');
+
+    const { socket } = useRealtime();
+    const [systemLogs, setSystemLogs] = useState<{ time: string, message: string, deviceType?: string, colorClass?: string }[]>([]);
+
+    useEffect(() => {
+        if (!socket) return;
+
+        const handleMovementEvent = (data: any) => {
+            const statusUpper = String(data?.status || '').toUpperCase();
+
+            // Lọc: chỉ hiển thị khi có 3 status này
+            if (!['RUNNING', 'COMPLETED', 'FAILED', 'FAIL', 'ERROR'].includes(statusUpper)) {
+                return;
+            }
+
+            const now = new Date();
+            const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
+
+            let message = "";
+            if (typeof data === 'string') {
+                message = data;
+            } else if (data && data.message) {
+                message = data.message;
+            } else if (data && (data.code || data.deviceId || data.id)) {
+                const devId = data.code || data.deviceId || data.id;
+                message = `Nhiệm vụ ${devId} - Trạng thái: ${statusUpper}`;
+            } else {
+                message = `Hệ thống: ${JSON.stringify(data)}`;
+            }
+
+            let logStatus = 'unknown';
+            if (statusUpper === 'RUNNING') {
+                logStatus = 'running';
+            } else if (statusUpper === 'COMPLETED') {
+                logStatus = 'completed';
+            } else if (statusUpper === 'FAILED' || statusUpper === 'FAIL' || statusUpper === 'ERROR') {
+                logStatus = 'failed';
+            }
+
+            const msgLower = message.toLowerCase();
+            let colorClass = 'text-[#484848] font-normal'; // default text color
+
+            if (statusUpper === 'FAILED' || statusUpper === 'FAIL' || statusUpper === 'ERROR' || msgLower.includes('fail') || msgLower.includes('lỗi')) {
+                colorClass = 'text-red-500 font-medium'; // màu đỏ
+            } else if (msgLower.includes('đặt hàng thành công')) {
+                colorClass = 'text-orange-500 font-medium'; // màu cam
+            } else if (msgLower.includes('lifter') || (data && typeof data.code === 'string' && data.code.toLowerCase().includes('lt'))) {
+                colorClass = 'text-sky-500 font-medium'; // màu xanh da trời (sky blue)
+            } else if (msgLower.includes('shuttle') || (data && typeof data.code === 'string' && data.code.toLowerCase().includes('st'))) {
+                colorClass = 'text-green-500 font-medium'; // màu xanh lá cây
+            } else if (statusUpper === 'COMPLETED') {
+                colorClass = 'text-[#27AE60] font-medium'; // success mặc định
+            } else if (statusUpper === 'RUNNING') {
+                colorClass = 'text-[#076eb8] font-medium'; // running mặc định
+            }
+
+            setSystemLogs(prev => [{ time: timeStr, message, deviceType: logStatus, colorClass }, ...prev].slice(0, 100)); // Lưu 100 log gần nhất (mới nhất lên trên)
+        };
+
+        socket.on('NEW_TASK_LOG', handleMovementEvent);
+
+        return () => {
+            socket.off('NEW_TASK_LOG', handleMovementEvent);
+        };
+    }, [socket]);
 
     const warehouseIdRef = React.useRef<string>('');
     useEffect(() => {
@@ -367,12 +433,14 @@ export default function ActivitiesPanels() {
                     <div className="pt-[8px] pl-[10px] border-b border-[rgba(3,103,204,0.3)]  pb-[7px] font-normal text-[#484848] text-[14px] leading-none">Log hệ thống</div>
                     <OverlayScrollbarsComponent className="flex-1 px-[20px] py-[10px]" options={{ scrollbars: { autoHide: 'leave', theme: 'os-theme-dark os-theme-hover' } }}>
                         <div className="flex flex-col ">
-                            {mockSystemLogs.map((log, idx) => (
+                            {systemLogs.length > 0 ? systemLogs.map((log, idx) => (
                                 <div key={idx} className="flex gap-2 text-[12px] h-[35px] items-center border-b-[0.5px] border-[#E7ECFC] min-w-0" >
                                     <span className="text-[#545454] text-[12px] font-normal whitespace-nowrap">{log.time}</span>
-                                    <span className="text-[#484848] text-[12px] font-normal leading-tight truncate flex-1 min-w-0" title={log.message}>{log.message}</span>
+                                    <span className={`text-[12px] leading-tight truncate flex-1 min-w-0 ${log.colorClass || 'text-[#484848] font-normal'}`} title={log.message}>{log.message}</span>
                                 </div>
-                            ))}
+                            )) : (
+                                <div className="text-[#545454] text-[12px] font-normal py-4 text-center">Chưa có sự kiện di chuyển nào...</div>
+                            )}
                         </div>
                     </OverlayScrollbarsComponent>
                 </div>

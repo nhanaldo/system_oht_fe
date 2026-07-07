@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { logSocketConnectionServer, logLocationChangedServer, logDeviceMovedServer } from './realtimeAction';
+import { logSocketConnectionServer, logLocationChangedServer, logDeviceMovedServer, logNewTaskLogServer } from './realtimeAction';
 
 interface RealtimeContextType {
   socket: Socket | null;
@@ -61,7 +61,7 @@ export const RealtimeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     const onLocationChanged = (data: any) => {
       try {
-        console.log('[Socket] Nhận sự kiện LOCATION_CHANGED thành công:', data);
+        // console.log('[Socket] Nhận sự kiện LOCATION_CHANGED thành công:', data);
         logLocationChangedServer(data);
       } catch (err) {
         console.error('[Socket] Lỗi xử lý sự kiện LOCATION_CHANGED thất bại:', err);
@@ -77,11 +77,21 @@ export const RealtimeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
     };
 
+    const onNewTaskLog = (data: any) => {
+      try {
+        // console.log('[Socket] Nhận sự kiện NEW_TASK_LOG (Hoạt động hệ thống):', data);
+        // logNewTaskLogServer(data);
+      } catch (err) {
+        console.error('[Socket] Lỗi xử lý sự kiện NEW_TASK_LOG thất bại:', err);
+      }
+    };
+
     socketInstance.on('connect', onConnect);
     socketInstance.on('connect_error', onConnectError);
     socketInstance.on('disconnect', onDisconnect);
     socketInstance.on('LOCATION_CHANGED', onLocationChanged);
     socketInstance.on('DEVICE_MOVED', onDeviceMoved);//chộp được sự kiện từ server
+    socketInstance.on('NEW_TASK_LOG', onNewTaskLog);
 
     // gọi lệnh kết nối toàn cục
     // useWarehouseSocket cục bộ chỉ lắng nghe sau khi socket đã được kết nối 
@@ -96,6 +106,7 @@ export const RealtimeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       socketInstance.off('disconnect', onDisconnect);
       socketInstance.off('LOCATION_CHANGED', onLocationChanged);
       socketInstance.off('DEVICE_MOVED', onDeviceMoved);// tắt nếu chuyển trang
+      socketInstance.off('NEW_TASK_LOG', onNewTaskLog);
     };
   }, []);
 

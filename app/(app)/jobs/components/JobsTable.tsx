@@ -204,7 +204,7 @@ function JobsTableInner({ jobType, warehouseId }: JobsTableProps & { warehouseId
                         pagination={{
                             current: params.page,
                             pageSize: params.limit,
-                            total: total,
+                            total: (searchText.trim() !== '' || dateRange || params.status) ? filteredData.length : total,
                             onChange: onPageChange,
                         }}
                     />
