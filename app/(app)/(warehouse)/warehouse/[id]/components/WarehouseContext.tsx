@@ -5,7 +5,7 @@ import type {
   TabKey, WarehouseModule, FloorConfig, AreaConfig, PositionConfig, DirectionFlags
 } from './warehouse-types';
 import { TowerProps, getTower, getTowerFloor, getZone, getNode, getWarehouseFloor, getZoneType, getWarehouse, getWarehouseById, getCategory, getProduct, getDevices, getLocations } from '../../warehouseAcction';
-import { getDeviceTypes } from '@/app/(app)/workflows/list/workflowsAction';
+// import { getDeviceTypes } from '@/app/(app)/workflows/list/workflowsAction';
 import { useRealtime } from '@/app/(app)/realtime/RealtimeProvider';
 import { useWarehouseSocket } from './useWarehouseSocket';
 // giúp map và sideBar chia sẽ dữ liệu với nhau 
@@ -225,14 +225,14 @@ export const WarehouseConfigProvider: React.FC<{
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const [towerData, wFloorData, zoneTypeData, warehouseListData, allProductData, deviceData, deviceTypeData, locationData] = await Promise.all([
+        const [towerData, wFloorData, zoneTypeData, warehouseListData, allProductData, deviceData, deviceTypeData] = await Promise.all([
           getTower(warehouseId),
           getWarehouseFloor(warehouseId),
           getZoneType(),
           getWarehouse({ page: 1, limit: 100 }),
           getProduct(warehouseId, ''),
           getDevices(warehouseId, { page: 1, limit: 1000 }),
-          getDeviceTypes(),
+          // getDeviceTypes(),
           getLocations(warehouseId, { page: 1, limit: 1000 }),
         ]);
 
@@ -286,20 +286,20 @@ export const WarehouseConfigProvider: React.FC<{
           setAllProducts(rawAllProducts);
         }
 
-        const rawDevices = getElements(deviceData);
-        if (rawDevices.length > 0) {
-          setAllDevices(rawDevices);
-        }
+        // const rawDevices = getElements(deviceData);
+        // if (rawDevices.length > 0) {
+        //   setAllDevices(rawDevices);
+        // }
 
-        if (deviceTypeData?.success) {
-          const rawDeviceTypes = getElements(deviceTypeData.data);
-          setAllDeviceTypes(rawDeviceTypes);
-        }
+        // if (deviceTypeData?.success) {
+        //   const rawDeviceTypes = getElements(deviceTypeData.data);
+        //   setAllDeviceTypes(rawDeviceTypes);
+        // }
 
-        const rawLocations = getElements(locationData);
-        if (rawLocations.length > 0) {
-          setAllLocations(rawLocations);
-        }
+        // const rawLocations = getElements(locationData);
+        // if (rawLocations.length > 0) {
+        //   setAllLocations(rawLocations);
+        // }
       } catch (error) {
         console.error("Error fetching initial data:", error);
       } finally {

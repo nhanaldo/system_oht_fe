@@ -14,7 +14,7 @@ import {
 } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
 import { logoutAction, setWarehouseIdAction } from '@/app/(app)/actions/authAction';
-import { getCurrentAccountProfile } from '@/app/(app)/system/accounts/accountAction';
+// import { getCurrentAccountProfile } from '@/app/(app)/system/accounts/accountAction';
 import { OverlayScrollbarsComponent } from "overlayscrollbars-react";
 import "overlayscrollbars/overlayscrollbars.css";
 
@@ -54,58 +54,58 @@ export default function HeaderComponent({ collapsed, setCollapsed, username }: H
         };
     }, []);
 
-    useEffect(() => {
-        const fetchAccountInfo = async () => {
-            try {
-                const response: any = await getCurrentAccountProfile();
-                const data = response?.elements || response?.data || response;
-                if (data?.avatar) {
-                    setAvatarData(data.avatar);
-                }
-                if (data?.warehouse_names && data?.warehouse_ids) {
-                    const whList = data.warehouse_names.map((name: string, idx: number) => ({
-                        id: data.warehouse_ids[idx],
-                        name: name
-                    }));
-                    setWarehouses(whList);
+    // useEffect(() => {
+    //     const fetchAccountInfo = async () => {
+    //         try {
+    //             const response: any = await getCurrentAccountProfile();
+    //             const data = response?.elements || response?.data || response;
+    //             if (data?.avatar) {
+    //                 setAvatarData(data.avatar);
+    //             }
+    //             if (data?.warehouse_names && data?.warehouse_ids) {
+    //                 const whList = data.warehouse_names.map((name: string, idx: number) => ({
+    //                     id: data.warehouse_ids[idx],
+    //                     name: name
+    //                 }));
+    //                 setWarehouses(whList);
 
-                    // Kiểm tra cookie đã lưu warehouseId chưa
-                    const cookies = document.cookie.split('; ');
-                    const savedId = cookies.find(row => row.startsWith('selectedWarehouseId='))?.split('=')[1];
+    //                 // Kiểm tra cookie đã lưu warehouseId chưa
+    //                 const cookies = document.cookie.split('; ');
+    //                 const savedId = cookies.find(row => row.startsWith('selectedWarehouseId='))?.split('=')[1];
 
-                    if (savedId && whList.some((w: Warehouse) => w.id === savedId)) {
-                        setSelectedWarehouseId(savedId);
-                    } else if (whList.length > 0) {
-                        const firstId = whList[0].id;
-                        setSelectedWarehouseId(firstId);
-                        // Nếu chưa có cookie thì set mặt định là kho đầu tiên
-                        if (!savedId) {
-                            await setWarehouseIdAction(firstId);
-                        }
-                    }
-                }
-            } catch (error) {
-                console.error("Failed to fetch account info", error);
-            }
-        };
+    //                 if (savedId && whList.some((w: Warehouse) => w.id === savedId)) {
+    //                     setSelectedWarehouseId(savedId);
+    //                 } else if (whList.length > 0) {
+    //                     const firstId = whList[0].id;
+    //                     setSelectedWarehouseId(firstId);
+    //                     // Nếu chưa có cookie thì set mặt định là kho đầu tiên
+    //                     if (!savedId) {
+    //                         await setWarehouseIdAction(firstId);
+    //                     }
+    //                 }
+    //             }
+    //         } catch (error) {
+    //             console.error("Failed to fetch account info", error);
+    //         }
+    //     };
 
-        fetchAccountInfo();
+    //     fetchAccountInfo();
 
-        const handleAvatarChange = (event: any) => {
-            if (event.detail) {
-                setAvatarData(event.detail);
-            }
-        };
+    //     const handleAvatarChange = (event: any) => {
+    //         if (event.detail) {
+    //             setAvatarData(event.detail);
+    //         }
+    //     };
 
-        window.addEventListener('avatar-changed', handleAvatarChange);
-        return () => {
-            window.removeEventListener('avatar-changed', handleAvatarChange);
-        };
-    }, []);
+    //     window.addEventListener('avatar-changed', handleAvatarChange);
+    //     return () => {
+    //         window.removeEventListener('avatar-changed', handleAvatarChange);
+    //     };
+    // }, []);
 
-    const handleLogout = async () => {
-        await logoutAction();
-    };
+    // const handleLogout = async () => {
+    //     await logoutAction();
+    // };
 
     const userMenuItems: MenuProps['items'] = [
         {
@@ -122,7 +122,7 @@ export default function HeaderComponent({ collapsed, setCollapsed, username }: H
                     styles={{ container: { width: 417, height: 157, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '24px' } }}
                     title={<span style={{ fontSize: '16px', fontWeight: 400, marginLeft: "16px", lineHeight: '100%', color: '#001e33' }}>Thông báo</span>}
                     description={<span style={{ fontSize: '14px', marginLeft: "16px", lineHeight: '20px', color: '#485259', display: 'block', marginTop: '4px', }}>Bạn có chắc chắn muốn đăng xuất khỏi tài khoản?</span>}
-                    onConfirm={handleLogout}
+                    // onConfirm={handleLogout}
                     okText="Xác nhận"
                     cancelText="Hủy"
                     placement="left"

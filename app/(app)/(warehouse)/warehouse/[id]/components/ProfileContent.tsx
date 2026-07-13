@@ -677,7 +677,7 @@ function ProfileInner({ id }: { id: string }) {
                                     }
                                 }}
                             >
-                                <CustomSelect
+                                {/* <CustomSelect
                                     value={currentWarehouseFloorId}
                                     onChange={(val: string) => {
                                         setCurrentWarehouseFloorId(val);
@@ -694,14 +694,14 @@ function ProfileInner({ id }: { id: string }) {
                                             <path d="M8.6675 8.5975C7.9675 8.5975 7.2675 8.3275 6.7375 7.7975L0.2175 1.2775C-0.0725 0.987499 -0.0725 0.5075 0.2175 0.2175C0.5075 -0.0725 0.9875 -0.0725 1.2775 0.2175L7.7975 6.7375C8.2775 7.2175 9.0575 7.2175 9.5375 6.7375L16.0575 0.2175C16.3475 -0.0725 16.8275 -0.0725 17.1175 0.2175C17.4075 0.5075 17.4075 0.987499 17.1175 1.2775L10.5975 7.7975C10.0675 8.3275 9.3675 8.5975 8.6675 8.5975Z" fill="#076eb8" />
                                         </svg>
                                     }
-                                />
+                                /> */}
                             </ConfigProvider>
                         </div>
-                        <Button
+                        {/* <Button
                             onClick={() => setCopyModalVisible(true)}
                             style={{ width: 92, height: 35, borderRadius: 8, border: "0.5px solid #076eb8", backgroundColor: "#076EB8" }}
                             type="primary"
-                        >Hành động</Button>
+                        >Hành động</Button> */}
                     </div>
                 </div>
 
@@ -709,7 +709,7 @@ function ProfileInner({ id }: { id: string }) {
                     <div className={`flex flex-col  border-b lg:border-b-0 lg:border-r border-[#D9D9D9] pt-[10px] pr-[15px] pl-[15px] w-full lg:w-[500px] shrink-0 gap-[15px] relative h-auto lg:h-full pb-[60px] lg:pb-[60px] overflow-hidden`}>
                         <CustomSelect
                             value={id}
-                            options={warehouses.map(w => ({ value: w.id, label: w.name }))}
+                            options={warehouses.map(w => ({ value: w.ID, label: w.Name }))}
                             onChange={(val: string) => router.push(`/warehouse/${val}`)}
                             placeholder="Chọn kho"
                             style={{ width: "100%", height: 30, border: "0.5px solid #076eb8", borderRadius: "8px", color: "#076eb8" }}

@@ -23,10 +23,10 @@ export const getColumns = ({ onDelete, onEdit, onView, router }: GetColumnsProps
     },
 
     {
-        title: "Kho",
-        dataIndex: "code",
+        title: "Mã kho",
+        dataIndex: "Code",
         className: "text-center",
-        key: "code",
+        key: "Code",
         width: 363,
         onHeaderCell: () => ({
             style: {
@@ -35,10 +35,10 @@ export const getColumns = ({ onDelete, onEdit, onView, router }: GetColumnsProps
         }),
     },
     {
-        title: "Loại kho",
-        dataIndex: "name",
+        title: "Tên kho",
+        dataIndex: "Name",
         className: "text-center",
-        key: "name",
+        key: "Name",
         width: 300,
         onHeaderCell: () => ({
             style: {
@@ -46,27 +46,16 @@ export const getColumns = ({ onDelete, onEdit, onView, router }: GetColumnsProps
             },
         }),
     },
-    {
-        title: "Tầng",
-        dataIndex: "number_floor",
-        key: "number_floor",
-        width: 154,
-        className: "text-center",
-        onHeaderCell: () => ({
-            style: {
-                textAlign: "center",
-            },
-        }),
-    },
+
     {
         title: "Tổng vị trí",
-        dataIndex: "positionCount",
-        key: "positionCount",
+        dataIndex: "TotalPositions ",
+        key: "TotalPositions ",
         width: 232,
         className: "text-center",
         render: (_: any, record: any) =>
             <div className="flex justify-center items-center">
-                {record.row * record.column}
+                {record.TotalPositions ?? 0}
             </div>,
         onHeaderCell: () => ({
             style: {
@@ -76,8 +65,8 @@ export const getColumns = ({ onDelete, onEdit, onView, router }: GetColumnsProps
     },
     {
         title: "Trạng thái",
-        dataIndex: "status",
-        key: "status",
+        dataIndex: "Status",
+        key: "Status",
         width: 219,
         className: "text-center",
         render: (text: string) => {
@@ -130,7 +119,7 @@ export const getColumns = ({ onDelete, onEdit, onView, router }: GetColumnsProps
                         width={18}
                         height={18}
                         style={{ width: '18px', height: '18px', flexShrink: 0 }}
-                        onClick={() => router.push(`/warehouse/${record.id}/view?name=${record.name}&rows=${record.row}&columns=${record.column}&modules=${record.number_tower}&floors=${record.number_floor}`)}    
+                        onClick={() => router.push(`/warehouse/${record.id}/view?name=${record.name}&rows=${record.row}&columns=${record.column}&modules=${record.number_tower}&floors=${record.number_floor}`)}
                         className="cursor-pointer hover:opacity-80 transition-opacity"
                     />
                 </Tooltip>
@@ -152,7 +141,7 @@ export const getColumns = ({ onDelete, onEdit, onView, router }: GetColumnsProps
                         width={18.93}
                         height={20}
                         style={{ width: '18.93px', height: '20px', flexShrink: 0 }}
-                        onClick={() => router.push(`/warehouse/${record.id}?name=${record.name}&rows=${record.row}&columns=${record.column}&modules=${record.number_tower}&floors=${record.number_floor}`)}
+                        onClick={() => router.push(`/warehouse/${record.ID}?name=${record.Name}&rows=${record.Row}&columns=${record.Column}`)}
                         className="cursor-pointer hover:opacity-80 transition-opacity"
                     />
                 </Tooltip>

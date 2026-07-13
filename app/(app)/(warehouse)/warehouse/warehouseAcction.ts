@@ -9,10 +9,9 @@ export interface WareHouseProps {
     code: string;
     row: number;
     column: number;
-    number_tower: number;
-    number_floor: number;
-    total_position: number;
-    config: any
+    status?: string;
+    total_positions?: number;
+    config?: any;
 }
 export interface TowerProps {
     name: string;
@@ -118,8 +117,8 @@ export async function getWarehouse(params?: any) {
         if (params?.page != null) query.set('page', String(params.page));
 
         const url = query.toString()
-            ? `/warehouse?${query.toString()}`
-            : '/warehouse';
+            ? `/warehouses?${query.toString()}`
+            : '/warehouses';
 
         const data = await api(url, {
             method: 'GET',
@@ -211,7 +210,7 @@ export async function createWarehouse(body: WareHouseProps) {
 
 
         const data = await api(
-            `/warehouse`,
+            `/warehouses`,
             {
                 method: 'POST',
                 body: JSON.stringify(body),
@@ -221,7 +220,7 @@ export async function createWarehouse(body: WareHouseProps) {
             }
         );
 
-        revalidateTag('warehouse', 'max');
+        revalidateTag('warehouses', 'max');
         return data;
     } catch (error: any) {
         if (error?.digest?.startsWith('NEXT_REDIRECT')) throw error;
@@ -234,7 +233,7 @@ export async function updateWarehouse(id: string, body: WareHouseProps) {
 
 
         const data = await api(
-            `/warehouse/${id}`,
+            `/warehouses/${id}`,
             {
                 method: 'PUT',
                 body: JSON.stringify(body),
@@ -244,7 +243,7 @@ export async function updateWarehouse(id: string, body: WareHouseProps) {
             }
         );
 
-        revalidateTag('warehouse', 'max');
+        revalidateTag('warehouses', 'max');
         return data;
     } catch (error: any) {
         if (error?.digest?.startsWith('NEXT_REDIRECT')) throw error;
@@ -670,10 +669,10 @@ export async function deleteTowerFloor(warehouseId: string, towerFloorId: string
 }
 
 
-export async function deleteWarehouse(id: string) {
+export async function deleteWarehouse(warehouseId: string) {
     try {
         const data = await api(
-            `/warehouse/${id}`,
+            `/warehouses/${warehouseId}`,
             {
                 method: 'DELETE',
                 headers: {

@@ -15,10 +15,8 @@ import { useRouter } from "next/navigation";
 const schema = z.object({
     name: z.string().trim().min(1, "Tên kho không được để trống"),
     code: z.string().trim().min(1, "Mã kho không được để trống"),
-    number_tower: z.number({ message: "Thông tin modle phải là số" }).min(1, "Số module phải lớn hơn 0").optional(),
     row: z.number({ message: "Thông tin dãy phải là số" }).min(1, "Số dãy phải lớn hơn 0").optional(),
     column: z.number({ message: "Thông tin cột phải là số" }).min(1, "Số cột phải lớn hơn 0").optional(),
-    number_floor: z.number({ message: "Thông tin tầng phải là số" }).min(1, "Số tầng phải lớn hơn 0").optional(),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -44,10 +42,8 @@ export default function ModalAddWarehouse({
         defaultValues: {
             name: "",
             code: "",
-            number_tower: 1,
             row: 10,
             column: 10,
-            number_floor: 1,
         },
     });
 
@@ -55,21 +51,17 @@ export default function ModalAddWarehouse({
     useEffect(() => {
         if (children && open) {
             reset({
-                name: children.name ?? "",
-                code: children.code ?? "",
-                number_tower: children.number_tower ?? 1,
-                row: children.row ?? 10,
-                column: children.column ?? 10,
-                number_floor: children.number_floor ?? 1,
+                name: children.Name ?? "",
+                code: children.Code ?? "",
+                row: children.Row ?? 10,
+                column: children.Column ?? 10,
             });
         } else if (!open) {
             reset({
                 name: "",
                 code: "",
-                number_tower: 1,
                 row: 1,
                 column: 1,
-                number_floor: 1,
             });
         }
     }, [children, open, reset]);
@@ -82,16 +74,14 @@ export default function ModalAddWarehouse({
                 code: data.code,
                 row: data.row ?? children?.row ?? 10,
                 column: data.column ?? children?.column ?? 10,
-                number_tower: data.number_tower ?? children?.number_tower ?? 1,
-                number_floor: data.number_floor ?? children?.number_floor ?? 1,
-                total_position: (data.row ?? children?.row ?? 10) * (data.column ?? children?.column ?? 10),
-                config: children?.config || {},
+                config: {},
+                status: "",
+                total_positions: 0,
             };
 
             let response: any;
-            if (children?.id) {
-                response = await updateWarehouse(children.id, payload);
-                console.log("update warehouse", response)
+            if (children?.ID) {
+                response = await updateWarehouse(children.ID, payload);
             } else {
                 response = await createWarehouse(payload);
             }
@@ -100,7 +90,7 @@ export default function ModalAddWarehouse({
                 messageApi.error(response.error);
             } else {
                 messageApi.success(
-                    children?.id ? "Cập nhật thông tin kho thành công" : "Thêm mới kho thành công"
+                    children?.ID ? "Cập nhật thông tin kho thành công" : "Thêm mới kho thành công"
                 );
                 router.refresh();
                 reset();
@@ -207,7 +197,7 @@ export default function ModalAddWarehouse({
                         {/* {!children?.id && (
                             <> */}
                         {/* Số module */}
-                        <FormItemController
+                        {/* <FormItemController
                             name="number_tower"
                             label="Số module"
                             style={{ width: "100%", marginBottom: 20 }}
@@ -224,7 +214,7 @@ export default function ModalAddWarehouse({
                                     placeholder="Nhập số module"
                                 />
                             )}
-                        />
+                        /> */}
 
                         {/* Số dãy */}
                         <FormItemController
@@ -267,7 +257,7 @@ export default function ModalAddWarehouse({
                         />
 
                         {/* Số tầng */}
-                        <FormItemController
+                        {/* <FormItemController
                             name="number_floor"
                             label="Số tầng"
                             style={{ width: "100%", marginBottom: 20 }}
@@ -284,7 +274,7 @@ export default function ModalAddWarehouse({
                                     placeholder="Nhập số tầng"
                                 />
                             )}
-                        />
+                        /> */}
                         {/* </>
                             )} */}
 

@@ -123,7 +123,7 @@ export default function AppLayoutComponents({ children, menuData = [], username 
                         style={{ maxHeight: '100%' }}
                     >
                         {/* //Tự động đóng Sidebar khi nhấn chọn Menu (Mobile) */}
-                        <SideBar collapse={collapsed} menuItems={menuData} isAdmin={isAdmin} onMenuClick={() => { if (isMobile) setCollapsed(true); }} />
+                        {/* <SideBar collapse={collapsed} menuItems={menuData} isAdmin={isAdmin} onMenuClick={() => { if (isMobile) setCollapsed(true); }} /> */}
                     </OverlayScrollbarsComponent>
                 </Sider>
 
