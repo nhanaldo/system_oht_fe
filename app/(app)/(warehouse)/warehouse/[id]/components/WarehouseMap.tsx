@@ -480,13 +480,15 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ showDevices = false }) => {
     };
 
     // Vẽ các tuyến đường đã lưu
-    routes.forEach(rt => {
-      if (rt.cells.length === 2) {
-        const [r1, c1] = rt.cells[0].split(',').map(Number);
-        const [r2, c2] = rt.cells[1].split(',').map(Number);
-        drawSingleRoute(r1, c1, r2, c2, rt.routeType, rt.curveDirection, rt.routeDirection, rt.curveAngle, rt.controlPoint, false);
-      }
-    });
+    if (activeTab === 'route') {
+      routes.forEach(rt => {
+        if (rt.cells.length === 2) {
+          const [r1, c1] = rt.cells[0].split(',').map(Number);
+          const [r2, c2] = rt.cells[1].split(',').map(Number);
+          drawSingleRoute(r1, c1, r2, c2, rt.routeType, rt.curveDirection, rt.routeDirection, rt.curveAngle, rt.controlPoint, false);
+        }
+      });
+    }
 
     // Vẽ tuyến đường đang tạo (chưa lưu)
     if (activeTab === 'route' && selectedCells.size === 2 && routeType) {
@@ -825,14 +827,8 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ showDevices = false }) => {
     const cEnd = Math.max(0, Math.min(latest.columns - 1, rawEndC));
 
     const takenCells = latest.getTakenCells(latest.activeTab, latest.editingId || undefined);
-    let lockedAreaId: string | undefined | null = null;
-    let lockedDirections: string | null = null;
-
     if (state.initialSelected.size > 0) {
-      const firstKey = Array.from(state.initialSelected)[0] as string;
-      lockedAreaId = latest.cellToAreaMap.get(firstKey);
-      const firstNode = latest.nodeMap.get(firstKey);
-      if (firstNode) lockedDirections = JSON.stringify(firstNode.directions);
+      // route might use state.initialSelected later, but we removed lockedAreaId
     }
 
     const rStep = rStart <= rEnd ? 1 : -1;
@@ -842,27 +838,25 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ showDevices = false }) => {
       for (let j = cStart; cStep > 0 ? j <= cEnd : j >= cEnd; j += cStep) {
         const key = `${i},${j}`;
 
-        if (latest.activeTab === 'position' || latest.activeTab === 'route') {
-
+        if (latest.activeTab === 'route') {
           const cellAreaId = latest.cellToAreaMap.get(key);
           const cellNode = latest.nodeMap.get(key);
           const cellDirs = cellNode ? JSON.stringify(cellNode.directions) : null;
-
-          if (state.selectionMode === 'select' && latest.activeTab === 'position') { // Chỉ áp dụng ràng buộc khu vực/hướng đi cho tab Vị trí
-            if (lockedAreaId === null) lockedAreaId = cellAreaId;
-            else if (cellAreaId !== lockedAreaId) continue;
-
-            if (lockedDirections === null) lockedDirections = cellDirs;
-            else if (cellDirs !== lockedDirections) continue;
-          }
         }
         if (state.selectionMode === 'select' && latest.activeTab === 'area' && takenCells.has(key)) continue;
         if (state.selectionMode === 'select') newSelected.add(key); // Thêm vào danh sách chọn
         else newSelected.delete(key);// Bỏ khỏi danh sách chọn
       }
     }
-    if (latest.activeTab === 'position' || latest.activeTab === 'route') {
+    if (latest.activeTab === 'route') {
       newSelected = new Set(Array.from(newSelected).filter(cell => latest.cellToAreaMap.has(cell)));
+    }
+
+    if (latest.activeTab === 'position') {
+      // Giới hạn chỉ cho phép chọn 1 vị trí
+      if (newSelected.size > 1) {
+        newSelected = new Set(Array.from(newSelected).slice(-1));
+      }
     }
 
     if (latest.activeTab === 'route') {

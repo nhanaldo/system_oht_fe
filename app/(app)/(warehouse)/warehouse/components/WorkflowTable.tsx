@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { deleteWarehouse } from "../warehouseAcction";
 import ModalConfirmDelete from "@/components/ui/ModalConfirmDelete";
+import { useNotify } from "@/hook/notification/NotificationProvider";
 
 const ModalAddWarehouse = dynamic(() => import("./ModalAddWarehouse"), { ssr: false });
 
@@ -22,9 +23,10 @@ export default function WorkflowTable({ raw = [] }: WorkflowTableProps) {
     const [searchText, setSearchText] = useState("");
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedRow, setSelectedRow] = useState<any>(null);
-    const [messageApi, messageContext] = message.useMessage();
+    const notify = useNotify();
 
     const router = useRouter();
+    const [messageApi, messageContext] = message.useMessage();
 
     const filteredData = useMemo(() => {
         const q = searchText.trim().toLowerCase();
@@ -106,14 +108,14 @@ export default function WorkflowTable({ raw = [] }: WorkflowTableProps) {
                 try {
                     const res: any = await deleteWarehouse(record.ID);
                     if (res && res.error) {
-                        messageApi.error(res.error);
+                        notify.error(res.error);
                     } else {
-                        messageApi.success(`Đã xóa kho ${record.Name} thành công`);
+                        notify.success(`Đã xóa kho ${record.Name} thành công`);
                         setSelectedRowKeys((prev) => prev.filter((key) => key !== record.ID));
                         router.refresh();
                     }
                 } catch {
-                    messageApi.error("Có lỗi xảy ra khi xóa kho");
+                    notify.error("Có lỗi xảy ra khi xóa kho");
                 } finally {
                     setConfirmModal((prev) => ({ ...prev, open: false }));
                 }
@@ -134,14 +136,14 @@ export default function WorkflowTable({ raw = [] }: WorkflowTableProps) {
 
                     const errors = results.filter((res: any) => res?.error);
                     if (errors.length > 0) {
-                        messageApi.error(`Có lỗi xảy ra khi xóa ${errors.length} kho`);
+                        notify.error(`Có lỗi xảy ra khi xóa ${errors.length} kho`);
                     } else {
-                        messageApi.success(`Đã xóa thành công ${selectedRowKeys.length} mục đã chọn`);
+                        notify.success(`Đã xóa thành công ${selectedRowKeys.length} mục đã chọn`);
                         setSelectedRowKeys([]);
                         router.refresh();
                     }
                 } catch {
-                    messageApi.error("Có lỗi xảy ra khi xóa");
+                    notify.error("Có lỗi xảy ra khi xóa");
                 } finally {
                     setConfirmModal((prev) => ({ ...prev, open: false }));
                 }

@@ -1,6 +1,5 @@
 export type TabKey = 'area' | 'position' | 'route';
 
-export type ImportDirection = 'top-down' | 'bottom-up' | 'left-right' | 'right-left';
 
 
 // định nghĩa kiểu dữ liệu và vẽ map
@@ -27,7 +26,6 @@ export interface AreaConfig {
   isNew?: boolean;
   isModified?: boolean;
   nodes: string[];
-  importDirection: ImportDirection | '';
   zoneTypeId?: string;
 }
 

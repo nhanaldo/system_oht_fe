@@ -33,7 +33,7 @@ export function useAppNotification() {
                     <span style={{ flex: 1 }}>{message}</span>
                 </div>
             ),
-            duration: 3,
+            duration: 2,
             className: `custom-notice ${styles.base} ${styles[type]} ${styles.wrapper}`,
             placement: 'topRight',
             closable: false

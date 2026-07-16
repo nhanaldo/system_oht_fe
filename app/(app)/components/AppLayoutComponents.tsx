@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { Layout } from 'antd';
 import SideBar from './SideBar';
 import HeaderComponent from '@/components/ui/HeaderComponent';
@@ -56,6 +57,9 @@ export default function AppLayoutComponents({ children, menuData = [], username 
         // return () => clearTimeout(timer);
     }, [collapsed]);
 
+    const pathname = usePathname();
+    const isViewMode = pathname?.endsWith('/view');
+
     if (!mounted) {
         return (
             <div style={{ height: '100vh', width: '100vw', background: '#f8f9fa', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
@@ -66,6 +70,18 @@ export default function AppLayoutComponents({ children, menuData = [], username 
                     </div>
                 </div>
             </div>
+        );
+    }
+
+    if (isViewMode) {
+        return (
+            <Layout style={{ height: '100vh', width: '100vw', overflow: 'hidden' }}>
+                <Content style={{ padding: 0, margin: 0, background: '#f1f5f9', position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column', width: '100%', height: '100%' }}>
+                    <RealtimeProvider>
+                        {children}
+                    </RealtimeProvider>
+                </Content>
+            </Layout>
         );
     }
 

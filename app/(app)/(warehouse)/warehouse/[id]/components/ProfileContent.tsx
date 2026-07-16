@@ -15,14 +15,18 @@ import {
 import { getSelectedTileName } from "./warehouse-types";
 import { useNotify } from "@/hook/notification/NotificationProvider";
 import {
-    updateNodeBulk, updateNode,
     type ZoneCreateProps, type ZoneUpdateProps, type NodeProps,
     updateZone,
     createZone,
+    updateZoneById,
     NodeBulkProps,
     bulkDeleteZones,
+    getNodeById,
+    updateNodeDetails,
+    createNodeEdge,
 } from "../../warehouseAcction";
 import ModalThemeProvider from "@/components/ui/ModalThemeProvider";
+import { log } from "console";
 
 /* ============================
    Tab Segment labels
@@ -75,6 +79,7 @@ const collapseStyles = {
    ============================ */
 function ProfileInner({ id }: { id: string }) {
     const notify = useNotify();
+    const { success, error, warning } = notify;
     const [modal, contextHolder] = Modal.useModal();
     const ctx = useWarehouseConfig();
     const {
@@ -106,6 +111,7 @@ function ProfileInner({ id }: { id: string }) {
     // Display all areas and position items since there are no floors anymore
     const filteredAreas = useMemo(() => areas, [areas]);
     const filteredPositionItems = useMemo(() => positionItems, [positionItems]);
+    const positionFormRef = React.useRef<{ getPosData: () => any }>(null);
 
 
 
@@ -160,6 +166,52 @@ function ProfileInner({ id }: { id: string }) {
         }
         return false;
     }, [selectedCells]);
+
+    // Tính toán tọa độ control point mặc định nếu người dùng chưa kéo thả
+    const defaultControlPoint = useMemo(() => {
+        if (routeType !== 'Arc tròn' || selectedCells.size !== 2) return null;
+        const CELL_SIZE = 30; // Fixed size map
+        const arr = Array.from(selectedCells);
+        const [r1, c1] = arr[0].split(',').map(Number);
+        const [r2, c2] = arr[1].split(',').map(Number);
+        const x1 = c1 * CELL_SIZE + CELL_SIZE / 2;
+        const y1 = r1 * CELL_SIZE + CELL_SIZE / 2;
+        const x2 = c2 * CELL_SIZE + CELL_SIZE / 2;
+        const y2 = r2 * CELL_SIZE + CELL_SIZE / 2;
+
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const L = Math.hypot(dx, dy);
+        const midX = (x1 + x2) / 2;
+        const midY = (y1 + y2) / 2;
+
+        let Nx = 0, Ny = 0;
+        const dirStr = curveDirection?.toLowerCase() || '';
+        if (dirStr === 'trái' || dirStr === 'phải') {
+            const wantLeft = dirStr === 'trái';
+            if (wantLeft) {
+                if (dy > 0) { Nx = -dy; Ny = dx; } else { Nx = dy; Ny = -dx; }
+            } else {
+                if (dy > 0) { Nx = dy; Ny = -dx; } else { Nx = -dy; Ny = dx; }
+            }
+        } else {
+            const wantUp = dirStr === 'trên';
+            if (wantUp) {
+                if (-dx < 0) { Nx = dy; Ny = -dx; } else { Nx = -dy; Ny = dx; }
+            } else {
+                if (-dx > 0) { Nx = dy; Ny = -dx; } else { Nx = -dy; Ny = dx; }
+            }
+        }
+        if (L > 0) { Nx /= L; Ny /= L; }
+        const angleDegree = (curveAngle !== null && curveAngle !== undefined && curveAngle !== '') ? Number(curveAngle) : 45;
+        const scaleDist = angleDegree / 90;
+        const cx_bezier = midX + Nx * L * scaleDist;
+        const cy_bezier = midY + Ny * L * scaleDist;
+        const cx = 0.25 * x1 + 0.5 * cx_bezier + 0.25 * x2;
+        const cy = 0.25 * y1 + 0.5 * cy_bezier + 0.25 * y2;
+
+        return { x: cx, y: cy };
+    }, [selectedCells, curveDirection, curveAngle, routeType]);
 
     const getColName = (index: number) => {
         let name = '';
@@ -262,43 +314,87 @@ function ProfileInner({ id }: { id: string }) {
                     return;
                 }
 
-                const floorPrefix = `node_`;
-                const getZoneData = (area: AreaConfig, nodes: string[]) => {
-                    const nodeIds = nodes.map(k => {
-                        const fullKey = `${floorPrefix}${k}`;
-                        const node = savedNodes[fullKey];
-                        return node?.nodeId;
-                    }).filter(Boolean) as string[];
-
-                    return {
-                        name: area.name,
-                        code: area.code,
-                        zone_type_id: area.zoneTypeId || '',
-                        node_ids: nodeIds,
-                        description: area.description || '',
-                        ...(area.inbound_direction_x ? { inbound_direction_x: area.inbound_direction_x } : {}),
-                        ...(area.inbound_direction_y ? { inbound_direction_y: area.inbound_direction_y } : {}),
-                        ...(area.id && !area.isNew ? { id: area.id } : {}),
-                        ...(area.product_id ? { product_id: area.product_id } : {}),
-                    };
-                };
-
                 const newAreas = finalAreas.filter(a => a.isNew);
                 const modifiedAreas = finalAreas.filter(a => !a.isNew && a.isModified);
 
+                if (newAreas.length > 0) {
+                    const payloads = newAreas.map(area => {
+                        const nodesPayload = area.nodes.map(k => {
+                            const [r, c] = k.split(',').map(Number);
+                            const nodeName = `1-${getColName(c)}${r + 1}`;
+                            return {
+                                name: nodeName,
+                                x: c,
+                                y: r
+                            };
+                        });
 
-                // bắt lỗi crasch sau 10s
-                const newZones = newAreas.map(a => getZoneData(a, a.nodes));
-                const modifiedZones = modifiedAreas.map(a => getZoneData(a, a.nodes));
+                        const zoneTypeCode = zoneTypes.find(z => z.id === area.zoneTypeId)?.code || area.zoneTypeId || "";
 
+                        return {
+                            code: area.code || "",
+                            description: area.description || "",
+                            name: area.name || "",
+                            nodes: nodesPayload,
+                            zone_type: zoneTypeCode
+                        };
+                    });
 
+                    const res = await createZone(id, payloads);
+                    if (res?.error) {
+                        notify.error(`Lỗi khi tạo khu vực: ${res.error}`);
+                    }
+                }
 
+                if (modifiedAreas.length > 0) {
+                    for (const area of modifiedAreas) {
+                        const nodesPayload = area.nodes.map(k => {
+                            const [r, c] = k.split(',').map(Number);
+                            const nodeName = `1-${getColName(c)}${r + 1}`;
+                            const node = savedNodes[`node_${k}`];
+
+                            const payload: any = {
+                                name: nodeName,
+                                x: c,
+                                y: r
+                            };
+
+                            if (node && node.nodeId) {
+                                payload.id = node.nodeId;
+                            }
+                            return payload;
+                        });
+
+                        const zoneTypeCode = zoneTypes.find(z => z.id === area.zoneTypeId)?.code || area.zoneTypeId || "";
+
+                        const payload = {
+                            id: area.id,
+                            code: area.code || "",
+                            description: area.description || "",
+                            name: area.name || "",
+                            nodes: nodesPayload,
+                            zone_type: zoneTypeCode
+                        };
+
+                        const res = await updateZoneById(id, area.id, payload);
+                        if (res?.error) {
+                            notify.error(`Lỗi khi cập nhật khu vực ${area.name}: ${res.error}`);
+                        }
+                    }
+                }
+
+                if (zonesToDelete.length > 0) {
+                    const res = await bulkDeleteZones(id, zonesToDelete);
+                    if (res?.error) {
+                        notify.error(`Lỗi khi xóa khu vực: ${res.error}`);
+                    }
+                }
 
                 if (newAreas.length > 0 || modifiedAreas.length > 0 || zonesToDelete.length > 0) {
                     clearModifiedFlags();
                     clearDeleteQueue();
-                    notify.success("Lưu cấu hình khu vực thành công (Giả lập)");
-                    // refreshFloor(); // Giữ lại state giả lập ở client
+                    notify.success("Lưu cấu hình khu vực thành công");
+                    refreshFloor(); // Giữ lại state giả lập ở client
                 } else {
                     notify.warning("Không có thay đổi khu vực để lưu");
                 }
@@ -306,13 +402,7 @@ function ProfileInner({ id }: { id: string }) {
                 if (selectedCells.size > 0) {
                     const selectedArr = Array.from(selectedCells);
 
-                    // Check if all selected cells belong to a zone
-                    const cellsWithoutZone = selectedArr.filter(cell => !filteredAreas.some(a => a.nodes.includes(cell)));
-                    if (cellsWithoutZone.length > 0) {
-                        notify.error("Vị trí được chọn chưa thuộc khu vực (Zone) nào. Vui lòng thiết lập khu vực trước!");
-                        setIsSaving(false);
-                        return;
-                    }
+
 
                     const floorPrefix = `node_`;
 
@@ -336,7 +426,19 @@ function ProfileInner({ id }: { id: string }) {
                         const directionsChanged = directionsArr.some((d, i) => d !== existingDirs[i]);
                         const nameChanged = posName !== (node.name || "");
 
-                        return qrChanged || directionsChanged || nameChanged;
+                        let formChanged = false;
+                        if (isSingleSelect) {
+                            const posDataObj = positionFormRef.current ? positionFormRef.current.getPosData() : {};
+                            const sortedKey = [...selectedArr].sort().join('|');
+                            const pd = posDataObj[sortedKey];
+                            if (pd && pd.originalData) {
+                                if (pd.posCode !== (pd.originalData.Code || "")) formChanged = true;
+                                if (pd.isJunction !== (pd.originalData.IsMergeJunction || false)) formChanged = true;
+                                if (pd.isActive !== (pd.originalData.IsActive || false)) formChanged = true;
+                            }
+                        }
+
+                        return qrChanged || directionsChanged || nameChanged || formChanged;
                     });
 
                     if (changedNodes.length === 0) {
@@ -346,36 +448,52 @@ function ProfileInner({ id }: { id: string }) {
                         const area = filteredAreas.find(a => a.nodes.includes(firstCell));
                         upsertNodes(changedNodes, posDirections, isSingleSelect ? posQrCode : "", area?.areaType, false, posName);
 
-                        const directionsArr: string[] = [];
-                        directionsArr.push(posDirections.up ? '1' : '0');
-                        directionsArr.push(posDirections.right ? '1' : '0');
-                        directionsArr.push(posDirections.down ? '1' : '0');
-                        directionsArr.push(posDirections.left ? '1' : '0');
+                        for (const k of changedNodes) {
+                            const node = savedNodes[`${floorPrefix}${k}`];
+                            if (!node?.nodeId) continue;
 
-                        if (changedNodes.length === 1) {
-                            const node = savedNodes[`${floorPrefix}${firstCell}`];
-                            const singleNodeData: NodeProps = {
-                                code: node?.name || "",
+                            const area = filteredAreas.find(a => a.nodes.includes(k));
+                            const zone_id = area ? area.id : "";
+
+                            const [rStr, cStr] = k.split(',');
+                            const x = parseInt(cStr);
+                            const y = parseInt(rStr);
+
+                            let currentMergeJunction = false;
+                            let currentCode = "";
+                            let currentActive = false;
+
+                            const posDataObj = positionFormRef.current ? positionFormRef.current.getPosData() : {};
+                            const sortedKey = [...selectedArr].sort().join('|');
+                            const pd = posDataObj[sortedKey];
+
+                            if (isSingleSelect && pd && pd.originalData) {
+                                currentMergeJunction = pd.isJunction;
+                                currentCode = pd.posCode;
+                                currentActive = pd.isActive;
+                            } else {
+                                try {
+                                    const nodeDetailRes = await getNodeById(id, node.nodeId) as { error?: string, IsMergeJunction?: boolean, Code?: string, IsActive?: boolean };
+                                    if (nodeDetailRes && !nodeDetailRes.error) {
+                                        currentMergeJunction = nodeDetailRes.IsMergeJunction || false;
+                                        currentCode = nodeDetailRes.Code || "";
+                                        currentActive = nodeDetailRes.IsActive || false;
+                                    }
+                                } catch (e) { }
+                            }
+
+                            const payload = {
+                                code: currentCode,
+                                is_merge_junction: currentMergeJunction,
+                                is_active: currentActive,
                                 name: posName || node?.name || "",
-                                qrcode: isSingleSelect ? posQrCode : node?.qrCode,
-                                directions: directionsArr as any
+                                qr_code: isSingleSelect ? posQrCode : (node?.qrCode || ""),
+                                x: x,
+                                y: y,
+                                zone_id: zone_id
                             };
-                            const res: any = await updateNode(id, node?.nodeId || "", singleNodeData);
-                            if (res?.error) throw new Error(res.error);
-                        } else {
-                            const nodeItems = changedNodes.map(k => {
-                                const node = savedNodes[`${floorPrefix}${k}`];
-                                return {
-                                    node_id: node?.nodeId || '',
-                                    qrcode: isSingleSelect ? posQrCode : node?.qrCode
-                                };
-                            }).filter(item => item.node_id);
 
-                            const nodeBulkData: NodeBulkProps = {
-                                items: nodeItems as any,
-                                directions: directionsArr as any
-                            };
-                            const res: any = await updateNodeBulk(id, nodeBulkData);
+                            const res = await updateNodeDetails(id, node.nodeId, payload) as { error?: string };
                             if (res?.error) throw new Error(res.error);
                         }
                         notify.success("Lưu dữ liệu vị trí thành công");
@@ -403,6 +521,61 @@ function ProfileInner({ id }: { id: string }) {
                     setIsSaving(false);
                     return;
                 }
+
+                const cellArray = Array.from(selectedCells);
+                const fromNode = savedNodes[`node_${cellArray[0]}`];
+                const toNode = savedNodes[`node_${cellArray[1]}`];
+
+                if (!fromNode?.nodeId || !toNode?.nodeId) {
+                    notify.error("Không thể xác định ID của 2 điểm. Vui lòng kiểm tra lại cấu hình kho!");
+                    setIsSaving(false);
+                    return;
+                }
+
+                let directionNum = 1;
+                if (routeDirection === 'left') directionNum = 2;
+                else if (routeDirection === 'left_right') directionNum = 3;
+
+                let edgeTypeStr = "STRAIGHT";
+                if (routeType === 'Arc tròn') edgeTypeStr = "CURVE";
+
+                let configObj: any = [0];
+
+                if (edgeTypeStr === "CURVE") {
+                    const angle = parseFloat(curveAngle || "45") || 45;
+                    const cpX = routeControlPoint?.x ?? defaultControlPoint?.x ?? 0;
+                    const cpY = routeControlPoint?.y ?? defaultControlPoint?.y ?? 0;
+                    
+                    configObj = {
+                        curve_dir: curveDirection || "",
+                        curvature: angle,
+                        curve_x: cpX,
+                        curve_y: cpY
+                    };
+                }
+
+                const dist = parseFloat(routeDistance) || 0;
+                const spd = parseFloat(routeSpeed) || 0;
+
+                const payload: any = {
+                    config: configObj,
+                    direction: directionNum,
+                    distance: dist,
+                    edge_type: edgeTypeStr,
+                    from_node_id: fromNode.nodeId,
+                    max_speed: spd,
+                    to_node_id: toNode.nodeId,
+                };
+                
+                console.log(payload)
+
+                const resEdge = await createNodeEdge(id, payload);
+                if (resEdge?.error) {
+                    notify.error(`Lỗi khi tạo tuyến đường: ${resEdge.error}`);
+                    setIsSaving(false);
+                    return;
+                }
+
                 const newRoute: import('./warehouse-types').RouteConfig = {
                     id: Date.now().toString(),
                     name: routeName || `Tuyến đường ${routes.length + 1}`,
@@ -571,8 +744,16 @@ function ProfileInner({ id }: { id: string }) {
                         <LoadingComponent />
                     </div>
                 )}
-                <div className="flex flex-row justify-between items-center py-[20px] px-[15px] pb-0 mb-[20px]">
-                    <p className="text-[14px] font-medium text-[#141416] truncate">Thiết lập cấu hình kho</p>
+                <div className="flex flex-row justify-between items-center py-[17px] px-[15px] pb-0 mb-[17px]">
+                    <div className="flex items-center gap-[10px]">
+                        <img
+                            src="/icon.svg/back.svg"
+                            alt="Back"
+                            className="w-[15px] h-[15px] cursor-pointer hover:opacity-80 transition-opacity"
+                            onClick={() => router.push('/warehouse')}
+                        />
+                        <p className="text-[16px] font-medium text-[#373838] truncate">Thiết lập cấu hình kho: {warehouses.find(w => w.ID === id)?.Name || ''}</p>
+                    </div>
                     <div className="flex items-center gap-3">
                         <div className="flex items-center gap-2">
                             <ConfigProvider
@@ -591,7 +772,7 @@ function ProfileInner({ id }: { id: string }) {
                 </div>
 
                 <div className="flex flex-col lg:flex-row flex-1 min-h-0 border-t-[0.5px] border-[#D9D9D9] ">
-                    <div className={`flex flex-col  border-b lg:border-b-0 lg:border-r border-[#D9D9D9] pt-[10px] pr-[15px] pl-[15px] w-full lg:w-[500px] shrink-0 gap-[15px] relative h-auto lg:h-full pb-[60px] lg:pb-[60px] overflow-hidden`}>
+                    <div className={`flex flex-col  border-b lg:border-b-0 lg:border-r border-[#D9D9D9] pt-[10px] pr-[15px] pl-[15px] w-full lg:w-[390px] shrink-0 gap-[15px] relative h-auto lg:h-full pb-[60px] lg:pb-[60px] overflow-hidden`}>
                         <CustomSelect
                             value={id}
                             options={warehouses.map(w => ({ value: w.ID, label: w.Name }))}
@@ -639,7 +820,9 @@ function ProfileInner({ id }: { id: string }) {
                                     defer
                                     options={{
                                         scrollbars: {
-                                            visibility: 'hidden',
+                                            visibility: 'auto',
+                                            autoHide: 'leave',
+                                            autoHideDelay: 3000,
                                         },
                                     }}
                                     className="w-full max-h-[580px] lg:max-h-[calc(100vh-280px)]"
@@ -675,10 +858,10 @@ function ProfileInner({ id }: { id: string }) {
                                                                     <CustomSelect
                                                                         className="!text-[#484848] !h-[35px] !rounded-[8px]"
                                                                         placeholder="Chọn loại khu vực"
-                                                                        options={zoneTypes.map(zt => ({ value: zt.id, label: zt.name }))}
+                                                                        options={zoneTypes.map(zt => ({ value: zt.code, label: zt.name }))}
                                                                         value={area.zoneTypeId || undefined}
                                                                         onChange={(v) => {
-                                                                            const selected = zoneTypes.find(zt => zt.id === v);
+                                                                            const selected = zoneTypes.find(zt => zt.code === v);
                                                                             const mappedType = selected ? ZONE_TYPE_MAP[selected.code] : '';
                                                                             updateArea(area.id, { zoneTypeId: v, areaType: mappedType });
                                                                         }}
@@ -759,7 +942,7 @@ function ProfileInner({ id }: { id: string }) {
                             {activeTab === "position" && (() => {
                                 // Position form displayed for the currently selected cell
                                 return (
-                                    <PositionForm />
+                                    <PositionForm ref={positionFormRef} warehouseId={id} />
                                 );
                             })()}
 
@@ -778,7 +961,7 @@ function ProfileInner({ id }: { id: string }) {
 
                                             <FormRow label="Tuyến đường" required>
                                                 <CustomInput
-                                                    placeholder="Ví dụ: E4 - F3"
+                                                    placeholder="Chọn 2 vị trí "
                                                     value={routeName}
                                                     onChange={(e) => setRouteName(e.target.value)}
                                                     className="!h-[35px] !text-[#484848] !rounded-[8px]"
@@ -865,53 +1048,72 @@ function ProfileInner({ id }: { id: string }) {
                                             </FormRow>
 
 
-                                            <FormRow label="Hướng cong" required={routeType !== 'Đường thẳng'}>
-                                                <CustomSelect
-                                                    className="!text-[#484848] !h-[35px] !rounded-[8px]"
-                                                    value={curveDirection || undefined}
-                                                    placeholder="Chọn hướng cong"
-                                                    onChange={(val) => {
-                                                        setCurveDirection(val);
-                                                        setRouteControlPoint(null);
-                                                    }}
-                                                    disabled={routeType === 'Đường thẳng'}
-                                                    options={
-                                                        isVerticalLine
-                                                            ? [
-                                                                { value: 'trái', label: 'Trái' },
-                                                                { value: 'phải', label: 'Phải' }
-                                                            ]
-                                                            : [
-                                                                { value: 'trên', label: 'Trên' },
-                                                                { value: 'dưới', label: 'Dưới' }
-                                                            ]
-                                                    }
-                                                />
-                                            </FormRow>
-
-                                            <FormRow label="Độ cong (độ)" required={routeType !== 'Đường thẳng'}>
-                                                <div className="flex flex-col">
-                                                    <div className="flex items-center gap-2">
-                                                        <Slider
-                                                            className="flex-1"
-                                                            min={0}
-                                                            max={180}
-                                                            value={curveAngle !== null && curveAngle !== '' ? Number(curveAngle) : 45}
+                                            {routeType === 'Arc tròn' && (
+                                                <>
+                                                    <FormRow label="Hướng cong" required>
+                                                        <CustomSelect
+                                                            className="!text-[#484848] !h-[35px] !rounded-[8px]"
+                                                            value={curveDirection || undefined}
+                                                            placeholder="Chọn hướng cong"
                                                             onChange={(val) => {
-                                                                setCurveAngle(val.toString());
+                                                                setCurveDirection(val);
                                                                 setRouteControlPoint(null);
                                                             }}
-                                                            disabled={routeType === 'Đường thẳng'}
+                                                            options={
+                                                                isVerticalLine
+                                                                    ? [
+                                                                        { value: 'trái', label: 'Trái' },
+                                                                        { value: 'phải', label: 'Phải' }
+                                                                    ]
+                                                                    : [
+                                                                        { value: 'trên', label: 'Trên' },
+                                                                        { value: 'dưới', label: 'Dưới' }
+                                                                    ]
+                                                            }
                                                         />
-                                                        <span className="w-10 text-sm text-gray-600">{curveAngle !== null && curveAngle !== '' ? curveAngle : "45"}°</span>
-                                                    </div>
-                                                    {routeControlPoint && (
-                                                        <div className="text-[12px] text-[#f59e0b] mt-1 font-medium">
-                                                            Tọa độ tự do: (X: {Math.round(routeControlPoint.x)}, Y: {Math.round(routeControlPoint.y)})
+                                                    </FormRow>
+
+                                                    <FormRow label="Độ cong (độ)" required>
+                                                        <div className="flex flex-col">
+                                                            <div className="flex items-center gap-2">
+                                                                <Slider
+                                                                    className="flex-1"
+                                                                    min={0}
+                                                                    max={180}
+                                                                    value={curveAngle !== null && curveAngle !== '' ? Number(curveAngle) : 45}
+                                                                    onChange={(val) => {
+                                                                        setCurveAngle(val.toString());
+                                                                        setRouteControlPoint(null);
+                                                                    }}
+                                                                />
+                                                                <span className="w-10 text-sm text-gray-600">{curveAngle !== null && curveAngle !== '' ? curveAngle : "45"}°</span>
+                                                            </div>
+                                                            {(routeControlPoint || defaultControlPoint) && (
+                                                                <div className="flex items-center gap-2 mt-2">
+                                                                    <div className="flex items-center gap-1">
+                                                                        <span className="text-[12px] text-[#f59e0b] font-medium">X:</span>
+                                                                        <CustomInput
+                                                                            type="number"
+                                                                            value={Math.round((routeControlPoint || defaultControlPoint!).x)}
+                                                                            onChange={(e) => setRouteControlPoint({ ...(routeControlPoint || defaultControlPoint!), x: Number(e.target.value) })}
+                                                                            className="!h-[28px] !text-[#484848] !rounded-[4px] w-[60px] text-center"
+                                                                        />
+                                                                    </div>
+                                                                    <div className="flex items-center gap-1">
+                                                                        <span className="text-[12px] text-[#f59e0b] font-medium">Y:</span>
+                                                                        <CustomInput
+                                                                            type="number"
+                                                                            value={Math.round((routeControlPoint || defaultControlPoint!).y)}
+                                                                            onChange={(e) => setRouteControlPoint({ ...(routeControlPoint || defaultControlPoint!), y: Number(e.target.value) })}
+                                                                            className="!h-[28px] !text-[#484848] !rounded-[4px] w-[60px] text-center"
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                            )}
                                                         </div>
-                                                    )}
-                                                </div>
-                                            </FormRow>
+                                                    </FormRow>
+                                                </>
+                                            )}
 
                                             <FormRow label="Khoảng cách (mm)">
                                                 <CustomInput
@@ -989,24 +1191,22 @@ function ActionIcons({ onEdit, onDelete }: { onEdit?: () => void; onDelete: () =
         </div>
     );
 }
-// chuyển đổi tọa độ thành tên vị trí 
+// code của vị trí tự sinh 
+export const getCellLabel = (cell: string) => {
+    const [r, c] = cell.split(',').map(Number);// 1. Tách toạ độ dạng chuỗi "hàng,cột" (ví dụ "0,3") thành 2 số: r (row) và c (column)
+    let colName = '';
+    // 2. Tự động chuyển đổi số thứ tự cột (0, 1, 2...) thành chữ cái (A, B, C... Z, AA, AB...)
+    let ci = c;
+    while (ci >= 0) {
+        colName = String.fromCharCode(65 + (ci % 26)) + colName;
+        ci = Math.floor(ci / 26) - 1;
+    }
+    return `${colName}${r + 1}`;
+};
+
 function SelectedCellsTags({ cells, canRemove, onRemove }: { cells: string[]; canRemove: boolean; onRemove: (cell: string) => void }) {
-    const { warehouseName } = useWarehouseConfig();
-    const currentFloorNum = 1; // Default to floor 1 since floors are not used anymore
     if (cells.length === 0) return <div className="border-[0.5px] border-[#d9d9d9] bg-white rounded-lg p-2  h-[35px]min-h-[35px] text-[#545454] text-[14px] truncate ">Chọn vị trí trên bản đồ</div>;
-    // code của vị trí tự sinh 
-    const getLabel = (cell: string) => {
-        const [r, c] = cell.split(',').map(Number);// 1. Tách toạ độ dạng chuỗi "hàng,cột" (ví dụ "0,3") thành 2 số: r (row) và c (column)
-        let colName = '';
-        // 2. Tự động chuyển đổi số thứ tự cột (0, 1, 2...) thành chữ cái (A, B, C... Z, AA, AB...)
-        let ci = c;
-        while (ci >= 0) {
-            colName = String.fromCharCode(65 + (ci % 26)) + colName;
-            ci = Math.floor(ci / 26) - 1;
-        }
-        // 3.Ghép lại: Tầng - Cột (chữ cái) - Hàng (cộng 1 cho dễ đọc)
-        return `${currentFloorNum}-${colName}${r + 1}`;
-    };
+
     return (
         <OverlayScrollbarsComponent
             defer
@@ -1022,7 +1222,7 @@ function SelectedCellsTags({ cells, canRemove, onRemove }: { cells: string[]; ca
             <div className="flex flex-wrap gap-1.5">
                 {cells.map(cell => (
                     <span key={cell} className="flex items-center gap-1 bg-[#F4FAFF] border border-[#D6E4F0] px-2 py-0.5 rounded text-[11px] text-[#333]">
-                        {getLabel(cell)}
+                        {getCellLabel(cell)}
                         {canRemove && <span className="text-red-500 cursor-pointer ml-0.5 font-bold text-[13px] leading-none" onClick={() => onRemove(cell)}>×</span>}
                     </span>
                 ))}
@@ -1030,14 +1230,72 @@ function SelectedCellsTags({ cells, canRemove, onRemove }: { cells: string[]; ca
         </OverlayScrollbarsComponent>
     );
 }
-function PositionForm() {
-    const { selectedCells, areas } = useWarehouseConfig();
-    const [posData, setPosData] = useState<Record<string, { posCode: string; isJunction: boolean; isActive: boolean }>>({});
+const PositionForm = React.forwardRef<{ getPosData: () => any }, { warehouseId: string }>(({ warehouseId }, ref) => {
+    const { selectedCells, areas, nodes: savedNodes } = useWarehouseConfig();
+    const { success, error } = useNotify();
+    const [posData, setPosData] = useState<Record<string, { posCode: string; posName: string; isJunction: boolean; isActive: boolean; originalData?: any }>>({});
+    const [isSaving, setIsSaving] = useState(false);
+
+    React.useImperativeHandle(ref, () => ({
+        getPosData: () => posData
+    }));
 
     const cellKey = Array.from(selectedCells).sort().join('|');
-    const data = posData[cellKey] || { posCode: '', isJunction: false, isActive: true };
+    const data = posData[cellKey] || { posCode: '', posName: '', isJunction: false, isActive: false, originalData: null };
     const update = (fields: Partial<typeof data>) =>
         setPosData(prev => ({ ...prev, [cellKey]: { ...data, ...fields } }));
+
+    const handleSave = async () => {
+        if (selectedCells.size !== 1) return;
+        const cell = Array.from(selectedCells)[0];
+        const nodeInfo = savedNodes[`node_${cell}`];
+        if (!nodeInfo?.nodeId || !data.originalData) return;
+
+        setIsSaving(true);
+        const payload = {
+            code: data.posCode,
+            is_merge_junction: data.isJunction,
+            is_active: data.isActive,
+            name: data.originalData.Name || "",
+            qr_code: data.originalData.QrCode || "",
+            x: data.originalData.X || 0,
+            y: data.originalData.Y || 0,
+            zone_id: matchingArea?.id || data.originalData.ZoneId || ""
+        };
+        // console.log(payload)
+
+        const res = await updateNodeDetails(warehouseId, nodeInfo.nodeId, payload);
+        setIsSaving(false);
+
+        if (res && !res.error) {
+            success("Cập nhật vị trí thành công");
+        } else {
+            error(res?.error || "Lỗi khi cập nhật vị trí");
+        }
+    };
+
+    useEffect(() => {
+        if (selectedCells.size === 1) {
+            const cell = Array.from(selectedCells)[0];
+            const nodeInfo = savedNodes[`node_${cell}`];
+            if (nodeInfo?.nodeId && !posData[cellKey]) {
+                getNodeById(warehouseId, nodeInfo.nodeId).then((res: any) => {
+                    if (res && !res.error) {
+                        setPosData(prev => ({
+                            ...prev,
+                            [cellKey]: {
+                                posCode: res.Code || '',
+                                posName: res.Name || '',
+                                isJunction: res.IsMergeJunction || false,
+                                isActive: res.IsActive || false,
+                                originalData: res,
+                            }
+                        }));
+                    }
+                });
+            }
+        }
+    }, [selectedCells, warehouseId, savedNodes, cellKey, posData]);
 
     const matchingArea = areas.find(area =>
         Array.from(selectedCells).some(cell => area.nodes.includes(cell))
@@ -1049,7 +1307,7 @@ function PositionForm() {
             label: (
                 <div className="w-full">
                     <span className="font-normal text-[#076EB8] text-[14px]">
-                        {matchingArea?.name || `Vị trí`}
+                        {selectedCells.size === 1 ? getCellLabel(Array.from(selectedCells)[0]) : `Vị trí`}
                     </span>
                 </div>
             ),
@@ -1068,9 +1326,9 @@ function PositionForm() {
                         <FormRow label="Vị trí" required>
                             <div className="flex flex-col gap-1">
                                 <span className="text-[12px] text-[#484848] truncate">
-                                    Đã chọn: {matchingArea ? selectedCells.size : 0} vị trí
+                                    Đã chọn: {selectedCells.size} vị trí
                                 </span>
-                                {matchingArea && selectedCells.size > 0 ? (
+                                {selectedCells.size > 0 ? (
                                     <SelectedCellsTags
                                         cells={Array.from(selectedCells)}
                                         canRemove={false}
@@ -1083,21 +1341,31 @@ function PositionForm() {
                                 )}
                             </div>
                         </FormRow>
+                        {/* <FormRow label="Tên vị trí (Name)" required>
+                            <CustomInput
+                                placeholder="Nhập tên vị trí"
+                                value={data.posName}
+                                onChange={(e) => update({ posName: e.target.value })}
+                                className="!h-[35px] !text-[#484848] !rounded-[8px]"
+                                disabled={!(matchingArea && selectedCells.size > 0)}
+                            />
+                        </FormRow> */}
                         <FormRow label="Mã vị trí" required>
                             <CustomInput
                                 placeholder="Nhập mã vị trí"
                                 value={data.posCode}
                                 onChange={(e) => update({ posCode: e.target.value })}
                                 className="!h-[35px] !text-[#484848] !rounded-[8px]"
-                                disabled={!(matchingArea && selectedCells.size > 0)}
+                                disabled={!(selectedCells.size > 0)}
                             />
                         </FormRow>
                         <FormRow label="Giao lộ" required>
-                            <Switch checked={data.isJunction} onChange={(v) => update({ isJunction: v })} disabled />
+                            <Switch checked={data.isJunction} onChange={(v) => update({ isJunction: v })} disabled={!(selectedCells.size > 0)} />
                         </FormRow>
                         <FormRow label="Hoạt động" required>
-                            <Switch checked={data.isActive} onChange={(v) => update({ isActive: v })} disabled />
+                            <Switch checked={data.isActive} onChange={(v) => update({ isActive: v })} disabled={!(selectedCells.size > 0)} />
                         </FormRow>
+
                     </div>
                 </div>
             ),
@@ -1123,7 +1391,7 @@ function PositionForm() {
             </div>
         </OverlayScrollbarsComponent>
     );
-}
+});
 
 function AddButton({ onClick }: { onClick: () => void }) {
     return (

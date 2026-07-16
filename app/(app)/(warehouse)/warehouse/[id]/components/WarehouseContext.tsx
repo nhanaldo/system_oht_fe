@@ -4,11 +4,11 @@ import { hasAnyDirection, getSelectedTileName } from './warehouse-types';
 import type {
   TabKey, AreaConfig, PositionConfig, DirectionFlags
 } from './warehouse-types';
-import { getZone, getZoneType, getWarehouse, getWarehouseById, getCategory, getProduct, getDevices, getLocations } from '../../warehouseAcction';
+import { getZone, getZoneType, getWarehouse, getWarehouseById, getCategory, getProduct, getDevices, getLocations, getNodeEdges } from '../../warehouseAcction';
 // import { getDeviceTypes } from '@/app/(app)/workflows/list/workflowsAction';
 import { useRealtime } from '@/app/(app)/realtime/RealtimeProvider';
 import { useWarehouseSocket } from './useWarehouseSocket';
-import { MOCK_ZONE_TYPES, MOCK_ZONES } from '../mockdata';
+import { MOCK_ZONE_TYPES } from '../mockdata';
 // giúp map và sideBar chia sẽ dữ liệu với nhau 
 //Quan trọng hơn, đây là nơi chứa dữ liệu sống chạy trong ứng dụng bằng React State (useState). 
 // Nó là bộ não tính toán xem ô nào đang chọn, dữ liệu tầng nào đang được load.
@@ -293,14 +293,18 @@ export const WarehouseConfigProvider: React.FC<{
 
     const fetchFloorData = async () => {
       try {
-        const [zoneData] = await Promise.all([
-          getZone(warehouseId, ''),
+        const [zoneData, nodeEdgesData] = await Promise.all([
+          getZone(warehouseId),
+          getNodeEdges(warehouseId)
         ]);
 
         let rawZones = getElements(zoneData);
-        if (!rawZones || rawZones.length === 0) {
-          rawZones = MOCK_ZONES;
+        if (!rawZones) {
+          rawZones = [];
         }
+
+        let rawEdges = getElements(nodeEdgesData);
+        if (!rawEdges) rawEdges = [];
         const nextPositions: Record<string, PositionConfig> = {};
         const zoneToCoords = new Map<string, string[]>();
 
@@ -308,15 +312,23 @@ export const WarehouseConfigProvider: React.FC<{
         if (rawZones.length > 0) {
           nextAreas = rawZones.map((z: any) => {
             const nodesInZone = z.nodes || z.node || [];
-            const positions = nodesInZone.map((n: any) => `${n.y - 1},${n.x - 1}`);
+
+            const getCoord = (n: any) => {
+              const xVal = n.X ?? n.x ?? 0;
+              const yVal = n.Y ?? n.y ?? 0;
+              // Remove -1 since backend stores 0-based coordinates from frontend
+              return `${yVal},${xVal}`;
+            };
+
+            const positions = nodesInZone.map((n: any) => getCoord(n));
 
             let areaType = "";
-            const zCode = z.zone_type_code || "";
+            const zCode = z.zone_type_code || z.zone_type || "";
             const zName = z.zone_type_name || "";
 
             if (zCode === 'PICKING' || zName.includes("lấy hàng")) areaType = "inbound";
             else if (zCode === 'DROPPING' || zName.includes("bỏ hàng")) areaType = "outbound";
-            else if (zCode === 'CHARGING' || zName.includes("sạc")) areaType = "charging";
+            else if (zCode === 'CHARGING' || zName.includes("sạc") || zCode === 'sạc') areaType = "charging";
             else if (zCode === 'PARKING' || zName.includes("đỗ")) areaType = "waiting";
             else if (zCode === 'MOVING' || zName.includes("đường đi")) areaType = "moving";
             else if (zCode === 'BYPASS' || zName.includes("đường tránh")) areaType = "bypass";
@@ -325,8 +337,8 @@ export const WarehouseConfigProvider: React.FC<{
 
             // Process nodes within this zone to build positions
             nodesInZone.forEach((n: any) => {
-              const zId = z.id.toString();
-              const coord = `${n.y - 1},${n.x - 1}`;
+              const zId = z.id?.toString() || z.ID?.toString() || "";
+              const coord = getCoord(n);
               const fullKey = `node_${coord}`;
 
               const mask = n.neighbor_mask || "0000";
@@ -339,17 +351,17 @@ export const WarehouseConfigProvider: React.FC<{
 
               const posConfig: PositionConfig = {
                 key: fullKey,
-                name: n.name || n.code || '',
+                name: n.name || n.Name || n.code || n.Code || '',
                 directions: directions,
-                qrCode: n.qrcode || '',
+                qrCode: n.qrcode || n.QRCode || '',
                 areaType: areaType,
                 imgName: getSelectedTileName(directions, areaType),
                 isNew: false,
                 cellKeys: [coord],
-                nodeId: n.id?.toString(),
-                x: n.x,
-                y: n.y,
-                z: n.z,
+                nodeId: n.id?.toString() || n.ID?.toString(),
+                x: n.X ?? n.x,
+                y: n.Y ?? n.y,
+                z: n.Z ?? n.z,
               };
 
               nextPositions[fullKey] = posConfig;
@@ -372,7 +384,7 @@ export const WarehouseConfigProvider: React.FC<{
               nodes: positions,
               importDirection: '',
               isNew: false,
-              zoneTypeId: z.zone_type_id?.toString(),
+              zoneTypeId: z.zone_type || z.zone_type_id?.toString() || "",
               inbound_direction_x: z.inbound_direction_x,
               inbound_direction_y: z.inbound_direction_y,
             };
@@ -386,6 +398,34 @@ export const WarehouseConfigProvider: React.FC<{
           ...a,
           nodes: (a.nodes && a.nodes.length > 0) ? a.nodes : (zoneToCoords.get(a.id) || [])
         })));
+
+        const nextRoutes: import('./warehouse-types').RouteConfig[] = rawEdges.map((edge: any, index: number) => {
+           const fromId = edge.from_node_id?.toString() || edge.FromNodeID?.toString();
+           const toId = edge.to_node_id?.toString() || edge.ToNodeID?.toString();
+           const fromPos = Object.values(nextPositions).find(p => p.nodeId === fromId);
+           const toPos = Object.values(nextPositions).find(p => p.nodeId === toId);
+           
+           let rDir = 'right';
+           const directionNum = edge.direction || edge.Direction;
+           if (directionNum === 2) rDir = 'left';
+           else if (directionNum === 3) rDir = 'left_right';
+
+           const config = edge.config || edge.Config || {};
+
+           return {
+             id: (edge.ID || edge.id || Date.now() + index).toString(),
+             name: `Tuyến đường ${index + 1}`,
+             cells: [fromPos?.cellKeys?.[0], toPos?.cellKeys?.[0]].filter(Boolean) as string[],
+             routeType: (edge.edge_type === 'CURVE' || edge.EdgeType === 'CURVE') ? 'Arc tròn' : 'Đường thẳng',
+             curveDirection: config.curve_dir || null,
+             curveAngle: config.curvature || null,
+             controlPoint: (config.curve_x !== undefined && config.curve_y !== undefined) ? { x: config.curve_x, y: config.curve_y } : null,
+             routeDirection: rDir,
+             distance: edge.distance || edge.Distance || 0,
+             speed: edge.max_speed || edge.MaxSpeed || 0
+           };
+        });
+        setRoutes(nextRoutes);
       } catch (err) {
         console.error("[WarehouseContext] Error fetching floor data:", err);
       }

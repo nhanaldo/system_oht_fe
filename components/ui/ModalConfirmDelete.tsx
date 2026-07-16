@@ -31,6 +31,7 @@ export default function ModalConfirmDelete({
             wrapClassName="custom-confirm-modal"
             rootClassName="custom-confirm-modal"
             className="custom-confirm-modal"
+            zIndex={2000}
             styles={{
                 body: { padding: 0, }
             }}

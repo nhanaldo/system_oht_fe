@@ -2,7 +2,8 @@
 
 import FormItemController from "@/components/ui/CustomController";
 import ModalThemeProvider from "@/components/ui/ModalThemeProvider";
-import { Form, Button, Modal, InputNumber, Input, message } from "antd";
+import ModalConfirmDelete from "@/components/ui/ModalConfirmDelete";
+import { Form, Button, Modal, InputNumber, Input, message, Select } from "antd";
 import { useForm } from "react-hook-form";
 import { useEffect, useState } from "react";
 import z from "zod";
@@ -10,6 +11,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { ModalProps } from "@/types/common";
 import { createWarehouse, updateWarehouse, WareHouseProps } from "../warehouseAcction";
 import { useRouter } from "next/navigation";
+import { useNotify } from "@/hook/notification/NotificationProvider";
 
 // Định nghĩa Schema validation bằng Zod
 const schema = z.object({
@@ -17,6 +19,7 @@ const schema = z.object({
     code: z.string().trim().min(1, "Mã kho không được để trống"),
     row: z.number({ message: "Thông tin dãy phải là số" }).min(1, "Số dãy phải lớn hơn 0").optional(),
     column: z.number({ message: "Thông tin cột phải là số" }).min(1, "Số cột phải lớn hơn 0").optional(),
+    status: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -27,8 +30,11 @@ export default function ModalAddWarehouse({
     children,
 }: ModalProps<any>) {
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [messageApi, contextHolder] = message.useMessage();
+    const notify = useNotify();
     const router = useRouter();
+    const [modal, contextHolder] = Modal.useModal();
+    const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false);
+    const [formData, setFormData] = useState<FormValues | null>(null);
 
     const {
         control,
@@ -42,19 +48,22 @@ export default function ModalAddWarehouse({
         defaultValues: {
             name: "",
             code: "",
-            row: 10,
-            column: 10,
+            row: undefined,
+            column: undefined,
+            status: "NEW",
         },
     });
 
     // Theo dõi trạng thái đóng/mở modal để đổ dữ liệu cũ vào (nếu là edit) hoặc clear form (nếu là add mới)
     useEffect(() => {
         if (children && open) {
+            const rawStatus = (children.Status || "NEW").toUpperCase();
             reset({
                 name: children.Name ?? "",
                 code: children.Code ?? "",
                 row: children.Row ?? 10,
                 column: children.Column ?? 10,
+                status: rawStatus === "NEW" || rawStatus === "CREATED" ? "NEW" : rawStatus,
             });
         } else if (!open) {
             reset({
@@ -62,6 +71,7 @@ export default function ModalAddWarehouse({
                 code: "",
                 row: 1,
                 column: 1,
+                status: "NEW",
             });
         }
     }, [children, open, reset]);
@@ -75,7 +85,7 @@ export default function ModalAddWarehouse({
                 row: data.row ?? children?.row ?? 10,
                 column: data.column ?? children?.column ?? 10,
                 config: {},
-                status: "",
+                status: (data.status || "new").toUpperCase(),
                 total_positions: 0,
             };
 
@@ -87,9 +97,9 @@ export default function ModalAddWarehouse({
             }
 
             if (response && response.error) {
-                messageApi.error(response.error);
+                notify.error(response.error);
             } else {
-                messageApi.success(
+                notify.success(
                     children?.ID ? "Cập nhật thông tin kho thành công" : "Thêm mới kho thành công"
                 );
                 router.refresh();
@@ -98,10 +108,15 @@ export default function ModalAddWarehouse({
             }
         } catch (error: any) {
             console.error("Submit error:", error);
-            messageApi.error("Đã xảy ra lỗi không xác định");
+            notify.error("Đã xảy ra lỗi không xác định");
         } finally {
             setIsSubmitting(false);
         }
+    };
+
+    const onFormSubmit = (data: FormValues) => {
+        setFormData(data);
+        setConfirmSubmitOpen(true);
     };
 
     const commonLabelCol = {
@@ -124,8 +139,11 @@ export default function ModalAddWarehouse({
         style: { paddingLeft: 0, maxWidth: "100%" },
     };
 
+    const isEditActive = !!(children?.id || children?.ID) && (children.Status || "").toUpperCase() === "ACTIVE";
+
     return (
         <ModalThemeProvider>
+            {contextHolder}
             <Modal
                 closable={true}
                 title={
@@ -149,33 +167,14 @@ export default function ModalAddWarehouse({
                 onCancel={onClose}
                 destroyOnHidden// Sử dụng thuộc tính chuẩn thay vì destroyOnHidden
             >
-                {contextHolder}
                 <div className="flex flex-col items-center w-full">
                     <div className="h-[1px] bg-[#C0C0C0] w-full mb-[20px] md:mb-[30px] mt-[9px]"></div>
 
                     <Form
-                        onFinish={handleSubmit(handleSubmitForm)}
+                        onFinish={handleSubmit(onFormSubmit)}
                         className="flex flex-col items-center justify-center w-full max-w-full md:w-[720px]"
                     >
                         {/* Tên kho */}
-                        <FormItemController
-                            name="name"
-                            label="Tên kho"
-                            style={{ width: "100%", marginBottom: 20 }}
-                            control={control}
-                            required
-                            wrapperCol={commonWrapperCol}
-                            labelCol={commonLabelCol}
-                            render={(field) => (
-                                <Input
-                                    {...field}
-                                    className="w-full h-[40px] rounded-md p-2"
-                                    placeholder="Nhập tên kho"
-                                />
-                            )}
-                        />
-
-                        {/* Mã kho */}
                         <FormItemController
                             name="code"
                             label="Mã kho"
@@ -187,19 +186,36 @@ export default function ModalAddWarehouse({
                             render={(field) => (
                                 <Input
                                     {...field}
+                                    disabled={!!(children?.id || children?.ID)}
                                     className="w-full h-[40px] rounded-md p-2"
                                     placeholder="Nhập mã kho"
                                 />
                             )}
                         />
 
-                        {/* Chỉ hiện các trường cấu hình ma trận nếu là tạo kho mới */}
-                        {/* {!children?.id && (
-                            <> */}
-                        {/* Số module */}
-                        {/* <FormItemController
-                            name="number_tower"
-                            label="Số module"
+                        <FormItemController
+                            name="name"
+                            label="Tên kho"
+                            style={{ width: "100%", marginBottom: 20 }}
+                            control={control}
+                            required
+                            wrapperCol={commonWrapperCol}
+                            labelCol={commonLabelCol}
+                            render={(field) => (
+                                <Input
+                                    {...field}
+                                    disabled={isEditActive}
+                                    className="w-full h-[40px] rounded-md p-2"
+                                    placeholder="Nhập tên kho"
+                                />
+                            )}
+                        />
+
+                        {/* Mã kho */}
+
+                        <FormItemController
+                            name="column"
+                            label="Số cột"
                             style={{ width: "100%", marginBottom: 20 }}
                             control={control}
                             required
@@ -209,12 +225,13 @@ export default function ModalAddWarehouse({
                                 <InputNumber
                                     style={{ width: "100%", height: 40 }}
                                     {...field}
+                                    disabled={isEditActive}
                                     value={field.value || undefined}
                                     className="w-full rounded-md flex items-center"
-                                    placeholder="Nhập số module"
+                                    placeholder="Nhập số cột"
                                 />
                             )}
-                        /> */}
+                        />
 
                         {/* Số dãy */}
                         <FormItemController
@@ -229,6 +246,7 @@ export default function ModalAddWarehouse({
                                 <InputNumber
                                     style={{ width: "100%", height: 40 }}
                                     {...field}
+                                    disabled={isEditActive}
                                     value={field.value || undefined}
                                     className="w-full rounded-md flex items-center"
                                     placeholder="Nhập số dãy"
@@ -237,46 +255,31 @@ export default function ModalAddWarehouse({
                         />
 
                         {/* Số cột */}
-                        <FormItemController
-                            name="column"
-                            label="Số cột"
-                            style={{ width: "100%", marginBottom: 20 }}
-                            control={control}
-                            required
-                            wrapperCol={commonWrapperCol}
-                            labelCol={commonLabelCol}
-                            render={(field) => (
-                                <InputNumber
-                                    style={{ width: "100%", height: 40 }}
-                                    {...field}
-                                    value={field.value || undefined}
-                                    className="w-full rounded-md flex items-center"
-                                    placeholder="Nhập số cột"
-                                />
-                            )}
-                        />
 
-                        {/* Số tầng */}
-                        {/* <FormItemController
-                            name="number_floor"
-                            label="Số tầng"
-                            style={{ width: "100%", marginBottom: 20 }}
-                            control={control}
-                            required
-                            wrapperCol={commonWrapperCol}
-                            labelCol={commonLabelCol}
-                            render={(field) => (
-                                <InputNumber
-                                    style={{ width: "100%", height: 40 }}
-                                    {...field}
-                                    value={field.value || undefined}
-                                    className="w-full rounded-md flex items-center"
-                                    placeholder="Nhập số tầng"
-                                />
-                            )}
-                        /> */}
-                        {/* </>
-                            )} */}
+
+                        {/* Trạng thái - Chỉ hiển thị khi chỉnh sửa */}
+                        {(children?.id || children?.ID) && (
+                            <FormItemController
+                                name="status"
+                                label="Trạng thái"
+                                style={{ width: "100%", marginBottom: 20 }}
+                                control={control}
+                                wrapperCol={commonWrapperCol}
+                                labelCol={commonLabelCol}
+                                render={(field) => (
+                                    <Select
+                                        {...field}
+                                        className="w-full h-[40px] rounded-md"
+                                        placeholder="Chọn trạng thái"
+                                        options={[
+                                            { value: 'NEW', label: 'Mới tạo' },
+                                            { value: 'MAINTENANCE', label: 'Đang bảo trì' },
+                                            { value: 'ACTIVE', label: 'Đang sử dụng' },
+                                        ]}
+                                    />
+                                )}
+                            />
+                        )}
 
                         {/* Nút điều hướng Footer */}
                         <div className="flex flex-row items-center justify-center gap-[20px] mt-[30px] ">
@@ -315,6 +318,19 @@ export default function ModalAddWarehouse({
                     </Form>
                 </div>
             </Modal>
+
+            <ModalConfirmDelete
+                open={confirmSubmitOpen}
+                title={children?.id ? "Xác nhận chỉnh sửa" : "Xác nhận thêm mới"}
+                content={children?.id ? "Bạn có chắc chắn muốn lưu các thay đổi này không?" : "Bạn có chắc chắn muốn thêm mới kho này không?"}
+                loading={isSubmitting}
+                onClose={() => setConfirmSubmitOpen(false)}
+                onConfirm={() => {
+                    if (formData) {
+                        handleSubmitForm(formData).finally(() => setConfirmSubmitOpen(false));
+                    }
+                }}
+            />
         </ModalThemeProvider>
     );
 }

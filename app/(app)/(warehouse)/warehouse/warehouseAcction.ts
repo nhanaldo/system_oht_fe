@@ -51,6 +51,16 @@ export interface NodeProps {
     directions: [],
 }
 
+export interface NodeEdgePayload {
+    config: any[];
+    direction: number;
+    distance: number;
+    edge_type: string;
+    from_node_id: string;
+    max_speed: number;
+    to_node_id: string;
+}
+
 // ==========================================
 // 1. QUẢN LÝ KHO (WAREHOUSE)
 // ==========================================
@@ -202,11 +212,9 @@ export async function updateWarehouse(id: string, body: WareHouseProps) {
 // 5. QUẢN LÝ KHU VỰC (ZONE)
 // ==========================================
 
-export async function getZone(id: string, warehouse_floor_id: string) {
+export async function getZone(id: string) {
     try {
-        const query = new URLSearchParams();
-        query.append('warehouse_floor_id', warehouse_floor_id);
-        const url = query.toString() ? `/warehouse/${id}/zone?${query.toString()}` : `/warehouse/${id}/zone`;
+        const url = `/warehouses/${id}/zones`;
         const data = await api(
             url,
             {
@@ -222,7 +230,7 @@ export async function getZone(id: string, warehouse_floor_id: string) {
     } catch (error: any) {
         if (error?.digest?.startsWith('NEXT_REDIRECT')) throw error;
 
-        return error?.message || 'Failed to get warehouse';
+        return error?.message || 'Failed to get warehouse zones';
     }
 }
 // ==========================================
@@ -254,10 +262,32 @@ export async function getNode(id: string) {
         return { error: error?.message || 'Failed to get warehouse' }
     }
 }
+
+export async function getNodeById(warehouseId: string, id: string) {
+    try {
+        const url = `/warehouses/${warehouseId}/nodes/${id}`;
+        const data = await api(
+            url,
+            {
+                method: 'GET',
+                next: {
+                    tags: ['node'],
+                    revalidate: 0,
+                }
+            }
+        );
+
+        return data;
+    } catch (error: any) {
+        if (error?.digest?.startsWith('NEXT_REDIRECT')) throw error;
+
+        return { error: error?.message || 'Failed to get node by id' };
+    }
+}
 export async function getZoneType() {
     try {
         const data = await api(
-            `/zone-type`,
+            `/zones`,
             {
                 method: 'GET',
             }
@@ -270,13 +300,13 @@ export async function getZoneType() {
     }
 }
 
-export async function createZone(id: string, zones: ZoneCreateProps[]): Promise<any> {
+export async function createZone(id: string, body: any): Promise<any> {
     try {
         const data = await api(
-            `/warehouse/${id}/zone/bulk`,
+            `/warehouses/${id}/zones`,
             {
                 method: 'POST',
-                body: JSON.stringify({ zones }),
+                body: JSON.stringify(body),
                 headers: {
                     'Content-Type': 'application/json',
                 },
@@ -292,6 +322,30 @@ export async function createZone(id: string, zones: ZoneCreateProps[]): Promise<
         return { error: error?.message || 'Failed to create zone' }
     }
 }
+
+export async function updateZoneById(warehouseId: string, zoneId: string, body: any): Promise<any> {
+    try {
+        const data = await api(
+            `/warehouses/${warehouseId}/zones/${zoneId}`,
+            {
+                method: 'PUT',
+                body: JSON.stringify([body]),
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            }
+        );
+        console.log("updateZoneById response", data);
+
+        revalidateTag('zone', 'max');
+        return data;
+    } catch (error: any) {
+        if (error?.digest?.startsWith('NEXT_REDIRECT')) throw error;
+
+        return { error: error?.message || 'Failed to update zone' }
+    }
+}
+
 export async function updateZone(id: string, zones: ZoneUpdateProps[]): Promise<any> {
     try {
         const data = await api(
@@ -315,14 +369,14 @@ export async function updateZone(id: string, zones: ZoneUpdateProps[]): Promise<
         return { error: error?.message || 'Failed to update zone' }
     }
 }
-export async function updateNodeBulk(id: string, nodes: NodeBulkProps) {
-    try {
 
+export async function updateNodeDetails(warehouseId: string, nodeId: string, payload: any): Promise<any> {
+    try {
         const data = await api(
-            `/warehouse/${id}/nodes/bulk-qrcode-direction`,
+            `/warehouses/${warehouseId}/nodes/${nodeId}`,
             {
                 method: 'PUT',
-                body: JSON.stringify(nodes),
+                body: JSON.stringify(payload),
                 headers: {
                     'Content-Type': 'application/json',
                 },
@@ -332,31 +386,49 @@ export async function updateNodeBulk(id: string, nodes: NodeBulkProps) {
     } catch (error: any) {
         if (error?.digest?.startsWith('NEXT_REDIRECT')) throw error;
         console.log("error ", error);
-
-        return { error: error?.message || 'Failed to update node' }
+        return { error: error?.message || 'Failed to update node details' };
     }
 }
-export async function updateNode(id: string, node_id: string, nodes: NodeProps) {
+
+export async function createNodeEdge(warehouseId: string, payload: any): Promise<any> {
     try {
         const data = await api(
-            `/warehouse/${id}/nodes/${node_id}`,
+            `/warehouses/${warehouseId}/node_edges`,
             {
-                method: 'PUT',
-                body: JSON.stringify(nodes),
+                method: 'POST',
+                body: JSON.stringify(payload),
                 headers: {
                     'Content-Type': 'application/json',
                 },
             }
         );
-
         return data;
     } catch (error: any) {
         if (error?.digest?.startsWith('NEXT_REDIRECT')) throw error;
         console.log("error ", error);
-
-        return { error: error?.message || 'Failed to update node' }
+        return { error: error?.message || 'Failed to create node edge' };
     }
 }
+
+export async function getNodeEdges(warehouseId: string): Promise<any> {
+    try {
+        const data = await api(
+            `/warehouses/${warehouseId}/node_edges`,
+            {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            }
+        );
+        return data;
+    } catch (error: any) {
+        if (error?.digest?.startsWith('NEXT_REDIRECT')) throw error;
+        console.log("error ", error);
+        return { error: error?.message || 'Failed to get node edges' };
+    }
+}
+
 
 // ==========================================
 // 7. THIẾT BỊ VÀ CÁC THAO TÁC XÓA (DELETE)
@@ -389,13 +461,13 @@ export async function getDevices(warehouseId: string, params?: { page?: number, 
     }
 }
 
-export async function bulkDeleteZones(warehouseId: string, ids: string[]) {
+export async function bulkDeleteZones(warehouseId: string, ids: string[]): Promise<any> {
     try {
         const data = await api(
-            `/warehouse/${warehouseId}/zone/bulk`,
+            `/warehouses/${warehouseId}/zones`,
             {
                 method: 'DELETE',
-                body: JSON.stringify({ ids }),
+                body: JSON.stringify(ids),
                 headers: {
                     'Content-Type': 'application/json',
                 },

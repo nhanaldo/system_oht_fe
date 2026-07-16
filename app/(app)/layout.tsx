@@ -1,6 +1,6 @@
 import AppLayoutComponents from "./components/AppLayoutComponents";
 import { cookies } from "next/headers";
-import { getCachedMenuSideBar } from "@/lib/data/cached-layout";
+// import { getCachedMenuSideBar } from "@/lib/data/cached-layout";
 import { redirect } from "next/navigation";
 
 export default async function RootLayout({
@@ -8,15 +8,15 @@ export default async function RootLayout({
 }: {
     children: React.ReactNode;
 }) {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("accessToken")?.value || "";
-    const username = cookieStore.get("username")?.value || "Admin";
-    const accountCode = cookieStore.get("accountCode")?.value || "";
-    const isAdmin = accountCode.toUpperCase().startsWith("ADM");
-    // 1. Nếu không có token -> đá về trang login
-    if (!token) {
-        redirect("/login");
-    }
+    // const cookieStore = await cookies();
+    // const token = cookieStore.get("accessToken")?.value || "";
+    // const username = cookieStore.get("username")?.value || "Admin";
+    // const accountCode = cookieStore.get("accountCode")?.value || "";
+    // const isAdmin = accountCode.toUpperCase().startsWith("ADM");
+    // // 1. Nếu không có token -> đá về trang login
+    // if (!token) {
+    //     redirect("/login");
+    // }
 
     // let menuData = [];
     // try {
@@ -30,7 +30,7 @@ export default async function RootLayout({
     // }
 
     return (
-        <AppLayoutComponents username={username} isAdmin={isAdmin}>
+        <AppLayoutComponents>
             {children}
         </AppLayoutComponents>
     );
