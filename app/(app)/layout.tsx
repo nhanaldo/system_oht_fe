@@ -18,19 +18,19 @@ export default async function RootLayout({
         redirect("/login");
     }
 
-    let menuData = [];
-    try {
-        menuData = await getCachedMenuSideBar(token, isAdmin);
-    } catch (error: any) {
-        console.error("Error fetching sidebar menu:", error);
-        // Token hết hạn hoặc không hợp lệ → đá về login
-        if (error?.status === 401 || error?.status === 403) {
-            redirect("/login");
-        }
-    }
+    // let menuData = [];
+    // try {
+    //     menuData = await getCachedMenuSideBar(token, isAdmin);
+    // } catch (error: any) {
+    //     console.error("Error fetching sidebar menu:", error);
+    //     // Token hết hạn hoặc không hợp lệ → đá về login
+    //     if (error?.status === 401 || error?.status === 403) {
+    //         redirect("/login");
+    //     }
+    // }
 
     return (
-        <AppLayoutComponents menuData={menuData} username={username} isAdmin={isAdmin}>
+        <AppLayoutComponents username={username} isAdmin={isAdmin}>
             {children}
         </AppLayoutComponents>
     );

@@ -2,35 +2,30 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import { hasAnyDirection, getSelectedTileName } from './warehouse-types';
 import type {
-  TabKey, WarehouseModule, FloorConfig, AreaConfig, PositionConfig, DirectionFlags
+  TabKey, AreaConfig, PositionConfig, DirectionFlags
 } from './warehouse-types';
-import { TowerProps, getTower, getTowerFloor, getZone, getNode, getWarehouseFloor, getZoneType, getWarehouse, getWarehouseById, getCategory, getProduct, getDevices, getLocations } from '../../warehouseAcction';
+import { getZone, getZoneType, getWarehouse, getWarehouseById, getCategory, getProduct, getDevices, getLocations } from '../../warehouseAcction';
 // import { getDeviceTypes } from '@/app/(app)/workflows/list/workflowsAction';
 import { useRealtime } from '@/app/(app)/realtime/RealtimeProvider';
 import { useWarehouseSocket } from './useWarehouseSocket';
+import { MOCK_ZONE_TYPES, MOCK_ZONES } from '../mockdata';
 // giúp map và sideBar chia sẽ dữ liệu với nhau 
 //Quan trọng hơn, đây là nơi chứa dữ liệu sống chạy trong ứng dụng bằng React State (useState). 
 // Nó là bộ não tính toán xem ô nào đang chọn, dữ liệu tầng nào đang được load.
 // Nơi định nghĩa các hành động (Actions): Chứa các hàm nghiệp vụ thực tế như xử lý copy tầng, xoá ô, lưu nháp...
 interface WarehouseConfigContextType {
   // Data
-  modules: TowerProps[];
-  floors: FloorConfig[];
   areas: AreaConfig[];
   categories: any[];
   selectedCategory: string;
   setSelectedCategories: (id: string) => void;
   products: any[];
   allProducts: any[];
-  warehouseFloors: any[];
-  currentWarehouseFloorId: string;
-  setCurrentWarehouseFloorId: (id: string) => void;
+
   positionItems: PositionConfig[];
   images: Record<string, HTMLImageElement>;
   rows: number;
   columns: number;
-  floorsCount: number;
-  modulesCount: number;
   warehouseName: string;
   // UI
   activeTab: TabKey;
@@ -41,32 +36,24 @@ interface WarehouseConfigContextType {
   initialEditingKeys: Set<string>;
   setInitialEditingKeys: (keys: Set<string>) => void;
   // Actions
-  updateModule: (id: string, data: Partial<TowerProps>) => void;
-  addFloor: () => void;
-  updateFloor: (id: string, data: Partial<FloorConfig>) => void;
-  removeFloor: (id: string) => void;
-  saveFloorNodes: (floorId: string, nodes: string[]) => void;
-  addArea: (floorId: string) => void;
+  addArea: () => void;
   updateArea: (id: string, data: Partial<AreaConfig>) => void;
   removeArea: (id: string) => void;
   saveAreaNodes: (areaId: string, nodes: string[]) => void;
-  addPositionItem: (floorId: string) => void;
+  addPositionItem: () => void;
   updatePositionItem: (id: string, data: Partial<PositionConfig>) => void;
   removePositionItem: (id: string) => void;
   upsertNodes: (keys: string[], directions: DirectionFlags, qrCode?: string, areaType?: string, preserveDirections?: boolean, name?: string) => void;
   removeNodes: (keys: string[]) => void;
   discardUnsaved: () => void;
-  copyFloorConfig: (fromGlobalFloor: string, toGlobalFloor: string) => void;
   clearModifiedFlags: () => void;
 
   // UI actions
   setActiveTab: (tab: TabKey) => void;
   setSelectedCells: (cells: Set<string>) => void;
   setScale: (s: number) => void;
-  getAllFloorNodes: () => Set<string>;
   getAllAreaNodes: () => Set<string>;
   getTakenCells: (tab: TabKey, excludeId?: string) => Set<string>;
-  getFloorNodes: (floorId: string) => Set<string>;
   nodes: Record<string, PositionConfig>;
   allDevices: any[];
   allDeviceTypes: any[];
@@ -79,6 +66,18 @@ interface WarehouseConfigContextType {
   setPosName: (n: string) => void;
   posQrCode: string;
   setPosQrCode: (q: string) => void;
+  routeType: string | null;
+  setRouteType: (v: string | null) => void;
+  curveAngle: string | null;
+  setCurveAngle: (v: string | null) => void;
+  routeControlPoint: { x: number, y: number } | null;
+  setRouteControlPoint: (v: { x: number, y: number } | null) => void;
+  curveDirection: string | null;
+  setCurveDirection: (v: string | null) => void;
+  routeDirection: 'left' | 'right' | 'left_right' | '';
+  setRouteDirection: (v: 'left' | 'right' | 'left_right' | '') => void;
+  routes: import('./warehouse-types').RouteConfig[];
+  addRoute: (route: import('./warehouse-types').RouteConfig) => void;
   zoneTypes: any[];
   warehouses: any[];
   restoreSnapshot: (snapshot: any) => void;
@@ -86,7 +85,6 @@ interface WarehouseConfigContextType {
   refreshGlobal: () => void;
   refreshFloor: () => void;
   zonesToDelete: string[];
-  towerFloorsToDelete: FloorConfig[];
   clearDeleteQueue: () => void;
   readOnly?: boolean;
 }
@@ -101,8 +99,6 @@ export const useWarehouseConfig = () => {
 };
 
 const genId = () => Math.random().toString(36).slice(2, 10);
-//WarehouseCo nfigProvider: Chứa các biến state khổng lồ như: danh sách module, 
-// danh sách tầng, khu vực, vị trí từng ô vuông (nodes), ô nào đang được chọn (selectedCells), mức độ zoom của bản đồ (scale)
 export const WarehouseConfigProvider: React.FC<{
   children: React.ReactNode;
   warehouseId: string;
@@ -115,29 +111,22 @@ export const WarehouseConfigProvider: React.FC<{
   const { socket } = useRealtime();// lấy socket đã được thiết lập ( kết nối )
   const [rows, setRows] = useState(initialRows);
   const [columns, setColumns] = useState(initialColumns);
-  const [floorsCount, setFloorsCount] = useState(initialFloors);
-  const [modulesCount, setModulesCount] = useState(initialModules);
   const [warehouseName, setWarehouseName] = useState("");
-
-  const [modules, setModules] = useState<TowerProps[]>([]);
-  const [floors, setFloors] = useState<FloorConfig[]>([]);
   const [areas, setAreas] = useState<AreaConfig[]>([]);
   const [nodes, setNodes] = useState<Record<string, PositionConfig>>({});
   const [positionItems, setPositionItems] = useState<PositionConfig[]>([]);
-  const [warehouseFloors, setWarehouseFloors] = useState<any[]>([]);
+
   const [allDevices, setAllDevices] = useState<any[]>([]);
   const [allDeviceTypes, setAllDeviceTypes] = useState<any[]>([]);
   const [allLocations, setAllLocations] = useState<any[]>([]);
-  const [currentWarehouseFloorId, setCurrentWarehouseFloorId] = useState<string>("");
-  const [zoneTypes, setZoneTypes] = useState<any[]>([]);
+
+  const [zoneTypes, setZoneTypes] = useState<any[]>(MOCK_ZONE_TYPES);
   const [warehouses, setWarehouses] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [zonesToDelete, setZonesToDelete] = useState<string[]>([]);
-  const [towerFloorsToDelete, setTowerFloorsToDelete] = useState<FloorConfig[]>([]);
 
   const clearDeleteQueue = useCallback(() => {
     setZonesToDelete([]);
-    setTowerFloorsToDelete([]);
   }, []);
 
   const [globalRefreshCounter, setGlobalRefreshCounter] = useState(0);
@@ -152,7 +141,7 @@ export const WarehouseConfigProvider: React.FC<{
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [selectedProduct, setSelectedProduct] = useState<string>("");
 
-  const [activeTab, setActiveTab] = useState<TabKey>('module');
+  const [activeTab, setActiveTab] = useState<TabKey>('area');
   const [selectedCells, setSelectedCells] = useState<Set<string>>(new Set());
   const [scale, setScale] = useState(1);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -162,20 +151,36 @@ export const WarehouseConfigProvider: React.FC<{
   const [posName, setPosName] = useState("");
   const [posQrCode, setPosQrCode] = useState("");
 
-  // Image caching logic moved from WarehouseMap for performance
+  const [routeType, setRouteType] = useState<string | null>(null);
+  const [curveAngle, setCurveAngle] = useState<string | null>(null);
+  const [routeControlPoint, setRouteControlPoint] = useState<{ x: number, y: number } | null>(null);
+  const [curveDirection, setCurveDirection] = useState<string | null>(null);
+  const [routeDirection, setRouteDirection] = useState<'left' | 'right' | 'left_right' | ''>('');
+  const [routes, setRoutes] = useState<import('./warehouse-types').RouteConfig[]>([]);
+
+  const addRoute = useCallback((route: import('./warehouse-types').RouteConfig) => {
+    setRoutes(prev => [...prev, route]);
+  }, []);
+
   const [images, setImages] = useState<Record<string, HTMLImageElement>>({});
   React.useEffect(() => {
-    const directions = ['up', 'down', 'left', 'right', 'straight-horizontal', 'straight-vertical', 'corner-lu', 'corner-ru', 'corner-ld', 'corner-rd', 't-up', 't-down', 't-left', 't-right', 'corner'];
-    const suffixes = ['', '-import', '-export', '-wait', '-charge', '-storage', '-moving', '-lifter'];
-    const svgNames = ['node.svg', 'st1-shuttle.svg', 'st2-shuttle.svg', 'st3-shuttle.svg', 'lifter.svg', 'goods.svg'];
-    suffixes.forEach(s => { if (s) svgNames.push(s.substring(1) + '.svg'); });
-    directions.forEach(d => {
-      suffixes.forEach(s => {
-        if (s) { // Exclude empty suffix '' because standalone direction files like 'up.svg' or 't-left.svg' do not exist in public/svgMap/
-          svgNames.push(`${d}${s}.svg`);
-        }
-      });
-    });
+    const svgNames = [
+      'node.svg',
+      'left_bottom.svg',
+      'right_bottom.svg',
+      'straight_line.svg',
+      'top_left.svg',
+      'top_right.svg',
+      'bypass.svg',
+      'charging.svg',
+      'inbound.svg',
+      'maintenance.svg',
+      'outbound.svg',
+      'waiting.svg',
+      'left.svg',
+      'right.svg',
+      'left_right.svg'
+    ];
 
     svgNames.forEach(name => {
       const img = new Image();
@@ -225,9 +230,7 @@ export const WarehouseConfigProvider: React.FC<{
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const [towerData, wFloorData, zoneTypeData, warehouseListData, allProductData, deviceData, deviceTypeData] = await Promise.all([
-          getTower(warehouseId),
-          getWarehouseFloor(warehouseId),
+        const [zoneTypeData, warehouseListData, allProductData, deviceData, deviceTypeData] = await Promise.all([
           getZoneType(),
           getWarehouse({ page: 1, limit: 100 }),
           getProduct(warehouseId, ''),
@@ -236,48 +239,26 @@ export const WarehouseConfigProvider: React.FC<{
           getLocations(warehouseId, { page: 1, limit: 1000 }),
         ]);
 
-        const rawTowers = getElements(towerData);
-        let nextModules: TowerProps[] = [];
-        if (rawTowers.length > 0) {
-          nextModules = rawTowers.map((t: any) => ({
-            id: (t.tower_id || t.id).toString(),
-            code: t.tower_code || t.code || "",
-            name: t.tower_name || t.name || "",
-            is_active: t.is_active ?? true,
-            tower_type: t.tower_type || "TOWER",
-            warehouse_id: t.warehouse_id || warehouseId,
-            tower_order: t.tower_order || 1,
-          }));
-          setModules(nextModules);
-        }
-
-        const rawWFloors = getElements(wFloorData);
-        if (rawWFloors.length > 0) {
-          setWarehouseFloors(rawWFloors);
-          if (!currentWarehouseFloorId) {
-            const firstFloor = rawWFloors[0];
-            setCurrentWarehouseFloorId(firstFloor.id.toString());
-          }
-        }
-
         const rawZoneTypes = getElements(zoneTypeData);
-        if (rawZoneTypes.length > 0) {
+        if (rawZoneTypes && rawZoneTypes.length > 0) {
           setZoneTypes(rawZoneTypes);
+        } else {
+          setZoneTypes(MOCK_ZONE_TYPES);
         }
 
         const rawWarehouses = getElements(warehouseListData);
         if (rawWarehouses.length > 0) {
           setWarehouses(rawWarehouses);
 
-          const wDetail = rawWarehouses.find((w: any) => w.id === warehouseId);
+          const wDetail = rawWarehouses.find((w: any) => (w.id || w.ID)?.toString() === warehouseId);
           if (wDetail) {
-            setWarehouseName(wDetail.name || "");
-            if (wDetail.row) setRows(wDetail.row);
+            setWarehouseName(wDetail.name || wDetail.Name || "");
+            const rVal = wDetail.row || wDetail.Row;
+            const cVal = wDetail.column || wDetail.Column;
+            if (rVal) setRows(Number(rVal));
             // lưu số dãy vào state
-            if (wDetail.column) setColumns(wDetail.column);
+            if (cVal) setColumns(Number(cVal));
             //lưu số cột vào state
-            if (wDetail.number_floor) setFloorsCount(wDetail.number_floor);
-            if (wDetail.number_tower) setModulesCount(wDetail.number_tower);
           }
         }
 
@@ -286,20 +267,7 @@ export const WarehouseConfigProvider: React.FC<{
           setAllProducts(rawAllProducts);
         }
 
-        // const rawDevices = getElements(deviceData);
-        // if (rawDevices.length > 0) {
-        //   setAllDevices(rawDevices);
-        // }
 
-        // if (deviceTypeData?.success) {
-        //   const rawDeviceTypes = getElements(deviceTypeData.data);
-        //   setAllDeviceTypes(rawDeviceTypes);
-        // }
-
-        // const rawLocations = getElements(locationData);
-        // if (rawLocations.length > 0) {
-        //   setAllLocations(rawLocations);
-        // }
       } catch (error) {
         console.error("Error fetching initial data:", error);
       } finally {
@@ -319,27 +287,21 @@ export const WarehouseConfigProvider: React.FC<{
     setAllDevices
   });
 
-  // Initial floor selection logic
-  React.useEffect(() => {
-    if (warehouseFloors.length > 0 && !currentWarehouseFloorId) {
-      setCurrentWarehouseFloorId(warehouseFloors[0].id.toString());
-    }
-  }, [warehouseFloors, currentWarehouseFloorId]);
-
   // --- Fetch data for specific floor ---
   React.useEffect(() => {
-    if (!warehouseId || !currentWarehouseFloorId) return;
+    if (!warehouseId) return;
 
     const fetchFloorData = async () => {
       try {
-        const [floorData, zoneData] = await Promise.all([
-          getTowerFloor(warehouseId, '', currentWarehouseFloorId),
-          getZone(warehouseId, currentWarehouseFloorId),
+        const [zoneData] = await Promise.all([
+          getZone(warehouseId, ''),
         ]);
 
-        const rawZones = getElements(zoneData);
+        let rawZones = getElements(zoneData);
+        if (!rawZones || rawZones.length === 0) {
+          rawZones = MOCK_ZONES;
+        }
         const nextPositions: Record<string, PositionConfig> = {};
-        const floorToCoords = new Map<string, string[]>();
         const zoneToCoords = new Map<string, string[]>();
 
         let nextAreas: AreaConfig[] = [];
@@ -352,20 +314,20 @@ export const WarehouseConfigProvider: React.FC<{
             const zCode = z.zone_type_code || "";
             const zName = z.zone_type_name || "";
 
-            if (zCode === 'INBOUND' || zName.includes("nhập")) areaType = "inbound";
-            else if (zCode === 'OUTBOUND' || zName.includes("xuất")) areaType = "outbound";
+            if (zCode === 'PICKING' || zName.includes("lấy hàng")) areaType = "inbound";
+            else if (zCode === 'DROPPING' || zName.includes("bỏ hàng")) areaType = "outbound";
             else if (zCode === 'CHARGING' || zName.includes("sạc")) areaType = "charging";
-            else if (zCode === 'WAITING' || zName.includes("đỗ") || zName.includes("chờ")) areaType = "waiting";
-            else if (zCode === 'MOVING' || zName.includes("đường đi") || zName.includes("moving")) areaType = "moving";
-            else if (zCode === 'STORAGE' || zName.includes("chứa hàng") || zName.includes("lưu trữ") || zName.includes("storage")) areaType = "storage";
-            else if (zCode === 'LIFTER' || zName.includes("lifter")) areaType = "lifter";
+            else if (zCode === 'PARKING' || zName.includes("đỗ")) areaType = "waiting";
+            else if (zCode === 'MOVING' || zName.includes("đường đi")) areaType = "moving";
+            else if (zCode === 'BYPASS' || zName.includes("đường tránh")) areaType = "bypass";
+            else if (zCode === 'MAINTENANCE' || zName.includes("bảo trì")) areaType = "maintenance";
+
 
             // Process nodes within this zone to build positions
             nodesInZone.forEach((n: any) => {
-              const fId = (n.tower_floor_id || '').toString();
               const zId = z.id.toString();
               const coord = `${n.y - 1},${n.x - 1}`;
-              const fullKey = `wFloor_${currentWarehouseFloorId}:${coord}`;
+              const fullKey = `node_${coord}`;
 
               const mask = n.neighbor_mask || "0000";
               const directions: DirectionFlags = {
@@ -377,7 +339,6 @@ export const WarehouseConfigProvider: React.FC<{
 
               const posConfig: PositionConfig = {
                 key: fullKey,
-                floorId: fId,
                 name: n.name || n.code || '',
                 directions: directions,
                 qrCode: n.qrcode || '',
@@ -393,10 +354,6 @@ export const WarehouseConfigProvider: React.FC<{
 
               nextPositions[fullKey] = posConfig;
 
-              if (fId) {
-                if (!floorToCoords.has(fId)) floorToCoords.set(fId, []);
-                floorToCoords.get(fId)!.push(coord);
-              }
               if (zId) {
                 if (!zoneToCoords.has(zId)) zoneToCoords.set(zId, []);
                 zoneToCoords.get(zId)!.push(coord);
@@ -405,10 +362,10 @@ export const WarehouseConfigProvider: React.FC<{
 
             return {
               id: z.id.toString(),
-              floorId: (z.tower_floor_id || '').toString(),
               areaType: areaType,
               name: z.name || '',
               code: z.code || '',
+              description: z.description || '',
               productGroup: '',
               category_id: allProducts?.find((p: any) => p.id === z.product_id?.toString())?.category_id?.toString(),
               product_id: z.product_id?.toString(),
@@ -422,76 +379,9 @@ export const WarehouseConfigProvider: React.FC<{
           });
         }
 
-        const rawFloors = getElements(floorData);
-        let nextFloors: FloorConfig[] = [];
-        if (rawFloors.length > 0) {
-          nextFloors = rawFloors.map((f: any) => {
-            const fId = f.id.toString();
-            const nodes = f.node || f.nodes || [];
-            const positions = nodes.map((n: any) => `${n.y - 1},${n.x - 1}`);
-
-            // Process nodes from floorData to ensure we have nodeIds even without zones
-            nodes.forEach((n: any) => {
-              const coord = `${n.y - 1},${n.x - 1}`;
-              const fullKey = `wFloor_${currentWarehouseFloorId}:${coord}`;
-              if (!nextPositions[fullKey]) {
-                const mask = n.neighbor_mask || "0000";
-                const directions: DirectionFlags = {
-                  up: mask[0] === '1',
-                  right: mask[1] === '1',
-                  down: mask[2] === '1',
-                  left: mask[3] === '1'
-                };
-                nextPositions[fullKey] = {
-                  key: fullKey,
-                  floorId: fId,
-                  name: n.name || n.code || '',
-                  directions: directions,
-                  qrCode: n.qrcode || '',
-                  areaType: '',
-                  imgName: getSelectedTileName(directions, ''),
-                  isNew: false,
-                  cellKeys: [coord],
-                  nodeId: n.id?.toString(),
-                  x: n.x,
-                  y: n.y,
-                  z: n.z,
-                };
-              } else {
-                if (!nextPositions[fullKey].nodeId) {
-                  nextPositions[fullKey].nodeId = n.id?.toString();
-                }
-              }
-            });
-
-            return {
-              id: fId,
-              moduleId: (f.tower_id || '').toString(),
-              warehouseFloorId: currentWarehouseFloorId,
-              name: f.name || `Tầng`,
-              nodes: positions,
-              devices: (f.devices || []).map((d: any) => ({
-                id: (d.id || d.device_id)?.toString(),
-                purpose: d.purpose || 'MULTIPLE'
-              })),
-              isNew: false
-            };
-          });
-        }
-
-        setNodes(prev => {
-          const next = { ...prev };
-          // Clear only the nodes belonging to the current warehouse floor ID to avoid duplication
-          const prefix = `wFloor_${currentWarehouseFloorId}:`;
-          Object.keys(next).forEach(k => { if (k.startsWith(prefix)) delete next[k]; });
-          return { ...next, ...nextPositions };
-        });
+        setNodes(nextPositions);
         setPositionItems(Object.values(nextPositions).filter(p => p.qrCode || p.name));
 
-        setFloors(nextFloors.map(f => ({
-          ...f,
-          nodes: (f.nodes && f.nodes.length > 0) ? f.nodes : (floorToCoords.get(f.id) || [])
-        })));
         setAreas(nextAreas.map(a => ({
           ...a,
           nodes: (a.nodes && a.nodes.length > 0) ? a.nodes : (zoneToCoords.get(a.id) || [])
@@ -502,89 +392,18 @@ export const WarehouseConfigProvider: React.FC<{
     };
 
     fetchFloorData();
-  }, [warehouseId, currentWarehouseFloorId, floorRefreshCounter, globalRefreshCounter]);
+  }, [warehouseId, floorRefreshCounter, globalRefreshCounter]);
 
-  // --- Module ---
-  /**
-   * Cập nhật thông tin của Module
-   * @param id ID của module cần cập nhật
-   * @param data Dữ liệu mới cập nhật
-   */
-  const updateModule = useCallback((id: string, data: Partial<TowerProps>) => {
-    setModules(prev => prev.map(m => {
-      if (m.id === id) {
-        const hasChanged = Object.entries(data).some(([key, value]) => (m as any)[key] !== value);
-        if (hasChanged) return { ...m, ...data, isModified: true };
-      }
-      return m;
-    }));
-  }, []);
 
-  // --- Floor --- thêm tầng
-  /** Thêm một tầng mới vào tầng vật lý hiện tại */
-  const addFloor = useCallback(() => {
-    if (!currentWarehouseFloorId) return;
-    const newId = genId();
-    setFloors(prev => [...prev, { id: newId, moduleId: '', warehouseFloorId: currentWarehouseFloorId, name: `Tầng module ${prev.length + 1}`, nodes: [], devices: [], isNew: true }]);
-    setEditingId(newId);
-    setSelectedCells(new Set());
-    setInitialEditingKeys(new Set());
-  }, [currentWarehouseFloorId]);
 
-  /** Cập nhật thông tin chi tiết của tầng (tên, module, thiết bị) */
-  const updateFloor = useCallback((id: string, data: Partial<FloorConfig>) => {
-    setFloors(prev => prev.map(f => {
-      if (f.id === id) {
-        const hasChanged = Object.entries(data).some(([key, value]) => {
-          if (Array.isArray(value) && Array.isArray((f as any)[key])) {
-            return JSON.stringify(value) !== JSON.stringify((f as any)[key]);
-          }
-          return (f as any)[key] !== value;
-        });
-        if (hasChanged) return { ...f, ...data, isModified: true };
-      }
-      return f;
-    }));
-  }, []);
 
-  /** Xóa một tầng và dọn dẹp các khu vực, vị trí thuộc tầng đó */
-  const removeFloor = useCallback((id: string) => {
-    setFloors(prev => {
-      const floor = prev.find(f => f.id === id);
-      if (floor) {
-        if (!floor.isNew) {
-          setTowerFloorsToDelete(d => [...d, floor]);
-        }
-        const prefix = `wFloor_${floor.warehouseFloorId}:`;
-        setNodes(curr => {
-          const next = { ...curr };
-          Object.keys(next).forEach(k => {
-            if (k.startsWith(prefix)) delete next[k];
-          });
-          return next;
-        });
-      }
-      return prev.filter(f => f.id !== id);
-    });
-    setAreas(prev => prev.filter(a => a.floorId !== id));
-    setPositionItems(prev => prev.filter(p => p.floorId !== id));
-    if (editingId === id) {
-      setEditingId(null);
-      setSelectedCells(new Set());
-    }
-  }, [editingId]);
-
-  /** Lưu tọa độ các ô vuông thuộc một tầng */
-  const saveFloorNodes = useCallback((floorId: string, ns: string[]) => {
-    setFloors(prev => prev.map(f => f.id === floorId ? { ...f, nodes: ns, isModified: true } : f));
-  }, []);
 
   // --- Area --- thêm khu vực
   /** Thêm một khu vực (Zone) mới vào tầng hiện tại */
-  const addArea = useCallback((floorId: string) => {
+  const addArea = useCallback(() => {
     const newId = genId();
     setAreas(prev => [...prev, {
-      id: newId, floorId, areaType: '', name: '', code: '',
+      id: newId, areaType: '', name: '', code: '', description: '',
       category_id: '', product_id: '', nodes: [], importDirection: '', isNew: true
     }]);
     setEditingId(newId);
@@ -620,7 +439,7 @@ export const WarehouseConfigProvider: React.FC<{
         }
         setNodes(curr => {
           const next = { ...curr };
-          const prefix = `wFloor_${currentWarehouseFloorId}:`;
+          const prefix = `node_`;
           area.nodes.forEach(p => {
             const fullKey = `${prefix}${p}`;
             if (next[fullKey]) next[fullKey] = { ...next[fullKey], areaType: '' };
@@ -634,19 +453,17 @@ export const WarehouseConfigProvider: React.FC<{
       setEditingId(null);
       setSelectedCells(new Set());
     }
-  }, [editingId, currentWarehouseFloorId]);
+  }, [editingId]);
 
   /** Lưu tọa độ các ô vuông thuộc một khu vực */
   const saveAreaNodes = useCallback((areaId: string, ns: string[]) => {
     setAreas(prev => prev.map(a => a.id === areaId ? { ...a, nodes: ns, isModified: true } : a));
   }, []);
 
-  // --- Position Items (Sidebar) ---
-  /** Thêm mới một vị trí trong sidebar */
-  const addPositionItem = useCallback((floorId: string) => {
+  const addPositionItem = useCallback(() => {
     const newId = genId();
     setPositionItems(prev => [...prev, {
-      key: newId, floorId, name: '', directions: { up: false, down: false, left: false, right: false }, qrCode: '', cellKeys: [], isNew: true
+      key: newId, name: '', directions: { up: false, down: false, left: false, right: false }, qrCode: '', cellKeys: [], isNew: true
     }]);
     setEditingId(newId);
     setSelectedCells(new Set());
@@ -659,7 +476,7 @@ export const WarehouseConfigProvider: React.FC<{
     setPositionItems(prev => {
       const item = prev.find(p => p.key === id);
       if (item && item.cellKeys) {
-        const floorPrefix = `wFloor_${currentWarehouseFloorId}:`;
+        const floorPrefix = `node_`;
 
         const keysToRemove = item.cellKeys.map(k => `${floorPrefix}${k}`);
         setNodes(curr => {
@@ -670,28 +487,26 @@ export const WarehouseConfigProvider: React.FC<{
       }
       return prev.filter(p => p.key !== id);
     });
-  }, [currentWarehouseFloorId]);
+  }, []);
 
   /** Xóa hoàn toàn cấu hình tại các ô đã chỉ định khỏi Map */
   const removeNodes = useCallback((keys: string[]) => {
-    const floorPrefix = `wFloor_${currentWarehouseFloorId}:`;
+    const floorPrefix = `node_`;
     const fullKeys = keys.map(k => `${floorPrefix}${k}`);
     setNodes(prev => {
       const next = { ...prev };
       fullKeys.forEach(k => delete next[k]);
       return next;
     });
-  }, [currentWarehouseFloorId]);
+  }, []);
 
-  /** Hủy bỏ những cấu hình mới tạo nhưng chưa được lưu */
   const discardUnsaved = useCallback(() => {
-    setFloors(prev => prev.filter(f => !f.isNew));
     setAreas(prev => prev.filter(a => !a.isNew));
     setPositionItems(prev => {
       const unsaved = prev.filter(p => p.isNew);
       const keysToRemove: string[] = [];
       unsaved.forEach(p => {
-        const prefix = `wFloor_${currentWarehouseFloorId}:`;
+        const prefix = `node_`;
         p.cellKeys?.forEach(k => keysToRemove.push(`${prefix}${k}`));
       });
       if (keysToRemove.length > 0) {
@@ -705,7 +520,7 @@ export const WarehouseConfigProvider: React.FC<{
     });
     setEditingId(null);
     setSelectedCells(new Set());
-  }, [currentWarehouseFloorId]);
+  }, []);
 
   // --- Position (Individual Cells) ---
   /**
@@ -715,9 +530,8 @@ export const WarehouseConfigProvider: React.FC<{
    * @param qrCode Mã QR code 
    * @param areaType Loại khu vực
    */
-  const upsertNodes = useCallback((keys: string[], directions: DirectionFlags, qrCode?: string, areaType?: string, preserveDirections?: boolean, name?: string) => {
-    // Đảm bảo chỉ tạo/cập nhật map state cho tầng vật lý hiện tại
-    const floorPrefix = `wFloor_${currentWarehouseFloorId}:`;
+  const upsertNodes = useCallback((keys: string[], directions: DirectionFlags, qrCode?: string, areaType?: string, preserveDirections: boolean = false, name?: string) => {
+    const floorPrefix = `node_`;
 
     setNodes(prev => {
       const next = { ...prev };
@@ -730,7 +544,6 @@ export const WarehouseConfigProvider: React.FC<{
 
         next[fullKey] = {
           key: fullKey,
-          floorId: '',
           name: name !== undefined ? name : prevData?.name ?? '',
           directions: resolvedDirections,
           qrCode: qrCode !== undefined ? qrCode : prevData?.qrCode ?? '',
@@ -741,109 +554,34 @@ export const WarehouseConfigProvider: React.FC<{
       });
       return next;
     });
-  }, [currentWarehouseFloorId]);
+  }, []);
 
-  // --- Clone Logic --- nhân bản tầng
-  /**
-   * Nhân bản cấu hình từ một tầng vật lý sang một tầng vật lý khác
-   * (Copy toàn bộ tầng logic, khu vực, vị trí và các node trên bản đồ)
-   */
-  const copyFloorConfig = useCallback((fromWFloorId: string, toWFloorId: string) => {
 
-    // Lọc ra các cấu hình chỉ thuộc về tầng nguồn
-    const fromFloorConfigs = floors.filter(f => f.warehouseFloorId === fromWFloorId);
-    // Lọc ra các state map (nodes) chỉ thuộc về tầng nguồn bằng cách check prefix
-    const fromCellConfigs = Object.values(nodes).filter(p => p.key.startsWith(`wFloor_${fromWFloorId}:`));
-
-    const clonedFloors: FloorConfig[] = [];
-    const clonedAreas: AreaConfig[] = [];
-    const clonedPosItems: PositionConfig[] = [];
-
-    // Duyệt qua các tầng logic của tầng nguồn (ví dụ: Tầng module 1, Tầng module 2...)
-    fromFloorConfigs.forEach(f => {
-      const newFId = genId(); // Tạo ID mới cho tầng copy
-      clonedFloors.push({ ...f, id: newFId, warehouseFloorId: toWFloorId, isNew: false });
-
-      // Copy các khu vực thuộc về tầng logic này
-      const floorAreas = areas.filter(a => a.floorId === f.id);
-      floorAreas.forEach(a => clonedAreas.push({ ...a, id: genId(), floorId: newFId, isNew: false }));
-
-      // Copy các vị trí thiết lập (sidebar items) thuộc về tầng logic này
-      const floorPosItems = positionItems.filter(p => p.floorId === f.id);
-      floorPosItems.forEach(p => clonedPosItems.push({ ...p, key: genId(), floorId: newFId, isNew: false }));
-    });
-
-    // Chuyển đổi prefix cho tọa độ của map state
-    const newCellConfigs: Record<string, PositionConfig> = {};
-    fromCellConfigs.forEach(p => {
-      const newKey = p.key.replace(`wFloor_${fromWFloorId}:`, `wFloor_${toWFloorId}:`);
-      newCellConfigs[newKey] = { ...p, key: newKey, floorId: '' };
-    });
-
-    // console.log(`[Context] Clone hoàn tất. Tầng: ${clonedFloors.length}, Khu vực: ${clonedAreas.length}, Vị trí (sidebar): ${clonedPosItems.length}, Map cells: ${Object.keys(newCellConfigs).length}`);
-
-    // Batch updates
-    setFloors(prev => [...prev.filter(f => f.warehouseFloorId !== toWFloorId), ...clonedFloors]);
-    setAreas(prev => {
-      const targetFloorIds = floors.filter(f => f.warehouseFloorId === toWFloorId).map(f => f.id);
-      return [...prev.filter(a => !targetFloorIds.includes(a.floorId)), ...clonedAreas];
-    });
-    setPositionItems(prev => {
-      const targetFloorIds = floors.filter(f => f.warehouseFloorId === toWFloorId).map(f => f.id);
-      return [...prev.filter(p => !targetFloorIds.includes(p.floorId)), ...clonedPosItems];
-    });
-    setNodes(prev => {
-      const next = { ...prev };
-      // Remove old cells of target floor
-      const targetPrefix = `wFloor_${toWFloorId}:`;
-      Object.keys(next).forEach(k => { if (k.startsWith(targetPrefix)) delete next[k]; });
-      // Add new cloned cells
-      return { ...next, ...newCellConfigs };
-    });
-  }, [areas, positionItems, nodes, floors]);
 
   const clearModifiedFlags = useCallback(() => {
-    setModules(prev => prev.map(m => ({ ...m, isNew: false, isModified: false })));
-    setFloors(prev => prev.map(f => ({ ...f, isNew: false, isModified: false })));
     setAreas(prev => prev.map(a => ({ ...a, isNew: false, isModified: false })));
   }, []);
 
   // --- Derived ---
-  const getAllFloorNodes = useCallback(() => {
-    const set = new Set<string>();
-    floors.filter(f => f.warehouseFloorId === currentWarehouseFloorId).forEach(f => f.nodes.forEach(p => set.add(p)));
-    return set;
-  }, [floors, currentWarehouseFloorId]);
-
   const getAllAreaNodes = useCallback(() => {
     const set = new Set<string>();
-    const floorIds = floors.filter(f => f.warehouseFloorId === currentWarehouseFloorId).map(f => f.id);
-    areas.filter(a => floorIds.includes(a.floorId)).forEach(a => a.nodes.forEach(p => set.add(p)));
+    areas.forEach(a => a.nodes.forEach(p => set.add(p)));
     return set;
-  }, [areas, floors, currentWarehouseFloorId]);
+  }, [areas]);
 
   const getTakenCells = useCallback((tab: TabKey, excludeId?: string) => {
     const set = new Set<string>();
-    if (tab === 'floor') {
-      floors.filter(f => f.warehouseFloorId === currentWarehouseFloorId && f.id !== excludeId).forEach(f => f.nodes.forEach(p => set.add(p)));
-    } else if (tab === 'area') {
-      const floorIds = floors.filter(f => f.warehouseFloorId === currentWarehouseFloorId).map(f => f.id);
-      areas.filter(a => floorIds.includes(a.floorId) && a.id !== excludeId).forEach(a => a.nodes.forEach(p => set.add(p)));
-    } else if (tab === 'position') {
-      const floorIds = floors.filter(f => f.warehouseFloorId === currentWarehouseFloorId).map(f => f.id);
-      positionItems.filter(p => floorIds.includes(p.floorId) && p.key !== excludeId).forEach(p => p.cellKeys?.forEach(k => set.add(k)));
+    if (tab === 'area') {
+      areas.filter(a => a.id !== excludeId).forEach(a => a.nodes.forEach(p => set.add(p)));
+    } else if (tab === 'position' || tab === 'route') {
+      positionItems.filter(p => p.key !== excludeId).forEach(p => p.cellKeys?.forEach(k => set.add(k)));
     }
     return set;
-  }, [floors, areas, positionItems, currentWarehouseFloorId]);
+  }, [areas, positionItems]);
 
-  const getFloorNodes = useCallback((floorId: string) => {
-    const floor = floors.find(f => f.id === floorId);
-    return new Set(floor?.nodes ?? []);
-  }, [floors]);
+
 
   const restoreSnapshot = useCallback((snapshot: any) => {
-    if (snapshot.modules) setModules(snapshot.modules);
-    if (snapshot.floors) setFloors(snapshot.floors);
     if (snapshot.areas) setAreas(snapshot.areas);
     if (snapshot.nodes) setNodes(snapshot.nodes);
     if (snapshot.positionItems) setPositionItems(snapshot.positionItems);
@@ -854,47 +592,45 @@ export const WarehouseConfigProvider: React.FC<{
 
   }, []);
   const contextValue = React.useMemo(() => ({
-    modules, floors, areas, nodes, positionItems,
+    areas, nodes, positionItems,
     images, rows, columns,
-    floorsCount, modulesCount, warehouseName,
+    warehouseName,
     activeTab, selectedCells, scale, editingId,
-    updateModule,
-    addFloor, updateFloor, removeFloor, saveFloorNodes,
     addArea, updateArea, removeArea, saveAreaNodes,
     addPositionItem, updatePositionItem, removePositionItem, discardUnsaved,
-    upsertNodes, removeNodes, copyFloorConfig, clearModifiedFlags,
+    upsertNodes, removeNodes, clearModifiedFlags,
     setActiveTab, setSelectedCells, setScale, setEditingId, setInitialEditingKeys,
-    getAllFloorNodes, getAllAreaNodes, getTakenCells, getFloorNodes,
+    getAllAreaNodes, getTakenCells,
     initialEditingKeys,
     posDirections, setPosDirections,
     posName, setPosName,
     posQrCode, setPosQrCode,
+    routeType, setRouteType, curveAngle, setCurveAngle, routeControlPoint, setRouteControlPoint, curveDirection, setCurveDirection,
+    routeDirection, setRouteDirection, routes, addRoute,
     selectedCategory, products, categories, setSelectedCategories,
-    warehouseFloors, currentWarehouseFloorId, setCurrentWarehouseFloorId,
     zoneTypes, warehouses, restoreSnapshot, isLoading, refreshGlobal, refreshFloor,
     allProducts, allDevices, allDeviceTypes, allLocations,
-    zonesToDelete, towerFloorsToDelete, clearDeleteQueue, readOnly
+    zonesToDelete, clearDeleteQueue, readOnly
   }), [
-    modules, floors, areas, nodes, positionItems,
+    areas, nodes, positionItems,
     images, rows, columns,
-    floorsCount, modulesCount, warehouseName,
+    warehouseName,
     activeTab, selectedCells, scale, editingId,
-    updateModule,
-    addFloor, updateFloor, removeFloor, saveFloorNodes,
     addArea, updateArea, removeArea, saveAreaNodes,
     addPositionItem, updatePositionItem, removePositionItem, discardUnsaved,
-    upsertNodes, removeNodes, copyFloorConfig, clearModifiedFlags,
+    upsertNodes, removeNodes, clearModifiedFlags,
     setActiveTab, setSelectedCells, setScale, setEditingId, setInitialEditingKeys,
-    getAllFloorNodes, getAllAreaNodes, getTakenCells, getFloorNodes,
+    getAllAreaNodes, getTakenCells,
     initialEditingKeys,
     posDirections, setPosDirections,
     posName, setPosName,
     posQrCode, setPosQrCode,
+    routeType, setRouteType, curveAngle, setCurveAngle, routeControlPoint, setRouteControlPoint, curveDirection, setCurveDirection,
+    routeDirection, setRouteDirection, routes, addRoute,
     selectedCategory, products, categories, setSelectedCategories,
-    warehouseFloors, currentWarehouseFloorId, setCurrentWarehouseFloorId,
     zoneTypes, warehouses, restoreSnapshot, isLoading, refreshGlobal, refreshFloor,
     allProducts, allDevices, allDeviceTypes, allLocations,
-    zonesToDelete, towerFloorsToDelete, clearDeleteQueue, readOnly
+    zonesToDelete, clearDeleteQueue, readOnly
   ]);
 
   return (

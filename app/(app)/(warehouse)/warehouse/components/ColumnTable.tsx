@@ -49,14 +49,10 @@ export const getColumns = ({ onDelete, onEdit, onView, router }: GetColumnsProps
 
     {
         title: "Tổng vị trí",
-        dataIndex: "TotalPositions ",
-        key: "TotalPositions ",
+        dataIndex: "TotalPositions",
+        key: "TotalPositions",
         width: 232,
         className: "text-center",
-        render: (_: any, record: any) =>
-            <div className="flex justify-center items-center">
-                {record.TotalPositions ?? 0}
-            </div>,
         onHeaderCell: () => ({
             style: {
                 textAlign: "center",
@@ -119,7 +115,7 @@ export const getColumns = ({ onDelete, onEdit, onView, router }: GetColumnsProps
                         width={18}
                         height={18}
                         style={{ width: '18px', height: '18px', flexShrink: 0 }}
-                        onClick={() => router.push(`/warehouse/${record.id}/view?name=${record.name}&rows=${record.row}&columns=${record.column}&modules=${record.number_tower}&floors=${record.number_floor}`)}
+                        onClick={() => router.push(`/warehouse/${record.ID}/view?name=${record.Name}&rows=${record.Row}&columns=${record.Column}&modules=${record.number_tower}&floors=${record.number_floor}`)}
                         className="cursor-pointer hover:opacity-80 transition-opacity"
                     />
                 </Tooltip>

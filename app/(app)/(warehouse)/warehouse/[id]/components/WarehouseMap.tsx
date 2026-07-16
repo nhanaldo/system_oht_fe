@@ -23,9 +23,10 @@ interface WarehouseMapProps {
 const WarehouseMap: React.FC<WarehouseMapProps> = ({ showDevices = false }) => {
   const {
     activeTab, selectedCells, setSelectedCells, scale, setScale,
-    nodes, floors, areas, getTakenCells, positionItems, initialEditingKeys,
+    nodes, areas, getTakenCells, positionItems, initialEditingKeys,
     images, rows, columns, updateArea, editingId, setEditingId, setInitialEditingKeys,
-    posDirections, posName, posQrCode, currentWarehouseFloorId, allProducts, categories,
+    posDirections, posName, posQrCode, allProducts, categories,
+    routeType, curveAngle, setCurveAngle, routeControlPoint, setRouteControlPoint, curveDirection, setCurveDirection, routeDirection, routes,
     setActiveTab, readOnly, allDevices, allDeviceTypes, allLocations
   } = useWarehouseConfig();
 
@@ -46,7 +47,17 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ showDevices = false }) => {
     startY: number;
     startClientX?: number;
     startClientY?: number;
+    isDraggingCurve?: boolean;
+    x1?: number;
+    y1?: number;
+    x2?: number;
+    y2?: number;
+    L?: number;
+    dx?: number;
+    dy?: number;
   }>({ isSelecting: false, startX: 0, startY: 0 });
+
+  const handlersRef = React.useRef<{ move?: any; up?: any }>({});
 
   const [init] = useOverlayScrollbars({
     defer: true,
@@ -77,29 +88,18 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ showDevices = false }) => {
   // useMemo sẽ chạy để lọc ra danh sách ô chỉ thuộc về Tầng vật lý hiện tại (currentWarehouseFloorId) 
   // và tạo các bản đồ ánh xạ nhanh (Maps):
   const {
-    floorNodes, areaNodes, areaMap, cellToAreaMap, nodeMap,
-    cellToPositionItemMap, positionItemByKeyMap, cellToFloorMap,
+    areaNodes, areaMap, cellToAreaMap, nodeMap,
+    cellToPositionItemMap, positionItemByKeyMap,
     storageAreas
   } = useMemo(() => {
-    const fNodes = new Set<string>();
-    const aNodes = new Set<string>();
     const aMap = new Map<string, AreaConfig>();
+    const aNodes = new Set<string>();
     const cToAMap = new Map<string, string>();
     const nMap = new Map<string, PositionConfig>();
-    const cToPIMap = new Map<string, typeof positionItems[0]>();
-    const pIByKeyMap = new Map<string, typeof positionItems[0]>();
-    const cToFMap = new Map<string, string>();
+    const pIByKeyMap = new Map<string, PositionConfig>();
+    const cToPIMap = new Map<string, PositionConfig>();
 
-    const currentFloorIds = floors.filter(f => f.warehouseFloorId === currentWarehouseFloorId).map(f => f.id);
-
-    floors.filter(f => f.warehouseFloorId === currentWarehouseFloorId).forEach(f => {
-      f.nodes.forEach(p => {
-        fNodes.add(p);
-        cToFMap.set(p, f.id);
-      });
-    });
-
-    areas.filter(a => currentFloorIds.includes(a.floorId)).forEach(a => {
+    areas.forEach(a => {
       aMap.set(a.id, a);
       a.nodes.forEach(p => {
         aNodes.add(p);
@@ -107,10 +107,10 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ showDevices = false }) => {
       });
     });
 
-    const prefix = `wFloor_${currentWarehouseFloorId}:`;
+    const prefix = `node_`;
     for (const fullKey in nodes) {
       if (fullKey.startsWith(prefix)) {
-        nMap.set(fullKey.split(':')[1], nodes[fullKey]);
+        nMap.set(fullKey.split('_')[1], nodes[fullKey]);
       }
     }
 
@@ -120,7 +120,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ showDevices = false }) => {
     });
 
     const sAreas: { id: string; name: string; product_id?: string; center: { r: number, c: number }; nodes: Set<string>; isVertical: boolean }[] = [];
-    areas.filter(a => (currentFloorIds.includes(a.floorId) || a.id === editingId) && a.areaType === 'storage').forEach(a => {
+    areas.filter(a => a.areaType === 'storage').forEach(a => {
       // Use live selection if currently editing this area
       const activeNodes = a.id === editingId ? Array.from(selectedCells) : a.nodes;
 
@@ -149,12 +149,13 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ showDevices = false }) => {
     });
 
     return {
-      floorNodes: fNodes, areaNodes: aNodes, areaMap: aMap,
-      cellToAreaMap: cToAMap, nodeMap: nMap, cellToPositionItemMap: cToPIMap,
-      positionItemByKeyMap: pIByKeyMap, cellToFloorMap: cToFMap,
+      areaNodes: aNodes, areaMap: aMap,
+      cellToAreaMap: cToAMap, nodeMap: nMap,
+      cellToPositionItemMap: cToPIMap,
+      positionItemByKeyMap: pIByKeyMap,
       storageAreas: sAreas
     };
-  }, [floors, areas, nodes, positionItems, currentWarehouseFloorId, editingId, selectedCells]);
+  }, [areas, nodes, positionItems, editingId, selectedCells]);
 
   const hoveredArea = useMemo(() => {
     if (!hoveredCell) return null;
@@ -169,11 +170,11 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ showDevices = false }) => {
 
   // Ref for event handlers to avoid stale closures
   const latestRef = React.useRef({
-    activeTab, editingId, areas, cellToAreaMap, cellToFloorMap, areaNodes, floorNodes, selectedCells, getTakenCells, rows, columns, updateArea, setSelectedCells, setEditingId, setInitialEditingKeys, currentWarehouseFloorId, nodeMap
+    activeTab, editingId, areas, cellToAreaMap, areaNodes, selectedCells, getTakenCells, rows, columns, updateArea, setSelectedCells, setEditingId, setInitialEditingKeys, nodeMap, routeType, setCurveAngle
   });
   useEffect(() => {
     latestRef.current = {
-      activeTab, editingId, areas, cellToAreaMap, cellToFloorMap, areaNodes, floorNodes, selectedCells, getTakenCells, rows, columns, updateArea, setSelectedCells, setEditingId, setInitialEditingKeys, currentWarehouseFloorId, nodeMap
+      activeTab, editingId, areas, cellToAreaMap, areaNodes, selectedCells, getTakenCells, rows, columns, updateArea, setSelectedCells, setEditingId, setInitialEditingKeys, nodeMap, routeType, setCurveAngle
     };
   });
 
@@ -300,42 +301,228 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ showDevices = false }) => {
       }
     }
     const isEditing = !!editingId;
-    const currentPosItem = isEditing && activeTab === 'position' ? positionItemByKeyMap.get(editingId!) : null;
+    const currentPosItem = isEditing && (activeTab === 'position' || activeTab === 'route') ? positionItemByKeyMap.get(editingId!) : null;
     const currentArea = isEditing && activeTab === 'area' ? areaMap.get(editingId!) : null;
+
+    const drawSingleRoute = (
+      r1_in: number, c1_in: number, r2_in: number, c2_in: number,
+      rType: string | null, cDir: string | null, rDir: string, cAngle?: string | number | null,
+      cPoint?: { x: number, y: number } | null, isActiveRoute?: boolean
+    ) => {
+      let r1 = r1_in, c1 = c1_in;
+      let r2 = r2_in, c2 = c2_in;
+
+      const x1 = c1 * CELL_SIZE + CELL_SIZE / 2;
+      const y1 = r1 * CELL_SIZE + CELL_SIZE / 2;
+      const x2 = c2 * CELL_SIZE + CELL_SIZE / 2;
+      const y2 = r2 * CELL_SIZE + CELL_SIZE / 2;
+
+      let cx_curve = 0, cy_curve = 0;
+
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+
+      if (rType === 'Đường thẳng') {
+        ctx.lineTo(x2, y2);
+      } else {
+        const angleDegree = (cAngle !== null && cAngle !== undefined && cAngle !== '') ? Number(cAngle) : 45;
+        const scale = angleDegree / 90; // Độ cong tỷ lệ với góc
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const L = Math.hypot(dx, dy);
+
+        const midX = (x1 + x2) / 2;
+        const midY = (y1 + y2) / 2;
+
+        let Nx = 0, Ny = 0;
+        const dirStr = cDir?.toLowerCase() || '';
+        if (dirStr === 'trái' || dirStr === 'phải') {
+          const wantLeft = dirStr === 'trái';
+          if (wantLeft) {
+            if (dy > 0) { Nx = -dy; Ny = dx; } else { Nx = dy; Ny = -dx; }
+          } else {
+            if (dy > 0) { Nx = dy; Ny = -dx; } else { Nx = -dy; Ny = dx; }
+          }
+        } else {
+          const wantUp = dirStr === 'trên';
+          if (wantUp) {
+            if (-dx < 0) { Nx = dy; Ny = -dx; } else { Nx = -dy; Ny = dx; }
+          } else {
+            if (-dx > 0) { Nx = dy; Ny = -dx; } else { Nx = -dy; Ny = dx; }
+          }
+        }
+
+        if (L > 0) {
+          Nx /= L;
+          Ny /= L;
+        }
+
+        let cx_bezier = 0;
+        let cy_bezier = 0;
+        if (cPoint) {
+          cx_curve = cPoint.x;
+          cy_curve = cPoint.y;
+          cx_bezier = 2 * cx_curve - midX;
+          cy_bezier = 2 * cy_curve - midY;
+        } else {
+          cx_bezier = midX + Nx * L * scale;
+          cy_bezier = midY + Ny * L * scale;
+          cx_curve = 0.25 * x1 + 0.5 * cx_bezier + 0.25 * x2;
+          cy_curve = 0.25 * y1 + 0.5 * cy_bezier + 0.25 * y2;
+        }
+
+        ctx.quadraticCurveTo(cx_bezier, cy_bezier, x2, y2);
+
+      }
+
+      ctx.strokeStyle = "rgba(161, 161, 170, 0.8)"; // Màu xám như thiết kế
+      ctx.lineWidth = 3;
+      ctx.lineCap = 'round';
+      ctx.stroke();
+
+      // Vẽ điểm điều khiển nếu đang chỉnh sửa (Active Route) - Phải vẽ sau khi stroke đường chính
+      if (rType !== 'Đường thẳng' && isActiveRoute && !readOnly) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(cx_curve, cy_curve, 6, 0, Math.PI * 2);
+        ctx.fillStyle = '#f59e0b'; // cam
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // Vẽ mũi tên hướng đi nếu có chọn hướng
+      if (rDir) {
+        // Tính toán góc và vị trí giữa đoạn vẽ
+        let midX, midY, angle;
+        if (rType === 'Đường thẳng') {
+          midX = (x1 + x2) / 2;
+          midY = (y1 + y2) / 2;
+          angle = Math.atan2(y2 - y1, x2 - x1);
+        } else {
+          const angleDegree = (cAngle !== null && cAngle !== undefined && cAngle !== '') ? Number(cAngle) : 45;
+          const scale = angleDegree / 90; // Độ cong tỷ lệ với góc
+          const dx = x2 - x1;
+          const dy = y2 - y1;
+          const L = Math.hypot(dx, dy);
+
+          const midXSegment = (x1 + x2) / 2;
+          const midYSegment = (y1 + y2) / 2;
+
+          let Nx = 0, Ny = 0;
+          const dirStr = cDir?.toLowerCase() || '';
+          if (dirStr === 'trái' || dirStr === 'phải') {
+            const wantLeft = dirStr === 'trái';
+            if (wantLeft) {
+              if (dy > 0) { Nx = -dy; Ny = dx; } else { Nx = dy; Ny = -dx; }
+            } else {
+              if (dy > 0) { Nx = dy; Ny = -dx; } else { Nx = -dy; Ny = dx; }
+            }
+          } else {
+            const wantUp = dirStr === 'trên';
+            if (wantUp) {
+              if (-dx < 0) { Nx = dy; Ny = -dx; } else { Nx = -dy; Ny = dx; }
+            } else {
+              if (-dx > 0) { Nx = dy; Ny = -dx; } else { Nx = -dy; Ny = dx; }
+            }
+          }
+
+          if (L > 0) {
+            Nx /= L;
+            Ny /= L;
+          }
+
+          let cx_bezier = 0;
+          let cy_bezier = 0;
+
+          if (cPoint) {
+            cx_bezier = 2 * cPoint.x - midXSegment;
+            cy_bezier = 2 * cPoint.y - midYSegment;
+          } else {
+            cx_bezier = midXSegment + Nx * L * scale;
+            cy_bezier = midYSegment + Ny * L * scale;
+          }
+
+          midX = 0.25 * x1 + 0.5 * cx_bezier + 0.25 * x2;
+          midY = 0.25 * y1 + 0.5 * cy_bezier + 0.25 * y2;
+          // Tangent at t=0.5 is proportional to (x2 - x1), wait actually the tangent vector for quadratic bezier at t=0.5 is simply P2 - P0!
+          // Therefore, angle = Math.atan2(y2 - y1, x2 - x1) is mathematically exact for t=0.5 regardless of the control point!
+          angle = Math.atan2(y2 - y1, x2 - x1);
+        }
+
+        const drawArrow = (x: number, y: number, ang: number) => {
+          ctx.save();
+          ctx.translate(x, y);
+          ctx.rotate(ang);
+          ctx.beginPath();
+          ctx.moveTo(-2, -2);
+          ctx.lineTo(2, 0);
+          ctx.lineTo(-2, 2);
+          ctx.strokeStyle = "#076EB8";
+          ctx.lineWidth = 2;
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+          ctx.stroke();
+          ctx.restore();
+        };
+
+        if (rDir === 'right') {
+          drawArrow(midX, midY, angle);
+        } else if (rDir === 'left') {
+          drawArrow(midX, midY, angle + Math.PI);
+        } else if (rDir === 'left_right') {
+          drawArrow(midX - Math.cos(angle) * 8, midY - Math.sin(angle) * 8, angle + Math.PI);
+          drawArrow(midX + Math.cos(angle) * 8, midY + Math.sin(angle) * 8, angle);
+        }
+      }
+    };
+
+    // Vẽ các tuyến đường đã lưu
+    routes.forEach(rt => {
+      if (rt.cells.length === 2) {
+        const [r1, c1] = rt.cells[0].split(',').map(Number);
+        const [r2, c2] = rt.cells[1].split(',').map(Number);
+        drawSingleRoute(r1, c1, r2, c2, rt.routeType, rt.curveDirection, rt.routeDirection, rt.curveAngle, rt.controlPoint, false);
+      }
+    });
+
+    // Vẽ tuyến đường đang tạo (chưa lưu)
+    if (activeTab === 'route' && selectedCells.size === 2 && routeType) {
+      const arr = Array.from(selectedCells);
+      const [r1, c1] = arr[0].split(',').map(Number);
+      const [r2, c2] = arr[1].split(',').map(Number);
+      drawSingleRoute(r1, c1, r2, c2, routeType, curveDirection, routeDirection, curveAngle, routeControlPoint, true);
+    }
+
     for (let r = visibleRange.rStart; r <= visibleRange.rEnd; r++) {
       for (let c = visibleRange.cStart; c <= visibleRange.cEnd; c++) {
         const key = `${r},${c}`;
         const isSelected = selectedCells.has(key);
-        const hasFloorPos = floorNodes.has(key);
         const hasAreaPos = areaNodes.has(key);
         const nodeConfig = nodeMap.get(key);
         let imgName = '';
         let bgColor = ''
-        // hiển thị màu khi onclick vào ô ở tầng
-        if (isSelected) bgColor = 'rgba(7, 110, 184, 0.4)';
+        // hiển thị màu nếu được quét
 
-        if (activeTab === 'floor') {
-          if (hasFloorPos && !bgColor) bgColor = 'rgba(7, 110, 184, 0.15)';
-          if (hasFloorPos || isSelected) imgName = 'node.svg';
-        } else if (activeTab === 'area') {
-          // Show floor as gray
-          if (hasFloorPos && !bgColor) bgColor = '#D8D8D833';
 
+        if (activeTab === 'area') {
           const isPartOfCurrentEditingArea = isEditing && initialEditingKeys.has(key);
           // gọi hàm bên warehouse-types để lấy tên ảnh 
           if (isSelected && isEditing) {
             imgName = getSelectedTileName({ up: false, down: false, left: false, right: false }, currentArea?.areaType);
           } else if (isPartOfCurrentEditingArea && !isSelected) {
             // This was part of the area but is now deselected - show as floor (gray)
-            if (hasFloorPos || isSelected) imgName = 'node.svg';
+            if (isSelected) imgName = 'node.svg';
           } else if (hasAreaPos) {
             const areaId = cellToAreaMap.get(key);
             const area = areaId ? areaMap.get(areaId) : null;
             imgName = getSelectedTileName({ up: false, down: false, left: false, right: false }, area?.areaType);
-          } else if (hasFloorPos || isSelected) {
+          } else if (isSelected) {
             imgName = 'node.svg';
           }
-        } else if (activeTab === 'position') {
+        } else if (activeTab === 'position' || activeTab === 'route') {
           // Show Area and Position
           if (isSelected) {
             // Khi đang click chọn/chỉnh sửa ở tab Vị trí
@@ -351,9 +538,6 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ showDevices = false }) => {
             const area = areaId ? areaMap.get(areaId) : null;
             // Lấy tên ảnh cơ bản (không hướng) dựa trên loại khu vực
             imgName = getSelectedTileName({ up: false, down: false, left: false, right: false }, area?.areaType);
-          } else if (hasFloorPos) {
-            // Maybe show floor dots or nothing? User said "hiển thị khu vực và vị trí"
-            // I'll keep it subtle or just dots.
           }
         }
         if (bgColor) {
@@ -362,7 +546,17 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ showDevices = false }) => {
         }
         // vẻ ảnh lên tọa độ c(cột) và r (hàng)
         if (imgName && images[imgName]) {
-          ctx.drawImage(images[imgName], c * CELL_SIZE, r * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+          if (imgName === 'node.svg') {
+            const size = 8;
+            const offset = (CELL_SIZE - size) / 2;
+            ctx.drawImage(images[imgName], c * CELL_SIZE + offset, r * CELL_SIZE + offset, size, size);
+          } else if (['inbound.svg', 'outbound.svg', 'waiting.svg', 'charging.svg', 'maintenance.svg', 'bypass.svg'].includes(imgName)) {
+            const size = Math.max(12, CELL_SIZE * 0.7); // 70% of cell size
+            const offset = (CELL_SIZE - size) / 2;
+            ctx.drawImage(images[imgName], c * CELL_SIZE + offset, r * CELL_SIZE + offset, size, size);
+          } else {
+            ctx.drawImage(images[imgName], c * CELL_SIZE, r * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+          }
         }
 
         // hiển thị location lên map 
@@ -403,7 +597,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ showDevices = false }) => {
         ctx.stroke();
       }
     }
-  }, [visibleRange, selectedCells, activeTab, floorNodes, areaNodes, nodeMap, areaMap, cellToAreaMap, cellToPositionItemMap, positionItemByKeyMap, storageAreas, images, scale, editingId, initialEditingKeys, rows, columns, posDirections, posName, posQrCode, allLocations, allDevices, showDevices]);
+  }, [visibleRange, selectedCells, activeTab, areaNodes, nodeMap, areaMap, cellToAreaMap, cellToPositionItemMap, positionItemByKeyMap, storageAreas, images, scale, editingId, initialEditingKeys, rows, columns, posDirections, posName, posQrCode, allLocations, allDevices, showDevices, routeType, curveDirection, routeDirection, curveAngle, routes, routeControlPoint]);
 
   /**
    * Bắt đầu sự kiện kéo chuột (drag) để chọn nhiều ô
@@ -415,6 +609,70 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ showDevices = false }) => {
     const rect = containerRef.current.getBoundingClientRect();
     const x = (e.clientX - rect.left) / scale;
     const y = (e.clientY - rect.top) / scale;
+
+    // Kiểm tra xem có đang click vào điểm điều khiển (control point) không
+    if (activeTab === 'route' && selectedCells.size === 2 && routeType && routeType !== 'Đường thẳng') {
+      const arr = Array.from(selectedCells);
+      const [r1, c1] = arr[0].split(',').map(Number);
+      const [r2, c2] = arr[1].split(',').map(Number);
+      const x1 = c1 * CELL_SIZE + CELL_SIZE / 2;
+      const y1 = r1 * CELL_SIZE + CELL_SIZE / 2;
+      const x2 = c2 * CELL_SIZE + CELL_SIZE / 2;
+      const y2 = r2 * CELL_SIZE + CELL_SIZE / 2;
+
+      let cx = 0, cy = 0;
+      if (routeControlPoint) {
+        cx = routeControlPoint.x;
+        cy = routeControlPoint.y;
+      } else {
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const L = Math.hypot(dx, dy);
+        const midX = (x1 + x2) / 2;
+        const midY = (y1 + y2) / 2;
+
+        let Nx = 0, Ny = 0;
+        const dirStr = curveDirection?.toLowerCase() || '';
+        if (dirStr === 'trái' || dirStr === 'phải') {
+          const wantLeft = dirStr === 'trái';
+          if (wantLeft) {
+            if (dy > 0) { Nx = -dy; Ny = dx; } else { Nx = dy; Ny = -dx; }
+          } else {
+            if (dy > 0) { Nx = dy; Ny = -dx; } else { Nx = -dy; Ny = dx; }
+          }
+        } else {
+          const wantUp = dirStr === 'trên';
+          if (wantUp) {
+            if (-dx < 0) { Nx = dy; Ny = -dx; } else { Nx = -dy; Ny = dx; }
+          } else {
+            if (-dx > 0) { Nx = dy; Ny = -dx; } else { Nx = -dy; Ny = dx; }
+          }
+        }
+        if (L > 0) { Nx /= L; Ny /= L; }
+        const angleDegree = (curveAngle !== null && curveAngle !== undefined && curveAngle !== '') ? Number(curveAngle) : 45;
+        const scaleDist = angleDegree / 90;
+        const cx_bezier = midX + Nx * L * scaleDist;
+        const cy_bezier = midY + Ny * L * scaleDist;
+        cx = 0.25 * x1 + 0.5 * cx_bezier + 0.25 * x2;
+        cy = 0.25 * y1 + 0.5 * cy_bezier + 0.25 * y2;
+      }
+
+      const dist = Math.hypot(x - cx, y - cy);
+      if (dist <= 15) { // Bán kính tương tác
+        selectionStateRef.current = {
+          isSelecting: false,
+          isDraggingCurve: true,
+          startX: x,
+          startY: y,
+        };
+        handlersRef.current.move = handleMouseMove;
+        handlersRef.current.up = handleMouseUp;
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp);
+        return;
+      }
+    }
+
     selectionStateRef.current = {
       isSelecting: true,
       startX: x,
@@ -428,7 +686,6 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ showDevices = false }) => {
 
     // Auto-switch editingId based on clicked cell if not already selecting
     const areaId = cellToAreaMap.get(cellKey);
-    const floorId = cellToFloorMap.get(cellKey);
 
     if (activeTab === 'area' && areaId && areaId !== editingId) {
       const area = areaMap.get(areaId);
@@ -438,25 +695,13 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ showDevices = false }) => {
         setInitialEditingKeys(new Set(area.nodes));
         (selectionStateRef.current as any).initialSelected = new Set(area.nodes);
       }
-    } else if (activeTab === 'floor' && floorId && floorId !== editingId) {
-      const floor = floors.find(f => f.id === floorId);
-      if (floor) {
-        setEditingId(floorId);
-        setSelectedCells(new Set(floor.nodes));
-        setInitialEditingKeys(new Set(floor.nodes));
-        (selectionStateRef.current as any).initialSelected = new Set(floor.nodes);
-      }
     }
+
 
     const isStartCellSelected = selectedCells.has(cellKey);
     (selectionStateRef.current as any).selectionMode = isStartCellSelected ? 'unselect' : 'select';
     if (!(selectionStateRef.current as any).initialSelected) {
       (selectionStateRef.current as any).initialSelected = new Set(selectedCells);
-    }
-
-    if (activeTab === 'area') {
-      const currentArea = editingId ? areas.find(a => a.id === editingId) : null;
-      (selectionStateRef.current as any).startFloorId = (currentArea && currentArea.floorId) ? currentArea.floorId : cellToFloorMap.get(cellKey);
     }
     if (selectionBoxRef.current) {
       selectionBoxRef.current.style.display = 'none';
@@ -465,6 +710,8 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ showDevices = false }) => {
       selectionBoxRef.current.style.width = '0px';
       selectionBoxRef.current.style.height = '0px';
     }
+    handlersRef.current.move = handleMouseMove;
+    handlersRef.current.up = handleMouseUp;
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
   };
@@ -473,8 +720,50 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ showDevices = false }) => {
    * Xử lý khi chuột di chuyển trong lúc đang giữ chuột (vẽ hình chữ nhật chọn vùng - selection box)
    */
   const handleMouseMove = (e: MouseEvent) => {
-    const state = selectionStateRef.current;
-    if (!state.isSelecting || !containerRef.current || !selectionBoxRef.current) return;
+    const state = selectionStateRef.current as any;
+    if (!containerRef.current) return;
+
+    if (state.isDraggingCurve) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const currentX = (e.clientX - rect.left) / scale;
+      const currentY = (e.clientY - rect.top) / scale;
+      setRouteControlPoint({ x: currentX, y: currentY });
+
+      // Cập nhật lại góc cong và hướng cong hiển thị ở Sidebar
+      if (selectedCells.size === 2) {
+        const arr = Array.from(selectedCells);
+        const [r1, c1] = arr[0].split(',').map(Number);
+        const [r2, c2] = arr[1].split(',').map(Number);
+        const x1 = c1 * CELL_SIZE + CELL_SIZE / 2;
+        const y1 = r1 * CELL_SIZE + CELL_SIZE / 2;
+        const x2 = c2 * CELL_SIZE + CELL_SIZE / 2;
+        const y2 = r2 * CELL_SIZE + CELL_SIZE / 2;
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const midX = (x1 + x2) / 2;
+        const midY = (y1 + y2) / 2;
+        const L = Math.hypot(dx, dy);
+
+        if (L > 0) {
+          const dist = Math.hypot(currentX - midX, currentY - midY);
+          let newAngle = Math.round((dist * 180) / L);
+          if (newAngle > 180) newAngle = 180;
+
+          let newDir = '';
+          if (c1 === c2) { // vertical
+            newDir = currentX < midX ? 'trái' : 'phải';
+          } else { // horizontal or diagonal
+            newDir = currentY < midY ? 'trên' : 'dưới';
+          }
+
+          setCurveAngle(newAngle.toString());
+          setCurveDirection(newDir);
+        }
+      }
+      return;
+    }
+
+    if (!state.isSelecting || !selectionBoxRef.current) return;
 
     // Only display visual box if dragged at least 5px
     const diffX = Math.abs(e.clientX - (state.startClientX ?? e.clientX));
@@ -505,7 +794,16 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ showDevices = false }) => {
   const handleMouseUp = (e: MouseEvent) => {
     const state = selectionStateRef.current as any;
     const latest = latestRef.current;
-    if (!state.isSelecting || !containerRef.current) return;
+    if (!containerRef.current) return;
+
+    if (state.isDraggingCurve) {
+      state.isDraggingCurve = false;
+      window.removeEventListener('mousemove', handlersRef.current.move);
+      window.removeEventListener('mouseup', handlersRef.current.up);
+      return;
+    }
+
+    if (!state.isSelecting) return;
     const rect = containerRef.current.getBoundingClientRect();
     const endX = (e.clientX - rect.left) / scale;
     const endY = (e.clientY - rect.top) / scale;
@@ -515,40 +813,42 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ showDevices = false }) => {
     const diffY = Math.abs(e.clientY - (state.startClientY ?? e.clientY));
     const isClick = diffX < 5 && diffY < 5;
 
-    const startR = isClick ? Math.floor(state.startY / CELL_SIZE) : Math.floor(Math.min(state.startY, endY) / CELL_SIZE);
-    const endR = isClick ? Math.floor(state.startY / CELL_SIZE) : Math.floor(Math.max(state.startY, endY) / CELL_SIZE);
-    const startC = isClick ? Math.floor(state.startX / CELL_SIZE) : Math.floor(Math.min(state.startX, endX) / CELL_SIZE);
-    const endC = isClick ? Math.floor(state.startX / CELL_SIZE) : Math.floor(Math.max(state.startX, endX) / CELL_SIZE);
+    const rawStartR = Math.floor(state.startY / CELL_SIZE);
+    const rawEndR = isClick ? rawStartR : Math.floor(endY / CELL_SIZE);
+    const rawStartC = Math.floor(state.startX / CELL_SIZE);
+    const rawEndC = isClick ? rawStartC : Math.floor(endX / CELL_SIZE);
 
-    const newSelected = new Set<string>(state.initialSelected);
-    const finalStartR = Math.max(0, startR);
-    const finalEndR = Math.min(latest.rows - 1, endR);
-    const finalStartC = Math.max(0, startC);
-    const finalEndC = Math.min(latest.columns - 1, endC);
+    let newSelected = new Set<string>(state.initialSelected);
+    const rStart = Math.max(0, Math.min(latest.rows - 1, rawStartR));
+    const rEnd = Math.max(0, Math.min(latest.rows - 1, rawEndR));
+    const cStart = Math.max(0, Math.min(latest.columns - 1, rawStartC));
+    const cEnd = Math.max(0, Math.min(latest.columns - 1, rawEndC));
+
     const takenCells = latest.getTakenCells(latest.activeTab, latest.editingId || undefined);
     let lockedAreaId: string | undefined | null = null;
     let lockedDirections: string | null = null;
-    // khóa hướng đi nêu không giống đường đi 
-    if (latest.activeTab === 'position' && state.initialSelected.size > 0) {
-      const floorPrefix = `wFloor_${latest.currentWarehouseFloorId}:`;
+
+    if (state.initialSelected.size > 0) {
       const firstKey = Array.from(state.initialSelected)[0] as string;
       lockedAreaId = latest.cellToAreaMap.get(firstKey);
       const firstNode = latest.nodeMap.get(firstKey);
       if (firstNode) lockedDirections = JSON.stringify(firstNode.directions);
     }
-    for (let i = finalStartR; i <= finalEndR; i++) {
-      for (let j = finalStartC; j <= finalEndC; j++) {
+
+    const rStep = rStart <= rEnd ? 1 : -1;
+    const cStep = cStart <= cEnd ? 1 : -1;
+
+    for (let i = rStart; rStep > 0 ? i <= rEnd : i >= rEnd; i += rStep) {
+      for (let j = cStart; cStep > 0 ? j <= cEnd : j >= cEnd; j += cStep) {
         const key = `${i},${j}`;
-        if (latest.activeTab === 'area') {
-          if (!state.startFloorId || latest.cellToFloorMap.get(key) !== state.startFloorId) continue;
-        }
-        if (latest.activeTab === 'position') {
-          if (!latest.floorNodes.has(key)) continue;
+
+        if (latest.activeTab === 'position' || latest.activeTab === 'route') {
+
           const cellAreaId = latest.cellToAreaMap.get(key);
           const cellNode = latest.nodeMap.get(key);
           const cellDirs = cellNode ? JSON.stringify(cellNode.directions) : null;
 
-          if (state.selectionMode === 'select') { // ... Kiểm tra ràng buộc hướng đi, khu vực, trùng lặp ô ...
+          if (state.selectionMode === 'select' && latest.activeTab === 'position') { // Chỉ áp dụng ràng buộc khu vực/hướng đi cho tab Vị trí
             if (lockedAreaId === null) lockedAreaId = cellAreaId;
             else if (cellAreaId !== lockedAreaId) continue;
 
@@ -556,20 +856,42 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ showDevices = false }) => {
             else if (cellDirs !== lockedDirections) continue;
           }
         }
-        if (state.selectionMode === 'select' && latest.activeTab !== 'position' && takenCells.has(key)) continue;
+        if (state.selectionMode === 'select' && latest.activeTab === 'area' && takenCells.has(key)) continue;
         if (state.selectionMode === 'select') newSelected.add(key); // Thêm vào danh sách chọn
         else newSelected.delete(key);// Bỏ khỏi danh sách chọn
       }
     }
-    latest.setSelectedCells(newSelected);
-    if (latest.activeTab === 'area' && latest.editingId && state.startFloorId) {
-      const area = latest.areas.find(a => a.id === latest.editingId);
-      if (area && area.floorId !== state.startFloorId) latest.updateArea(latest.editingId, { floorId: state.startFloorId });
+    if (latest.activeTab === 'position' || latest.activeTab === 'route') {
+      newSelected = new Set(Array.from(newSelected).filter(cell => latest.cellToAreaMap.has(cell)));
     }
+
+    if (latest.activeTab === 'route') {
+      // Giới hạn chỉ cho phép chọn tối đa 2 vị trí cho tuyến đường.
+      if (newSelected.size > 2) {
+        newSelected = new Set(Array.from(newSelected).slice(-2));
+      }
+
+      // Ràng buộc: Vị trí thứ 2 phải cùng hàng hoặc cùng cột với vị trí thứ 1,
+      // và không được có vị trí nào khác nằm xen giữa.
+      if (newSelected.size === 2) {
+        const arr = Array.from(newSelected);
+        const [r1, c1] = arr[0].split(',').map(Number);
+        const [r2, c2] = arr[1].split(',').map(Number);
+
+        // Cho phép chọn bất kỳ 2 điểm nào để vẽ tuyến đường (không ràng buộc cùng hàng/cột hay bị chắn)
+      }
+    }
+
+    if (latest.activeTab === 'area' && !latest.editingId) {
+      latest.setSelectedCells(new Set());
+    } else {
+      latest.setSelectedCells(newSelected);
+    }
+
     state.isSelecting = false;
     if (selectionBoxRef.current) selectionBoxRef.current.style.display = 'none';
-    window.removeEventListener('mousemove', handleMouseMove);
-    window.removeEventListener('mouseup', handleMouseUp);
+    window.removeEventListener('mousemove', handlersRef.current.move || handleMouseMove);
+    window.removeEventListener('mouseup', handlersRef.current.up || handleMouseUp);
   };
 
   /**
@@ -648,19 +970,6 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ showDevices = false }) => {
               className="absolute top-0 left-0"
             />
 
-            {/* {activeTab === 'position' && !selectionStateRef.current.isSelecting && Array.from(selectedCells).length === 1 && (
-              <div
-                className="absolute pointer-events-none bg-white border border-[#D6E4F0] px-2 py-1 rounded shadow-md z-40 text-[10px] font-bold text-[#076EB8]"
-                style={{
-                  left: (Array.from(selectedCells)[0].split(',').map(Number)[1] * CELL_SIZE) + CELL_SIZE / 2,
-                  top: (Array.from(selectedCells)[0].split(',').map(Number)[0] * CELL_SIZE) + CELL_SIZE + 4,
-                  transform: 'translateX(-50%)'
-                }}
-              >
-                {`wFloor_${currentWarehouseFloorId}:${Array.from(selectedCells)[0]}`}
-              </div>
-            )} */}
-
             {/* Hiển thị tên khu vực và sản phẩm đối với giám sát hoạt động thì ko hiển thị && !showDevices */}
             {(activeTab === 'area' || (readOnly && !showDevices)) && !hoveredCell && !selectionStateRef.current.isSelecting && storageAreas.map(area => {
               const product = allProducts?.find(p => p.id?.toString() === area.product_id?.toString());
@@ -730,310 +1039,6 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ showDevices = false }) => {
               );
             })()}
 
-            {/* Hiển thị devices trên map */}
-            {readOnly && showDevices && allDevices && allDevices.length > 0 && allDevices.map((device) => {
-              // Trích xuất qrCode của thiết bị
-              let deviceQr = '';
-              if (device.metadata) {
-                try {
-                  let meta = typeof device.metadata === 'string' ? JSON.parse(device.metadata) : device.metadata;
-                  if (typeof meta === 'string') {
-                    meta = JSON.parse(meta);
-                  }
-                  deviceQr = meta?.qrCode || meta?.qrcode || '';
-                } catch (e) {
-                  if (typeof device.metadata === 'string') {
-                    const match = device.metadata.match(/"qr[cC]ode"\s*:\s*"([^"]+)"/);
-                    if (match) deviceQr = match[1];
-                  }
-                }
-              }
-
-              if (!deviceQr) return null;
-
-              // Tìm ô lưới tương ứng với qrCode của thiết bị trên tầng hiện tại
-              const node = Object.values(nodes).find((n) => {
-                const prefix = `wFloor_${currentWarehouseFloorId}:`;
-                return n.key.startsWith(prefix) && n.qrCode && n.qrCode.trim().toUpperCase() === deviceQr.trim().toUpperCase();
-              });
-
-              if (!node) return null;
-
-              const coordPart = node.key.split(':')[1];
-              const [row, col] = coordPart.split(',').map(Number);
-
-              // Tìm loại thiết bị bằng device_type_id
-              const matchedDeviceType = allDeviceTypes?.find(
-                (dt) => dt.id === device.device_type_id
-              );
-              const typeCode = device.device_type_code || matchedDeviceType?.code || 'SHUTTLE';
-
-              // Kiểm tra packageStatus\":0 ở devices để set icon cho shuttle 
-              let packageStatusVal: number | undefined = undefined;
-              if (device.metadata) {
-                try {
-                  let meta = typeof device.metadata === 'string' ? JSON.parse(device.metadata) : device.metadata;
-                  if (typeof meta === 'string') {
-                    meta = JSON.parse(meta);
-                  }
-                  if (meta.packageStatus !== undefined) {
-                    packageStatusVal = Number(meta.packageStatus);
-                  }
-                } catch (e) {
-                  if (typeof device.metadata === 'string') {
-                    const match = device.metadata.match(/"packageStatus"\s*:\s*(\d+)/);
-                    if (match) packageStatusVal = parseInt(match[1], 10);
-                  }
-                }
-              }
-
-              // Get tương ứng shuttle icon (st1, st2, st3) hoặc lifter
-              const typeIndex = allDeviceTypes ? allDeviceTypes.findIndex((dt) => dt.id === device.device_type_id) : 0;
-              let iconName = 'st5-shuttle.svg';
-              const codeUpper = typeCode.toUpperCase();
-              const isLifter = codeUpper === 'LIFTER' || codeUpper.includes('LIFTER');
-
-              if (isLifter) {
-                iconName = 'lifter.svg';
-              } else if (packageStatusVal === 0) {
-                iconName = 'st5-shuttle.svg';
-              } else if (packageStatusVal === 1) {
-                iconName = 'st4-shuttle.svg';
-              } else {
-                if (codeUpper === 'SHUTTLE' || codeUpper.includes('ST5')) {
-                  iconName = 'st5-shuttle.svg';
-                } else if (codeUpper.includes('2D') || codeUpper.includes('ST5')) {
-                  iconName = 'st5-shuttle.svg';
-                } else if (codeUpper.includes('4D') || codeUpper.includes('ST4')) {
-                  iconName = 'st4-shuttle.svg';
-                } else {
-                  if (typeIndex === 0) iconName = 'st4-shuttle.svg';
-                  else if (typeIndex === 1) iconName = 'st1-shuttle.svg';
-                  else iconName = 'st5-shuttle.svg';
-                }
-              }
-
-              // Parse status để style badge màu trạng thái
-              // hover đối với shutte
-              const devStatus = device.status?.toUpperCase() || 'OFFLINE';
-
-              // Quy định Z-Index: Đặt Shuttle (36) đè lên Lifter (20) nếu chúng ở cùng 1 ô lưới
-              const finalZIndex = isLifter ? 20 : 36;
-
-              // Trích xuất thông tin tooltip từ metadata
-              let deviceQrDisplay = '';
-              let batteryPercentage: number | null = null;
-              let packageStatus: number | null = null;
-              let currentTask: string | null = null;
-              if (device.metadata) {
-                try {
-                  let meta = typeof device.metadata === 'string' ? JSON.parse(device.metadata) : device.metadata;
-                  if (typeof meta === 'string') meta = JSON.parse(meta);
-                  deviceQrDisplay = meta?.qrCode || meta?.qrcode || '';
-                  if (meta?.batteryPercentage !== undefined) batteryPercentage = Number(meta.batteryPercentage);
-                  if (meta?.packageStatus !== undefined) packageStatus = Number(meta.packageStatus);
-                  if (meta?.currentTask !== undefined) currentTask = String(meta.currentTask);
-                } catch (e) { }
-              }
-
-              const isHovered = hoveredDeviceId === device.id;
-
-              // Badge màu theo trạng thái
-              const statusLabel: Record<string, { label: string; bg: string; text: string; dot: string }> = {
-                OFFLINE: { label: 'Mất kết nối', bg: 'bg-gray-100', text: 'text-gray-600', dot: 'bg-gray-400' },
-                ONLINE: { label: 'Đã kết nối', bg: 'bg-blue-50', text: 'text-blue-700', dot: 'bg-blue-500' },
-                IDLE: { label: 'Đang chờ lệnh', bg: 'bg-blue-50', text: 'text-blue-700', dot: 'bg-blue-400' },
-                ERROR: { label: 'Lỗi', bg: 'bg-red-50', text: 'text-red-600', dot: 'bg-red-500' },
-                FAULT: { label: 'Lỗi', bg: 'bg-red-50', text: 'text-red-600', dot: 'bg-red-500' },
-                RUNNING: { label: 'Đang hoạt động', bg: 'bg-green-50', text: 'text-green-700', dot: 'bg-green-500' },
-                CHARGING: { label: 'Sạc pin', bg: 'bg-yellow-50', text: 'text-yellow-700', dot: 'bg-yellow-400' },
-              };
-              const statusInfo = statusLabel[devStatus] ?? { label: devStatus, bg: 'bg-gray-100', text: 'text-gray-600', dot: 'bg-gray-400' };
-
-              return (
-                <div
-                  key={`device-overlay-${device.id}`}
-                  className="absolute transition-all duration-300 ease-in-out"
-                  style={{
-                    left: col * CELL_SIZE,
-                    top: row * CELL_SIZE,
-                    width: CELL_SIZE,
-                    height: CELL_SIZE,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    zIndex: (hoveredDeviceId === device.id || pinnedDeviceId === device.id) ? 200 : finalZIndex,
-                    pointerEvents: 'none',
-                  }}
-                >
-                  {/* Icon Shuttle/Lifter */}
-                  <img
-                    src={`/svgMap/${iconName}`}
-                    className="w-[30px] h-[20px] object-contain relative z-30"
-                    alt={device.code}
-                    style={{ pointerEvents: 'auto', cursor: 'pointer' }}
-                    onMouseEnter={() => setHoveredDeviceId(device.id)}
-                    onMouseLeave={() => { if (pinnedDeviceId !== device.id) setHoveredDeviceId(null); }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setPinnedDeviceId(prev => prev === device.id ? null : device.id);
-                    }}
-                  />
-
-                  {/* Tooltip khi hover hoặc khi đã pin (click) */}
-                  {(isHovered || pinnedDeviceId === device.id) && (() => {
-                    // Nếu device gần cuối bản đồ → hiển thị phía trên (bottom), ngược lại phía dưới (top)
-                    const showAbove = row >= rows - 5;
-                    return (
-                      <div
-                        className="absolute pointer-events-none bg-white border border-[#D6E4F0] rounded-lg shadow-xl text-[11px] font-medium z-50 min-w-[300px] p-3 flex flex-col gap-1.5"
-                        style={{
-                          left: CELL_SIZE / 2,
-                          ...(showAbove
-                            ? { bottom: CELL_SIZE + 2 }
-                            : { top: CELL_SIZE + 2 }),
-                          transform: 'translateX(-50%)',
-                          boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
-                        }}
-                      >
-                        {/* Mũi tên — trỏ lên khi tooltip ở dưới, trỏ xuống khi tooltip ở trên */}
-                        <div style={{
-                          position: 'absolute',
-                          ...(showAbove ? { bottom: -6 } : { top: -6 }),
-                          left: '50%',
-                          transform: 'translateX(-50%)',
-                          width: 0,
-                          height: 0,
-                          borderLeft: '6px solid transparent',
-                          borderRight: '6px solid transparent',
-                          ...(showAbove
-                            ? { borderTop: '6px solid #D6E4F0' }
-                            : { borderBottom: '6px solid #D6E4F0' }),
-                        }} />
-                        <div style={{
-                          position: 'absolute',
-                          ...(showAbove ? { bottom: -5 } : { top: -5 }),
-                          left: '50%',
-                          transform: 'translateX(-50%)',
-                          width: 0,
-                          height: 0,
-                          borderLeft: '5px solid transparent',
-                          borderRight: '5px solid transparent',
-                          ...(showAbove
-                            ? { borderTop: '5px solid white' }
-                            : { borderBottom: '5px solid white' }),
-                        }} />
-
-                        {/* Header: dot + Code (trái) | % Pin (phải, chỉ Shuttle) */}
-                        <div className="font-bold text-[#076eb8] border-b border-[#E8F2FA] pb-1.5 mb-0.5 flex items-center justify-between gap-1.5">
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <span className={`w-2 h-2 rounded-full flex-shrink-0 ${statusInfo.dot}`} />
-                            <span className="truncate">{device.code}</span>
-                          </div>
-                          {!isLifter && batteryPercentage !== null && (
-                            <div className="flex items-center gap-1 flex-shrink-0">
-                              <img
-                                src="/icon.svg/pin.svg"
-                                className="w-[14px] h-[14px] object-contain flex-shrink-0"
-                                alt="pin"
-                              />
-                              <span className={`text-[10px] font-semibold ${batteryPercentage > 50 ? 'text-green-600' : batteryPercentage > 20 ? 'text-yellow-600' : 'text-red-600'}`}>
-                                {batteryPercentage}%
-                              </span>
-                            </div>
-
-                          )}
-                        </div>
-
-                        {/* QR Code */}
-                        {deviceQrDisplay && (
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-[#888] flex-shrink-0">Vị Trí:</span>
-                            <span className="text-[#333] font-semibold">{node ? `${node.name} (${deviceQrDisplay})` : deviceQrDisplay}</span>
-                          </div>
-                        )}
-
-                        {/* Trạng thái */}
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-[#888] flex-shrink-0">Trạng thái:</span>
-                          <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold ${statusInfo.bg} ${statusInfo.text}`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${statusInfo.dot}`} />
-                            {statusInfo.label}
-                          </span>
-                        </div>
-
-                        {/* Hàng hóa - chỉ hiển thị với Shuttle */}
-                        {!isLifter && packageStatus !== null && (
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-[#888] flex-shrink-0">Hàng hóa:</span>
-                            <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold ${packageStatus === 1 ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500'
-                              }`}>
-                              <span className={`w-1.5 h-1.5 rounded-full ${packageStatus === 1 ? 'bg-green-500' : 'bg-gray-400'
-                                }`} />
-                              {packageStatus === 1 ? 'Có mang hàng' : 'Không mang hàng'}
-                            </span>
-                          </div>
-                        )}
-
-                        {/* Nhiệm vụ hiện tại - chỉ Shuttle */}
-                        {!isLifter && currentTask && (
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-[#888] flex-shrink-0">Nhiệm vụ:</span>
-                            <span className="text-[#333] font-semibold text-right">{currentTask}</span>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()}
-                </div>
-
-              );
-            })}
-
-
-            {/* Hiển thị goods lên ô lifter (đè lên lifter) */}
-            {readOnly && showDevices && allLocations && allLocations.length > 0 && allLocations
-              .filter(loc => loc.is_occupied)
-              .map((loc) => {
-                const node = Object.values(nodes).find((n) => {
-                  const prefix = `wFloor_${currentWarehouseFloorId}:`;
-                  const matchesNode = loc.node_id && n.nodeId && loc.node_id.trim().toUpperCase() === n.nodeId.trim().toUpperCase();
-                  const matchesQr = loc.qrcode && n.qrCode && loc.qrcode.trim().toUpperCase() === n.qrCode.trim().toUpperCase();
-                  const matchesZone = n.areaType === 'lifter';
-                  return n.key.startsWith(prefix) && (matchesNode || matchesQr) && matchesZone;
-                });
-
-                if (!node) return null;
-
-                const coordPart = node.key.split(':')[1];
-                const [row, col] = coordPart.split(',').map(Number);
-
-                // zIndex:InBound (33) Lifter (30) < Goods (35) < Shuttle (45)
-                const goodsZIndex = 35;
-
-                return (
-                  <div
-                    key={`goods-lifter-overlay-${loc.id || loc.qrcode}`}
-                    className="absolute pointer-events-none"
-                    style={{
-                      left: col * CELL_SIZE,
-                      top: row * CELL_SIZE,
-                      width: CELL_SIZE,
-                      height: CELL_SIZE,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      zIndex: goodsZIndex,
-                    }}
-                  >
-                    <img
-                      src="/svgMap/goods.svg"
-                      className="w-[20px] h-[20px] object-contain"
-                      alt="goods on lifter"
-                    />
-                  </div>
-                );
-              })}
 
             {/* Selection Box Overlay (Still DOM for performance) */}
             <div

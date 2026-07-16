@@ -13,7 +13,7 @@ export const useWarehouseSocket = ({
 }) => {
   // File này hoàn toàn mù tịt về giao diện, nó không biết vẽ bản đồ là gì. Nó chỉ ôm cái socket và 
   // túc trực 24/24 nghe ngóng 2 tín hiệu: DEVICE_MOVED và LOCATION_CHANGED
-  // đồng bộ hóa và cập nhật tức thời vị trí của shuttle cũng như các ô 
+  // đồng bộ hóa và cập nhật tức thời vị trí của thiết bị cũng như các ô 
   //khi có sự thay đổi từ hệ thống thực tế (backend gửi tín hiệu qua Socket.IO
   useEffect(() => {
     if (!socket || !warehouseId) return;
@@ -68,7 +68,7 @@ export const useWarehouseSocket = ({
         }
       };
 
-      //  Hàm hỗ trợ cập nhật tọa độ thiết bị khi có shuttle di chuyển
+      //  Hàm hỗ trợ cập nhật tọa độ thiết bị khi di chuyển
       const updateDeviceItem = (next: any[], rawItem: any) => {
         let actualItem = rawItem;
         if (rawItem.payload) {

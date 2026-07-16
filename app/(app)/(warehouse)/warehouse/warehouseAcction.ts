@@ -13,59 +13,6 @@ export interface WareHouseProps {
     total_positions?: number;
     config?: any;
 }
-export interface TowerProps {
-    name: string;
-    code: string;
-    warehouse_id: string;
-    tower_type: string;
-    tower_order: number,
-    id: string,
-    status?: string,
-    is_active?: boolean,
-    isNew?: boolean,
-    isModified?: boolean,
-}
-export interface TowerFloorUpdateProps {
-    warehouse_floor_id: string;
-    tower_floors: {
-        id: string;
-        name: string;
-        // code: string;
-        tower_id: string;
-        nodes: {
-            code: string;
-            name: string;
-            x: string;
-            y: string;
-            z: string
-        }[],
-        devices?: {
-            id: string;
-            purpose: string
-        }[]
-
-    }[]
-}
-export interface TowerFloorCreateProps {
-    warehouse_floor_id: string;
-    tower_floors: {
-        name: string;
-        // code: string;
-        tower_id: string;
-        nodes: {
-            code: string;
-            name: string;
-            x: string;
-            y: string;
-            z: string
-        }[],
-        devices?: {
-            id: string;
-            purpose: string
-        }[]
-
-    }[]
-}
 export interface ZoneCreateProps {
     name: string;
     code: string;
@@ -252,82 +199,6 @@ export async function updateWarehouse(id: string, body: WareHouseProps) {
     }
 }
 // ==========================================
-// 3. QUẢN LÝ MODULE KHO (TOWER)
-// ==========================================
-
-export async function getTower(id: string) {
-    try {
-        const data = await api(
-            `/warehouse/${id}/tower`,
-            {
-                method: 'GET',
-                next: {
-                    tags: ['tower'],
-                    revalidate: 0,
-                }
-            }
-        );
-
-        return data;
-    } catch (error: any) {
-        if (error?.digest?.startsWith('NEXT_REDIRECT')) throw error;
-
-        return error?.message || 'Failed to get warehouse';
-    }
-}
-// ==========================================
-// 4. QUẢN LÝ TẦNG KHO (TOWER FLOOR / WAREHOUSE FLOOR)
-// ==========================================
-
-export async function getTowerFloor(id: string, tower_id: string, warehouse_floor_id: string) {
-    try {
-        const params = new URLSearchParams();
-
-        if (tower_id) {
-            params.append('tower_id', tower_id);
-        }
-        if (warehouse_floor_id) {
-            params.append('warehouse_floor_id', warehouse_floor_id);
-        }
-        const data = await api(
-            `/warehouse/${id}/tower-floor?${params.toString()}`,
-            {
-                method: 'GET',
-                next: {
-                    tags: ['tower'],
-                    revalidate: 0,
-                }
-            }
-        );
-
-        return data;
-    } catch (error: any) {
-        if (error?.digest?.startsWith('NEXT_REDIRECT')) throw error;
-
-        return error?.message || 'Failed to get warehouse';
-    }
-}
-export async function getWarehouseFloor(id: string) {
-    try {
-        const data = await api(
-            `/warehouse/${id}/floor`,
-            {
-                method: 'GET',
-                next: {
-                    tags: ['warehouseFloor'],
-                    revalidate: 0,
-                }
-            }
-        );
-
-        return data;
-    } catch (error: any) {
-        if (error?.digest?.startsWith('NEXT_REDIRECT')) throw error;
-
-        return error?.message || 'Failed to get warehouse';
-    }
-}
-// ==========================================
 // 5. QUẢN LÝ KHU VỰC (ZONE)
 // ==========================================
 
@@ -399,105 +270,8 @@ export async function getZoneType() {
     }
 }
 
-export async function updateTower(id: string, towers: TowerProps[]) {
-    try {
-
-        const data = await api(
-            `/warehouse/${id}/tower/bulk`,
-            {
-                method: 'PUT',
-                body: JSON.stringify({ towers }),
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-            }
-        );
-
-        revalidateTag('tower', 'max');
-        return data;
-    } catch (error: any) {
-        if (error?.digest?.startsWith('NEXT_REDIRECT')) throw error;
-
-        return { error: error?.message || 'Failed to update tower' }
-    }
-}
-export async function createTower(id: string, towers: TowerProps[]) {
-    try {
-        const data = await api(
-            `/warehouse/${id}/tower/bulk`,
-            {
-                method: 'POST',
-                body: JSON.stringify({ towers }),
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-            }
-        )
-
-        revalidateTag('tower', 'max');
-        return data;
-    } catch (error: any) {
-        if (error?.digest?.startsWith('NEXT_REDIRECT')) throw error;
-
-        return { error: error?.message || 'Failed to create tower' }
-    }
-}
-export async function createTowerFloor(id: string, body: TowerFloorCreateProps) {
-    try {
-
-        const data = await api(
-            `/warehouse/${id}/tower-floor/bulk-create`,
-            {
-                method: 'POST',
-                body: JSON.stringify(body),
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-            }
-        );
-
-        revalidateTag('tower', 'max');
-        return data;
-    } catch (error: any) {
-        if (error?.digest?.startsWith('NEXT_REDIRECT')) throw error;
-        console.log("err", error);
-
-        return { error: `Failed to create tower-floor: ${error?.message || 'Unknown error'}` }
-    }
-}
-export async function updateTowerFloor(id: string, body: TowerFloorUpdateProps) {
-    try {
-        const data = await api(
-            `/warehouse/${id}/tower-floor/bulk-update`,
-            {
-                method: 'PUT',
-                body: JSON.stringify(body),
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-            }
-        );
-        revalidateTag('tower', 'max');
-        return data;
-    } catch (error: any) {
-        if (error?.digest?.startsWith('NEXT_REDIRECT')) throw error;
-
-        return { error: `Failed to update tower-floor: ${error?.message || 'Unknown error'}` }
-    }
-}
 export async function createZone(id: string, zones: ZoneCreateProps[]): Promise<any> {
     try {
-        // cơ chế phân rã để ko bị treo 10s tách ra từng zone 1
-        // if (zones.length > 1) {
-        //     let lastResult: any = null;
-        //     for (const zone of zones) {
-        //         const res = await createZone(id, [zone]);
-        //         if (res?.error) return res;
-        //         lastResult = res;
-        //     }
-        //     return lastResult;
-        // }
-
         const data = await api(
             `/warehouse/${id}/zone/bulk`,
             {
@@ -520,16 +294,6 @@ export async function createZone(id: string, zones: ZoneCreateProps[]): Promise<
 }
 export async function updateZone(id: string, zones: ZoneUpdateProps[]): Promise<any> {
     try {
-        // if (zones.length > 1) {
-        //     let lastResult: any = null;
-        //     for (const zone of zones) {
-        //         const res = await updateZone(id, [zone]);
-        //         if (res?.error) return res;
-        //         lastResult = res;
-        //     }
-        //     return lastResult;
-        // }
-
         const data = await api(
             `/warehouse/${id}/zone/bulk`,
             {
@@ -645,34 +409,11 @@ export async function bulkDeleteZones(warehouseId: string, ids: string[]) {
     }
 }
 
-export async function deleteTowerFloor(warehouseId: string, towerFloorId: string) {
+
+export async function deleteWarehouse(id: string) {
     try {
         const data = await api(
-            `/warehouse/${warehouseId}/tower-floor/${towerFloorId}`,
-            {
-                method: 'DELETE',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-            }
-        );
-        revalidateTag('tower', 'max');
-        return data;
-    } catch (error: any) {
-        if (error?.digest?.startsWith('NEXT_REDIRECT')) throw error;
-        // Nếu trả về 404 thì coi như đã xóa thành công (không tồn tại)
-        if (error?.status === 404) {
-            return { success: true };
-        }
-        return { error: `Failed to delete tower floor: ${error?.message || 'Unknown error'}` }
-    }
-}
-
-
-export async function deleteWarehouse(warehouseId: string) {
-    try {
-        const data = await api(
-            `/warehouses/${warehouseId}`,
+            `/warehouses/${id}`,
             {
                 method: 'DELETE',
                 headers: {
@@ -688,7 +429,6 @@ export async function deleteWarehouse(warehouseId: string) {
     }
 }
 
-// export async function findAllDevices(params?: { search?: string, page?: number, limit?: number }) {
 //     try {
 //         const query = new URLSearchParams();
 //         if (params?.search) query.set('search', params.search);

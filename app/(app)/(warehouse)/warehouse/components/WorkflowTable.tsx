@@ -30,8 +30,8 @@ export default function WorkflowTable({ raw = [] }: WorkflowTableProps) {
         const q = searchText.trim().toLowerCase();
         if (!q) return raw;
         return raw.filter((item: any) =>
-            (item.name || "").toLowerCase().includes(q) ||
-            (item.code || "").toLowerCase().includes(q)
+            (item.Name || "").toLowerCase().includes(q) ||
+            (item.Code || "").toLowerCase().includes(q)
         );
     }, [raw, searchText]);
 
@@ -97,19 +97,19 @@ export default function WorkflowTable({ raw = [] }: WorkflowTableProps) {
     };
 
     const handleDelete = (record: any) => {
-        const name = record.name || "kho này";
+        const name = record.Name || "kho này";
 
         openConfirmModal(
             "Thông báo",
             `Bạn có chắc chắn muốn xóa ${name} không?`,
             async () => {
                 try {
-                    const res: any = await deleteWarehouse(record.id);
+                    const res: any = await deleteWarehouse(record.ID);
                     if (res && res.error) {
                         messageApi.error(res.error);
                     } else {
-                        messageApi.success(`Đã xóa kho ${record.name} thành công`);
-                        setSelectedRowKeys((prev) => prev.filter((key) => key !== record.id));
+                        messageApi.success(`Đã xóa kho ${record.Name} thành công`);
+                        setSelectedRowKeys((prev) => prev.filter((key) => key !== record.ID));
                         router.refresh();
                     }
                 } catch {
@@ -226,7 +226,7 @@ export default function WorkflowTable({ raw = [] }: WorkflowTableProps) {
                     }}
                     columns={columns as any}
                     dataTable={filteredData}
-                    keyIndex="id"
+                    keyIndex="ID"
 
                 />
             </div>

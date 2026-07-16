@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Button, Collapse, Segmented, Switch, Checkbox, ConfigProvider, Modal, Select } from "antd";
+import { Button, Collapse, Segmented, Switch, Checkbox, ConfigProvider, Modal, Select, Slider } from "antd";
 import { DownOutlined, PlusCircleFilled, EditFilled, DeleteFilled, ExclamationCircleOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons";
 import CustomInput from "@/components/ui/CustomInput";
 import CustomSelect from "@/components/ui/CustomSelect";
@@ -10,20 +10,17 @@ import LoadingComponent from "@/components/ui/LoadingComponent";
 import WarehouseMap from "./WarehouseMap";
 import { WarehouseConfigProvider, useWarehouseConfig } from "./WarehouseContext";
 import {
-    MOCK_DEVICES, IMPORT_DIRECTION_OPTIONS,
-    type TabKey, type WarehouseModule, type FloorConfig, type AreaConfig, type DirectionFlags,
+    type TabKey, type AreaConfig, type DirectionFlags,
 } from "./warehouse-types";
 import { getSelectedTileName } from "./warehouse-types";
 import { useNotify } from "@/hook/notification/NotificationProvider";
 import {
-    updateTower, createTower, TowerProps,
-    createTowerFloor, updateTowerFloor, updateNodeBulk, updateNode,
+    updateNodeBulk, updateNode,
     type ZoneCreateProps, type ZoneUpdateProps, type NodeProps,
     updateZone,
     createZone,
     NodeBulkProps,
     bulkDeleteZones,
-    deleteTowerFloor
 } from "../../warehouseAcction";
 import ModalThemeProvider from "@/components/ui/ModalThemeProvider";
 
@@ -35,20 +32,19 @@ import ModalThemeProvider from "@/components/ui/ModalThemeProvider";
 // File này bọc toàn bộ ứng dụng bằng <WarehouseConfigProvider> ở cuối file.
 
 const TAB_OPTIONS: { value: TabKey; label: string }[] = [
-    { value: "module", label: "Module kho" },
-    { value: "floor", label: "Tầng" },
     { value: "area", label: "Khu vực" },
     { value: "position", label: "Vị trí" },
+    { value: "route", label: "Tuyến đường" },
 ];
 
 const ZONE_TYPE_MAP: Record<string, string> = {
-    'STORAGE': 'storage',
-    'WAITING': 'waiting',
     'CHARGING': 'charging',
-    'INBOUND': 'inbound',
-    'OUTBOUND': 'outbound',
     'MOVING': 'moving',
-    'LIFTER': 'lifter'
+    'PARKING': 'waiting',
+    'PICKING': 'inbound',
+    'DROPPING': 'outbound',
+    'BYPASS': 'bypass',
+    'MAINTENANCE': 'maintenance'
 };
 
 /* ============================
@@ -82,38 +78,36 @@ function ProfileInner({ id }: { id: string }) {
     const [modal, contextHolder] = Modal.useModal();
     const ctx = useWarehouseConfig();
     const {
-        modules, floors, areas, nodes: savedNodes,
+        areas, nodes: savedNodes,
         positionItems, addPositionItem, updatePositionItem, removePositionItem, discardUnsaved,
         activeTab, setActiveTab, selectedCells,
-        updateModule,
-        addFloor, updateFloor, removeFloor, saveFloorNodes,
         addArea, updateArea, removeArea, saveAreaNodes,
         upsertNodes, removeNodes, setSelectedCells,
         editingId, setEditingId, initialEditingKeys, setInitialEditingKeys,
-        copyFloorConfig, currentWarehouseFloorId, clearModifiedFlags, setCurrentWarehouseFloorId,
+        clearModifiedFlags,
         posDirections, setPosDirections, posName, setPosName, posQrCode, setPosQrCode,
-        zoneTypes, warehouses, warehouseFloors, restoreSnapshot,
-        floorsCount, modulesCount, warehouseName, isLoading, refreshGlobal, refreshFloor,
+        routeType, setRouteType, curveAngle, setCurveAngle, routeControlPoint, setRouteControlPoint, curveDirection, setCurveDirection,
+        routeDirection, setRouteDirection,
+        routes, addRoute,
+        zoneTypes, warehouses, restoreSnapshot,
+        isLoading, refreshGlobal, refreshFloor,
         categories, products, setSelectedCategories, allDevices,
-        zonesToDelete, towerFloorsToDelete, clearDeleteQueue
+        zonesToDelete, clearDeleteQueue
     } = useWarehouseConfig();
     const router = useRouter();
     const [isSaving, setIsSaving] = useState(false);
 
-    const showMap = activeTab !== "module";
+    const showMap = true;
     //Đoạn code kiểm tra trạng thái chọn trên Sidebar để ẩn/hiển thị form nhập code và đổi
     const isSingleSelect = selectedCells.size === 1;
     const isMultiSelect = selectedCells.size > 1;
 
     // Lọc dữ liệu khi chọn và tầng và hiển thị bên sidebar
-    const filteredFloors = useMemo(() => floors.filter(f => f.warehouseFloorId === currentWarehouseFloorId), [floors, currentWarehouseFloorId]);
-    const floorIds = useMemo(() => filteredFloors.map(f => f.id), [filteredFloors]);
-    const filteredAreas = useMemo(() => areas.filter(a => floorIds.includes(a.floorId) || a.floorId === '' || a.id === editingId), [areas, floorIds, editingId]);
-    const filteredPositionItems = useMemo(() => positionItems.filter(p => floorIds.includes(p.floorId)), [positionItems, floorIds]);
+    // Display all areas and position items since there are no floors anymore
+    const filteredAreas = useMemo(() => areas, [areas]);
+    const filteredPositionItems = useMemo(() => positionItems, [positionItems]);
 
-    // Copy Modal state
-    const [copyModalVisible, setCopyModalVisible] = useState(false);
-    const [fromWFloorId, setFromWFloorId] = useState<string>("");
+
 
     // Device selection state
     const [deviceSearch, setDeviceSearch] = useState("");
@@ -136,25 +130,85 @@ function ProfileInner({ id }: { id: string }) {
             [deviceId]: prev[deviceId] === cap ? '' : cap
         }));
     };
-    const getCapStyle = (deviceId: string, cap: string) => {
-        const active = selectedDeviceCaps[deviceId] === cap;
-        if (!active) return { border: '1px solid #D6E4F0', background: '#fff', color: '#545454' };
-        switch (cap) {
-            case 'inbound': return { border: '1px solid #27AE60', background: '#E8F8EF', color: '#27AE60' };
-            case 'outbound': return { border: '1px solid #E67E22', background: '#FEF4E8', color: '#E67E22' };
-            default: return { border: '1px solid #076EB8', background: '#E8F2FA', color: '#076EB8' };
+
+    // Route form state
+    const [routeName, setRouteName] = useState("");
+    const [routeDistance, setRouteDistance] = useState("");
+    const [routeSpeed, setRouteSpeed] = useState("");
+
+
+
+    const getRouteDirectionOptions = () => {
+        const parts = routeName.split('-');
+        let from = 'E4', to = 'F3';
+        if (parts.length >= 2) {
+            from = parts[0].trim() || 'E4';
+            to = parts[1].trim() || 'F3';
+        } else if (parts.length === 1 && parts[0].trim()) {
+            from = parts[0].trim();
+            to = '...';
         }
+        return { from, to };
+    };
+    // chỉ có đường thẳng đúng  thì hiển thị trái phải 
+    const isVerticalLine = useMemo(() => {
+        if (selectedCells.size === 2) {
+            const arr = Array.from(selectedCells);
+            const [r1, c1] = arr[0].split(',').map(Number);
+            const [r2, c2] = arr[1].split(',').map(Number);
+            return c1 === c2; // Only vertical lines have trái/phải
+        }
+        return false;
+    }, [selectedCells]);
+
+    const getColName = (index: number) => {
+        let name = '';
+        let i = index;
+        while (i >= 0) {
+            name = String.fromCharCode(65 + (i % 26)) + name;
+            i = Math.floor(i / 26) - 1;
+        }
+        return name;
     };
 
-    /**
-     * Chuyển đổi trạng thái chỉnh sửa sang một item khác (Tầng/Khu vực)
-     * Đồng thời tự động lưu lại nháp những thay đổi của item đang sửa hiện tại
-     */
+    useEffect(() => {
+        if (activeTab === 'route') {
+            const selectedPositions: string[] = [];
+            const prefix = 'node_';
+
+            selectedCells.forEach(cell => {
+                const node = savedNodes[`${prefix}${cell}`];
+                if (node && node.name) {
+                    const nameParts = node.name.split('-');
+                    if (nameParts.length > 1) {
+                        selectedPositions.push(nameParts.slice(1).join('-'));
+                    } else {
+                        selectedPositions.push(node.name);
+                    }
+                } else {
+                    const [r, c] = cell.split(',').map(Number);
+                    selectedPositions.push(`${getColName(c)}${r + 1}`);
+                }
+            });
+
+            if (selectedPositions.length >= 2) {
+                setRouteName(`${selectedPositions[0]} - ${selectedPositions[1]}`);
+            } else if (selectedPositions.length === 1) {
+                setRouteName(selectedPositions[0]);
+            } else {
+                setRouteName("");
+            }
+        }
+    }, [selectedCells, savedNodes, activeTab]);
+
     const handleEdit = (id: string, initialNodes: string[]) => {
         // Commit current session before switching
         if (editingId && editingId !== id) {
-            if (activeTab === 'floor') saveFloorNodes(editingId, Array.from(selectedCells));
-            else if (activeTab === 'area') saveAreaNodes(editingId, Array.from(selectedCells));
+            if (activeTab === 'area' && selectedCells.size === 0) {
+                notify.error("Khu vực chưa có vị trí nào. Vui lòng chọn vị trí trên bản đồ!");
+                return;
+            }
+            if (activeTab === 'area') saveAreaNodes(editingId, Array.from(selectedCells));
         }
 
         setEditingId(id);
@@ -163,66 +217,17 @@ function ProfileInner({ id }: { id: string }) {
         if (activeTab === 'area') setAreaKeys([id]);
     };
 
-    /**
-     * Nút "Lưu": Gửi toàn bộ dữ liệu cấu hình đã thay đổi lên Server
-     * Hàm này sẽ kiểm tra Tab hiện tại (Module/Tầng/Khu vực/Vị trí) để gọi API tương ứng
-     */
     const handleSave = async () => {
         if (isSaving) return;
         setIsSaving(true);
         const snapshot = {
-            modules: [...modules],
-            floors: [...floors],
+
             areas: [...areas],
             nodes: { ...savedNodes },
             positionItems: [...positionItems]
         };
 
         try {
-            // 1. Bulk save for module tab
-            if (activeTab === 'module') {
-                const newTowers = modules.filter(m => m.isNew);
-                const modifiedTowers = modules.filter(m => !m.isNew && m.isModified);
-
-                if (newTowers.length === 0 && modifiedTowers.length === 0) {
-                    notify.warning("Không có thay đổi để lưu");
-                    setIsSaving(false);
-                    return;
-                }
-
-                // if (newTowers.length > 0) {
-                //     const towers = newTowers.map((mod) => ({
-                //         name: mod.name,
-                //         code: mod.code,
-                //         warehouse_id: id,
-                //         tower_type: mod.tower_type,
-                //         tower_order: mod.tower_order,
-                //         is_active: mod.is_active,
-                //     }));
-                //     const res: any = await createTower(id, towers as any);
-                //     if (res?.error) throw new Error(res.error);
-                // }
-
-                if (modifiedTowers.length > 0) {
-                    const towers: TowerProps[] = modifiedTowers.map((mod) => ({
-                        name: mod.name,
-                        code: mod.code,
-                        warehouse_id: id,
-                        tower_type: mod.tower_type,
-                        tower_order: mod.tower_order,
-                        id: mod.id,
-                        is_active: mod.is_active,
-                    }));
-                    const res: any = await updateTower(id, towers);
-                    if (res?.error) throw new Error(res.error);
-                }
-
-                clearModifiedFlags();
-                notify.success("Lưu cấu hình module thành công");
-                refreshGlobal();
-                return;
-            }
-
             // 2. Compute final data locally for API
             const currentSelectedArr = Array.from(selectedCells);
 
@@ -235,18 +240,9 @@ function ProfileInner({ id }: { id: string }) {
                 return a;
             });
 
-            const finalFloors = floors.map(f => {
-                if (f.id === editingId && activeTab === 'floor') {
-                    return { ...f, nodes: currentSelectedArr, isModified: true };
-                }
-                return f;
-            });
-
             // 3. Sync back to context state for UI consistency
             if (editingId) {
-                if (activeTab === "floor") {
-                    saveFloorNodes(editingId, currentSelectedArr);
-                } else if (activeTab === "area") {
+                if (activeTab === "area") {
                     const removedKeys = Array.from(initialEditingKeys).filter(k => !selectedCells.has(k));
                     if (removedKeys.length > 0) removeNodes(removedKeys);
                     saveAreaNodes(editingId, currentSelectedArr);
@@ -258,82 +254,15 @@ function ProfileInner({ id }: { id: string }) {
             }
 
             // 3. Persist changes to API based on active tab
-            if (activeTab === "floor") {
-                if (towerFloorsToDelete.length > 0) {
-                    for (const floor of towerFloorsToDelete) {
-                        const res: any = await deleteTowerFloor(id, floor.id);
-                        if (res?.error) throw new Error(res.error);
-                    }
-                }
-
-                const currentFloor = warehouseFloors.find(wf => wf.id.toString() === currentWarehouseFloorId);
-                const currentFloorNum = currentFloor?.floor_number || 1;
-                const getNodesData = (nodes: string[]) => nodes.map(k => {
-                    const [r, c] = k.split(',').map(Number);
-                    let colName = '';
-                    let ci = c;
-                    while (ci >= 0) {
-                        colName = String.fromCharCode(65 + (ci % 26)) + colName;
-                        ci = Math.floor(ci / 26) - 1;
-                    }
-                    const nodeLabel = `${currentFloorNum}-${colName}${r + 1}`;
-                    return {
-                        code: nodeLabel,
-                        name: nodeLabel,
-                        x: (c + 1).toString(),
-                        y: (r + 1).toString(),
-                        z: currentFloorNum.toString()
-                    };
-                });
-
-                const newFloors = finalFloors.filter(f => f.isNew);
-                const modifiedFloors = finalFloors.filter(f => !f.isNew && f.isModified);
-
-                // Validate: Đảm bảo tất cả các tầng mới hoặc bị sửa đều đã được gán Module
-                const invalidFloors = [...newFloors, ...modifiedFloors].filter(f => !f.moduleId);
-                if (invalidFloors.length > 0) {
-                    notify.error("Vui lòng chọn 'Module kho' cho tất cả các Tầng trước khi lưu.");
+            if (activeTab === "area") {
+                const invalidArea = finalAreas.find(a => (a.isNew || a.isModified) && (!a.nodes || a.nodes.length === 0));
+                if (invalidArea) {
+                    notify.error(`Khu vực "${invalidArea.name || 'chưa đặt tên'}" chưa có vị trí nào. Vui lòng chọn vị trí trên bản đồ!`);
                     setIsSaving(false);
                     return;
                 }
 
-                if (newFloors.length > 0) {
-                    const res: any = await createTowerFloor(id, {
-                        warehouse_floor_id: currentWarehouseFloorId,
-                        tower_floors: newFloors.map(f => ({
-                            name: f.name,
-                            tower_id: f.moduleId,
-                            nodes: getNodesData(f.nodes),
-                            devices: f.devices
-                        }))
-                    });
-                    if (res?.error) throw new Error(res.error);
-                }
-
-                if (modifiedFloors.length > 0) {
-                    const res: any = await updateTowerFloor(id, {
-                        warehouse_floor_id: currentWarehouseFloorId,
-                        tower_floors: modifiedFloors.map(f => ({
-                            id: f.id,
-                            name: f.name,
-                            tower_id: f.moduleId,
-                            nodes: getNodesData(f.nodes),
-                            devices: f.devices
-                        }))
-                    });
-                    if (res?.error) throw new Error(res.error);
-                }
-
-                if (newFloors.length > 0 || modifiedFloors.length > 0 || towerFloorsToDelete.length > 0) {
-                    clearModifiedFlags();
-                    clearDeleteQueue();
-                    notify.success("Lưu cấu hình tầng thành công");
-                    refreshFloor();
-                } else {
-                    notify.warning("Không có thay đổi tầng để lưu");
-                }
-            } else if (activeTab === "area") {
-                const floorPrefix = `wFloor_${currentWarehouseFloorId}:`;
+                const floorPrefix = `node_`;
                 const getZoneData = (area: AreaConfig, nodes: string[]) => {
                     const nodeIds = nodes.map(k => {
                         const fullKey = `${floorPrefix}${k}`;
@@ -345,8 +274,8 @@ function ProfileInner({ id }: { id: string }) {
                         name: area.name,
                         code: area.code,
                         zone_type_id: area.zoneTypeId || '',
-                        tower_floor_id: area.floorId,
                         node_ids: nodeIds,
+                        description: area.description || '',
                         ...(area.inbound_direction_x ? { inbound_direction_x: area.inbound_direction_x } : {}),
                         ...(area.inbound_direction_y ? { inbound_direction_y: area.inbound_direction_y } : {}),
                         ...(area.id && !area.isNew ? { id: area.id } : {}),
@@ -357,42 +286,19 @@ function ProfileInner({ id }: { id: string }) {
                 const newAreas = finalAreas.filter(a => a.isNew);
                 const modifiedAreas = finalAreas.filter(a => !a.isNew && a.isModified);
 
-                const invalidAreas = [...newAreas, ...modifiedAreas].filter(a => !a.floorId);
-                if (invalidAreas.length > 0) {
-                    notify.error("Vui lòng chọn vị trí trên bản đồ để tự động gán Tầng cho Khu vực.");
-                    setIsSaving(false);
-                    return;
-                }
+
                 // bắt lỗi crasch sau 10s
                 const newZones = newAreas.map(a => getZoneData(a, a.nodes));
                 const modifiedZones = modifiedAreas.map(a => getZoneData(a, a.nodes));
 
-                // Validate: Ensure that every zone has at least one valid node ID in the database
-                const zoneWithNoNodes = [...newZones, ...modifiedZones].find(z => z.node_ids.length === 0);
-                if (zoneWithNoNodes) {
-                    notify.error(`Khu vực "${zoneWithNoNodes.name || 'Chưa đặt tên'}" chưa chứa vị trí (Node) nào được lưu trên Tầng. Vui lòng cấu hình và Lưu tại tab "Tầng" cho các ô này trước!`);
-                    setIsSaving(false);
-                    return;
-                }
 
-                if (modifiedAreas.length > 0) {
-                    const res: any = await updateZone(id, modifiedZones as ZoneUpdateProps[]);
-                    if (res?.error) throw new Error(res.error);
-                }
-                if (newAreas.length > 0) {
-                    const res: any = await createZone(id, newZones as any);
-                    if (res?.error) throw new Error(res.error);
-                }
-                if (zonesToDelete.length > 0) {
-                    const res: any = await bulkDeleteZones(id, zonesToDelete);
-                    if (res?.error) throw new Error(res.error);
-                }
+
 
                 if (newAreas.length > 0 || modifiedAreas.length > 0 || zonesToDelete.length > 0) {
                     clearModifiedFlags();
                     clearDeleteQueue();
-                    notify.success("Lưu cấu hình khu vực thành công");
-                    refreshFloor();
+                    notify.success("Lưu cấu hình khu vực thành công (Giả lập)");
+                    // refreshFloor(); // Giữ lại state giả lập ở client
                 } else {
                     notify.warning("Không có thay đổi khu vực để lưu");
                 }
@@ -408,7 +314,7 @@ function ProfileInner({ id }: { id: string }) {
                         return;
                     }
 
-                    const floorPrefix = `wFloor_${currentWarehouseFloorId}:`;
+                    const floorPrefix = `node_`;
 
                     const changedNodes = selectedArr.filter(k => {
                         const node = savedNodes[`${floorPrefix}${k}`];
@@ -476,6 +382,54 @@ function ProfileInner({ id }: { id: string }) {
                         refreshFloor();
                     }
                 }
+            } else if (activeTab === "route") {
+                if (selectedCells.size !== 2) {
+                    notify.error("Vui lòng chọn 2 điểm trên bản đồ để tạo tuyến đường!");
+                    setIsSaving(false);
+                    return;
+                }
+                if (!routeType) {
+                    notify.error("Vui lòng chọn loại đường!");
+                    setIsSaving(false);
+                    return;
+                }
+                if (routeType !== 'Đường thẳng' && !curveDirection) {
+                    notify.error("Vui lòng chọn hướng cong!");
+                    setIsSaving(false);
+                    return;
+                }
+                if (!routeDirection) {
+                    notify.error("Vui lòng chọn hướng đi!");
+                    setIsSaving(false);
+                    return;
+                }
+                const newRoute: import('./warehouse-types').RouteConfig = {
+                    id: Date.now().toString(),
+                    name: routeName || `Tuyến đường ${routes.length + 1}`,
+                    cells: Array.from(selectedCells),
+                    routeType,
+                    curveDirection,
+                    curveAngle: routeType !== 'Đường thẳng' ? (curveAngle || "45") : null,
+                    controlPoint: routeType !== 'Đường thẳng' ? routeControlPoint : null,
+                    routeDirection,
+                    distance: routeDistance,
+                    speed: routeSpeed
+                };
+                addRoute(newRoute);
+                notify.success("Lưu tuyến đường thành công!");
+
+                // Clear selection
+                setSelectedCells(new Set());
+                setRouteType(null);
+                setCurveDirection(null);
+                setCurveAngle("45");
+                setRouteControlPoint(null);
+                setRouteDirection('');
+                setRouteName('');
+                setRouteDistance('');
+                setRouteSpeed('');
+                setIsSaving(false);
+                return;
             }
 
             setEditingId(null);
@@ -509,7 +463,7 @@ function ProfileInner({ id }: { id: string }) {
      * Sẽ hiện cảnh báo nếu đang có thay đổi chưa được lưu
      */
     const handleTabChange = (val: TabKey) => {
-        const hasUnsaved = floors.some(f => f.isNew) || areas.some(a => a.isNew) || positionItems.some(p => p.isNew);
+        const hasUnsaved = areas.some(a => a.isNew) || positionItems.some(p => p.isNew);
         if (hasUnsaved) {
             modal.confirm({
                 title: 'Xác nhận chuyển tab',
@@ -529,17 +483,7 @@ function ProfileInner({ id }: { id: string }) {
     };
 
     /* ---- Active collapse keys per tab ---- */
-    const [moduleKeys, setModuleKeys] = useState<string[]>([modules[0]?.id ?? ""]);
-    const [floorKeys, setFloorKeys] = useState<string[]>([]);
     const [areaKeys, setAreaKeys] = useState<string[]>([]);
-    const [positionKeys, setPositionKeys] = useState<string[]>([]);
-
-    useEffect(() => {
-        if (filteredFloors.length > 0) {
-            const lastId = filteredFloors[filteredFloors.length - 1].id;
-            if (!floorKeys.includes(lastId)) setFloorKeys(prev => [...prev, lastId]);
-        }
-    }, [filteredFloors.length]);
 
     useEffect(() => {
         if (filteredAreas.length > 0) {
@@ -549,17 +493,10 @@ function ProfileInner({ id }: { id: string }) {
     }, [filteredAreas.length]);
 
     useEffect(() => {
-        if (filteredPositionItems.length > 0) {
-            const lastId = filteredPositionItems[filteredPositionItems.length - 1].key;
-            if (!positionKeys.includes(lastId)) setPositionKeys(prev => [...prev, lastId]);
-        }
-    }, [filteredPositionItems.length]);
-
-    useEffect(() => {
-        if (activeTab === "position" && selectedCells.size > 0) {
+        if ((activeTab === "position" || activeTab === "route") && selectedCells.size > 0) {
             const selectedArr = Array.from(selectedCells);
             const firstCell = selectedArr[0];
-            const prefix = `wFloor_${currentWarehouseFloorId}:`;
+            const prefix = `node_`;
             const firstNode = savedNodes[`${prefix}${firstCell}`];
 
             if (firstNode) {
@@ -574,32 +511,17 @@ function ProfileInner({ id }: { id: string }) {
     useEffect(() => {
         if (editingId) {
             const currentKeys = Array.from(selectedCells);
-            if (activeTab === 'floor') {
-                const fl = floors.find(f => f.id === editingId);
-                const isChanged = fl && (fl.nodes.length !== currentKeys.length || fl.nodes.some((k, i) => k !== currentKeys[i]));
-                if (isChanged) updateFloor(editingId, { nodes: currentKeys });
-            } else if (activeTab === 'area') {
+            if (activeTab === 'area') {
                 const ar = areas.find(a => a.id === editingId);
                 if (ar) {
-                    let newFloorId = ar.floorId;
-                    if (currentKeys.length > 0) {
-                        const firstCell = currentKeys[0];
-                        const matchedFloor = floors.find(f => f.nodes.includes(firstCell));
-                        if (matchedFloor && matchedFloor.id !== newFloorId) {
-                            newFloorId = matchedFloor.id;
-                        }
-                    } else {
-                        newFloorId = '';
-                    }
-
-                    const isChanged = ar.nodes.length !== currentKeys.length || ar.nodes.some((k, i) => k !== currentKeys[i]) || newFloorId !== ar.floorId;
+                    const isChanged = ar.nodes.length !== currentKeys.length || ar.nodes.some((k, i) => k !== currentKeys[i]);
                     if (isChanged) {
-                        updateArea(editingId, { nodes: currentKeys, floorId: newFloorId });
+                        updateArea(editingId, { nodes: currentKeys });
                     }
                 }
             }
         }
-    }, [selectedCells, editingId, activeTab, floors, areas, updateFloor, updateArea, removeNodes]);
+    }, [selectedCells, editingId, activeTab, areas, updateArea, removeNodes]);
     // chọn hướng đi ảnh thay đổi 
     const positionPreviewImg = useMemo(() => {
         // if (activeTab !== 'position') return 'node.svg';
@@ -616,17 +538,13 @@ function ProfileInner({ id }: { id: string }) {
     useEffect(() => {
         if (editingId) {
             // Ensure the collapse is open
-            if (activeTab === 'floor') {
-                setFloorKeys(prev => prev.includes(editingId) ? prev : [...prev, editingId]);
-            } else if (activeTab === 'area') {
+            if (activeTab === 'area') {
                 setAreaKeys(prev => prev.includes(editingId) ? prev : [...prev, editingId]);
 
                 const area = areas.find(a => a.id === editingId);
                 if (area?.category_id) {
                     setSelectedCategories(area.category_id);
                 }
-            } else if (activeTab === 'position') {
-                setPositionKeys(prev => prev.includes(editingId) ? prev : [...prev, editingId]);
             }
 
             // Scroll to the item
@@ -642,18 +560,7 @@ function ProfileInner({ id }: { id: string }) {
     }, [editingId, activeTab, areas, setSelectedCategories]);
 
     /* ---- Options for select dropdowns ---- */
-    const moduleOptions = modules.filter(m => m.name).map(m => ({ value: m.id, label: m.name || m.id }));
-    const floorOptions = filteredFloors.filter(f => f.name).map(f => ({ value: f.id, label: f.name }));
-
-    /* ---- Device categories ---- */
-    const deviceCategories = useMemo(() => {
-        const cats = new Map<string, typeof MOCK_DEVICES>();
-        MOCK_DEVICES.forEach(d => {
-            if (!cats.has(d.category)) cats.set(d.category, []);
-            cats.get(d.category)!.push(d);
-        });
-        return cats;
-    }, []);
+    const floorOptions: any[] = [];
 
     return (
         <ModalThemeProvider>
@@ -677,31 +584,9 @@ function ProfileInner({ id }: { id: string }) {
                                     }
                                 }}
                             >
-                                {/* <CustomSelect
-                                    value={currentWarehouseFloorId}
-                                    onChange={(val: string) => {
-                                        setCurrentWarehouseFloorId(val);
-                                        setEditingId(null);
-                                        setSelectedCells(new Set());
-                                    }}
-                                    options={warehouseFloors.map(wf => ({
-                                        value: wf.id.toString(),// chuyển /floor/gi thành tầng 
-                                        label: wf.name ? wf.name.replace(/floor/gi, "Tầng") : `Tầng ${wf.floor_number || ''}`
-                                    }))}
-                                    style={{ width: 210, height: 35, border: "0.5px solid #076eb8", color: "#076eb8", borderRadius: "8px" }}
-                                    suffixIcon={
-                                        <svg width="14.45" height="7.16" viewBox="0 0 18 9" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                            <path d="M8.6675 8.5975C7.9675 8.5975 7.2675 8.3275 6.7375 7.7975L0.2175 1.2775C-0.0725 0.987499 -0.0725 0.5075 0.2175 0.2175C0.5075 -0.0725 0.9875 -0.0725 1.2775 0.2175L7.7975 6.7375C8.2775 7.2175 9.0575 7.2175 9.5375 6.7375L16.0575 0.2175C16.3475 -0.0725 16.8275 -0.0725 17.1175 0.2175C17.4075 0.5075 17.4075 0.987499 17.1175 1.2775L10.5975 7.7975C10.0675 8.3275 9.3675 8.5975 8.6675 8.5975Z" fill="#076eb8" />
-                                        </svg>
-                                    }
-                                /> */}
                             </ConfigProvider>
                         </div>
-                        {/* <Button
-                            onClick={() => setCopyModalVisible(true)}
-                            style={{ width: 92, height: 35, borderRadius: 8, border: "0.5px solid #076eb8", backgroundColor: "#076EB8" }}
-                            type="primary"
-                        >Hành động</Button> */}
+
                     </div>
                 </div>
 
@@ -747,218 +632,7 @@ function ProfileInner({ id }: { id: string }) {
                         </ConfigProvider>
 
                         <div className="flex-1 mr-[-15px] flex flex-col gap-[15px] overflow-hidden">
-                            {activeTab === "module" && (
-                                <OverlayScrollbarsComponent
-                                    defer
-                                    options={{
-                                        scrollbars: {
-                                            visibility: 'hidden',
-                                        },
-                                    }}
-                                    className="w-full max-h-[580px] lg:max-h-[calc(100vh-280px)]"
-                                >
 
-                                    <div className="flex flex-col gap-3 pr-[15px] pl-[1px] pb-4">
-                                        <Collapse
-                                            activeKey={moduleKeys}
-                                            onChange={(k) => setModuleKeys(k as string[])}
-
-                                            expandIcon={({ isActive }) => <DownOutlined rotate={isActive ? -180 : 0} style={{ color: "#076EB8", fontSize: 12 }} />}
-                                            expandIconPlacement="end" collapsible="header"
-                                            style={{ background: "transparent", border: "none" }}
-                                            styles={collapseStyles}
-                                            items={modules.map((mod) => {
-                                                const isExpanded = moduleKeys.includes(mod.id);
-                                                return {
-                                                    key: mod.id,
-                                                    label: <span className="font-normal text-[#076EB8] text-[14px] !h-[35px]">{mod.name || `Module kho ${modules.indexOf(mod) + 1}`}</span>,
-
-                                                    style: { marginBottom: 12, border: "0.5px solid #076eb8", borderRadius: "8px", overflow: "hidden", background: "#fff", boxShadow: "0px 4px 4px 0px rgba(0, 0, 0, 0.05)" },
-                                                    children: (
-                                                        <div>
-                                                            <div className="h-[0.5px] bg-[#076eb8] mx-4" />
-                                                            <div className="flex flex-col gap-[15px] pt-[15px] pb-[15px] pr-[20px] pl-[15px]">
-                                                                <FormRow label="Mã module kho" required>
-                                                                    <CustomInput disabled placeholder="Nhập mã" className='!h-[35px] !text-[#54545499] !rounded-[8px]' value={mod.code} onChange={(e) => updateModule(mod.id, { code: e.target.value })} />
-                                                                </FormRow>
-                                                                <FormRow label="Tên module kho" required>
-                                                                    <CustomInput placeholder="Nhập tên module kho" className='!h-[35px] !text-[#484848] !rounded-[8px]' value={mod.name} onChange={(e) => updateModule(mod.id, { name: e.target.value })} />
-                                                                </FormRow>
-                                                                <FormRow label="Loại module" required>
-                                                                    <CustomSelect options={[
-                                                                        { label: "Mặt sàn di chuyển", value: "FLOOR" },
-                                                                        { label: "Tháp", value: "TOWER" },
-                                                                    ]} value={mod.tower_type} className="!text-[#484848] !h-[35px]  !rounded-[8px]" onChange={(v) => updateModule(mod.id, { tower_type: v })} />
-                                                                </FormRow>
-                                                                <FormRow label="Sử dụng">
-                                                                    <Switch size="small" checked={mod.is_active} onChange={(e) => updateModule(mod.id, { is_active: e })} />
-                                                                </FormRow>
-                                                            </div>
-                                                        </div>
-                                                    ),
-                                                };
-                                            })}
-                                        />
-                                    </div>
-                                </OverlayScrollbarsComponent>
-                            )}
-
-                            {activeTab === "floor" && (
-                                <OverlayScrollbarsComponent
-                                    defer
-                                    options={{
-                                        scrollbars: {
-                                            visibility: 'hidden',
-                                        },
-                                    }}
-                                    className="w-full max-h-[580px] lg:max-h-[calc(100vh-280px)]"
-                                >
-                                    <div className="flex flex-col gap-3 pr-[15px] pl-[1px] pb-4">
-                                        <Collapse
-                                            activeKey={floorKeys}
-                                            onChange={(k) => setFloorKeys(k as string[])}
-                                            expandIcon={({ isActive }) => <DownOutlined rotate={isActive ? -180 : 0} style={{ color: "#076EB8", fontSize: 12 }} />}
-                                            expandIconPlacement="end" collapsible="header"
-                                            style={{ background: "transparent", border: "none" }}
-                                            styles={collapseStyles}
-                                            items={filteredFloors.map((fl, idx) => {
-                                                const isExpanded = floorKeys.includes(fl.id);
-                                                return {
-                                                    key: fl.id,
-                                                    label: (
-                                                        <div
-                                                            className="w-full"
-                                                            onClick={() => {
-                                                                if (editingId !== fl.id) handleEdit(fl.id, fl.nodes);
-                                                            }}
-                                                        >
-                                                            <span className="font-normal text-[#076EB8] text-[14px]">{fl.name || `Tầng module ${idx + 1}`}</span>
-                                                        </div>
-                                                    ),
-                                                    style: { marginBottom: 12, border: "0.5px solid #076eb8", borderRadius: "8px", overflow: "hidden", background: "#fff", boxShadow: "0px 4px 4px 0px rgba(0, 0, 0, 0.05)" },
-                                                    children: (
-                                                        <div>
-                                                            <div className="h-[0.5px] bg-[#076eb8] mx-4" />
-                                                            <div id={`collapse-item-${fl.id}`} className={`flex flex-col gap-3 pt-3 pb-2 px-2.5 ${fl.id === editingId && 'bg-[#F8FCFF]'}`}>
-                                                                <FormRow label="Module kho" required>
-                                                                    <CustomSelect className="!text-[#484848] !h-[35px] !rounded-[8px]" placeholder="Chọn Module kho" options={moduleOptions} value={fl.moduleId || undefined} onChange={(v) => updateFloor(fl.id, { moduleId: v })} />
-                                                                </FormRow>
-                                                                <FormRow label="Tên tầng" required>
-                                                                    <CustomInput className='!h-[35px] !text-[#484848] !rounded-[8px]' placeholder="Nhập tên tầng" value={fl.name} onChange={(e) => updateFloor(fl.id, { name: e.target.value })} />
-                                                                </FormRow>
-                                                                <FormRow label="Vị trí" required>
-                                                                    <div className="flex flex-col gap-1">
-                                                                        <span className="text-[12px] text-[#484848] truncate">Đã chọn: {editingId === fl.id ? selectedCells.size : fl.nodes.length} vị trí</span>
-                                                                        <SelectedCellsTags
-                                                                            cells={editingId === fl.id ? Array.from(selectedCells) : fl.nodes}
-                                                                            canRemove={editingId === fl.id}
-                                                                            onRemove={(cell) => { const n = new Set(selectedCells); n.delete(cell); setSelectedCells(n); }}
-                                                                        />
-                                                                    </div>
-                                                                </FormRow>
-                                                                <FormRow label="Thiết bị" required>
-                                                                    <div className="flex flex-col gap-2 min-h-0">
-                                                                        <CustomInput
-                                                                            placeholder="Tìm kiếm thiết bị"
-                                                                            value={deviceSearch}
-                                                                            onChange={(e) => setDeviceSearch(e.target.value)}
-                                                                            className='!h-[35px] !text-[#54545499] !rounded-[8px]'
-                                                                        />
-                                                                        <OverlayScrollbarsComponent
-                                                                            defer
-                                                                            options={{
-                                                                                scrollbars: {
-                                                                                    autoHide: 'leave',
-                                                                                    autoHideDelay: 500,
-                                                                                },
-                                                                            }}
-                                                                            style={{ maxHeight: '200px' }}
-                                                                            className="border border-[#D6E4F0] rounded-lg p-1.5 bg-[#F9FBFF]"
-                                                                        >
-                                                                            {Object.entries(groupedDevices).length === 0 && (
-                                                                                <div className="text-center py-4 text-[#545454] text-[12px]">Không có thiết bị nào</div>
-                                                                            )}
-                                                                            {Object.entries(groupedDevices).map(([cat, devices]) => {
-                                                                                const filtered = devices.filter(d =>
-                                                                                    d.name?.toLowerCase().includes(deviceSearch.toLowerCase()) ||
-                                                                                    d.code?.toLowerCase().includes(deviceSearch.toLowerCase())
-                                                                                );
-                                                                                if (filtered.length === 0) return null;
-                                                                                return (
-                                                                                    <div key={cat} className="flex flex-col mb-2 last:mb-0">
-                                                                                        <div className="flex justify-between items-center px-2 py-1 bg-[#F0F7FF] rounded mb-1 border border-[#D6E4F0] w-full min-w-[270px]">
-                                                                                            <span className="text-[12px] font-bold text-[#076EB8]">{cat}</span>
-                                                                                            <DownOutlined style={{ fontSize: 9, color: '#076EB8' }} />
-                                                                                        </div>
-                                                                                        <div className="flex flex-col gap-0.5">
-                                                                                            {filtered.map(d => {
-                                                                                                const selectedDevice = fl.devices?.find(sd => sd.id === d.id);
-                                                                                                return (
-                                                                                                    <div key={d.id} className="flex justify-between items-center px-2 py-1.5 hover:bg-white rounded border border-transparent hover:border-[#D6E4F0] transition-all w-full min-w-[270px]">
-                                                                                                        <span className="text-[12px] text-[#484848] font-medium truncate max-w-[100px]" title={d.name}>
-                                                                                                            {d.name || d.code}
-                                                                                                        </span>
-                                                                                                        <div className="flex gap-1 flex-shrink-0">
-                                                                                                            {[
-                                                                                                                { label: 'Nhập', value: 'INBOUND', color: '#27AE60', bg: '#E8F8EF' },
-                                                                                                                { label: 'Xuất', value: 'OUTBOUND', color: '#E67E22', bg: '#FEF4E8' },
-                                                                                                                { label: 'Đa năng', value: 'MULTIPLE', color: '#076EB8', bg: '#E8F2FA' }
-                                                                                                            ].map((p) => {
-                                                                                                                const isActive = selectedDevice?.purpose === p.value;
-                                                                                                                return (
-                                                                                                                    <button
-                                                                                                                        key={p.value}
-                                                                                                                        onClick={() => {
-                                                                                                                            let nextDevices = [...(fl.devices || [])];
-                                                                                                                            const idx = nextDevices.findIndex(sd => sd.id === d.id);
-                                                                                                                            if (idx > -1) {
-                                                                                                                                if (isActive) {
-                                                                                                                                    nextDevices.splice(idx, 1);
-                                                                                                                                } else {
-                                                                                                                                    nextDevices[idx] = { ...nextDevices[idx], purpose: p.value as any };
-                                                                                                                                }
-                                                                                                                            } else {
-                                                                                                                                nextDevices.push({ id: d.id, purpose: p.value as any });
-                                                                                                                            }
-                                                                                                                            updateFloor(fl.id, { devices: nextDevices });
-                                                                                                                        }}
-                                                                                                                        className="px-1.5 py-0.5 text-[9px] rounded border transition-all"
-                                                                                                                        style={{
-                                                                                                                            borderColor: isActive ? p.color : '#D6E4F0',
-                                                                                                                            background: isActive ? p.bg : '#fff',
-                                                                                                                            color: isActive ? p.color : '#484848',
-                                                                                                                            minWidth: 42
-                                                                                                                        }}
-                                                                                                                    >
-                                                                                                                        {p.label}
-                                                                                                                    </button>
-                                                                                                                );
-                                                                                                            })}
-                                                                                                        </div>
-                                                                                                    </div>
-                                                                                                );
-                                                                                            })}
-                                                                                        </div>
-                                                                                    </div>
-                                                                                );
-                                                                            })}
-                                                                        </OverlayScrollbarsComponent>
-                                                                    </div>
-                                                                </FormRow>
-                                                                <ActionIcons onEdit={() => handleEdit(fl.id, fl.nodes)} onDelete={() => removeFloor(fl.id)} />
-                                                            </div>
-                                                        </div>
-                                                    ),
-                                                };
-                                            })}
-                                        />
-                                        <AddButton onClick={() => {
-                                            if (editingId) saveFloorNodes(editingId, Array.from(selectedCells));
-                                            addFloor();
-                                        }} />
-                                    </div>
-                                </OverlayScrollbarsComponent>
-                            )}
 
                             {activeTab === "area" && (
                                 <OverlayScrollbarsComponent
@@ -997,21 +671,6 @@ function ProfileInner({ id }: { id: string }) {
                                                         <div>
                                                             <div className="h-[0.5px] bg-[#076eb8] mx-4 " />
                                                             <div id={`collapse-item-${area.id}`} className={`flex flex-col gap-3 pt-3 pb-2 px-2.5 ${area.id === editingId && 'bg-[#F8FCFF]'}`}>
-                                                                <FormRow label="Tầng" required>
-                                                                    <CustomSelect
-                                                                        className="!text-[#54545499] !h-[35px] !rounded-[8px]"
-                                                                        placeholder="Chọn tầng"
-                                                                        options={floorOptions}
-                                                                        value={area.floorId || undefined}
-                                                                        onChange={(v) => updateArea(area.id, { floorId: v })}
-                                                                        disabled
-                                                                        suffixIcon={
-                                                                            <svg width="14.45" height="7.16" viewBox="0 0 18 9" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                                                <path d="M8.6675 8.5975C7.9675 8.5975 7.2675 8.3275 6.7375 7.7975L0.2175 1.2775C-0.0725 0.987499 -0.0725 0.5075 0.2175 0.2175C0.5075 -0.0725 0.9875 -0.0725 1.2775 0.2175L7.7975 6.7375C8.2775 7.2175 9.0575 7.2175 9.5375 6.7375L16.0575 0.2175C16.3475 -0.0725 16.8275 -0.0725 17.1175 0.2175C17.4075 0.5075 17.4075 0.987499 17.1175 1.2775L10.5975 7.7975C10.0675 8.3275 9.3675 8.5975 8.6675 8.5975Z" fill="#076eb8" />
-                                                                            </svg>
-                                                                        }
-                                                                    />
-                                                                </FormRow>
                                                                 <FormRow label="Loại khu vực" required>
                                                                     <CustomSelect
                                                                         className="!text-[#484848] !h-[35px] !rounded-[8px]"
@@ -1054,30 +713,7 @@ function ProfileInner({ id }: { id: string }) {
                                                                             onChange={(v) => updateArea(area.id, { product_id: v })}
                                                                         />
                                                                     </FormRow>
-                                                                    <FormRow label="Chiều nhập trục X" required>
-                                                                        <CustomSelect
-                                                                            className="!text-[#484848] !h-[35px] !rounded-[8px]"
-                                                                            placeholder="Chọn chiều nhập trục X"
-                                                                            options={[
-                                                                                { value: 'LEFT_TO_RIGHT', label: 'Nhập từ trái sang phải' },
-                                                                                { value: 'RIGHT_TO_LEFT', label: 'Nhập từ phải sang trái' },
-                                                                            ]}
-                                                                            value={area.inbound_direction_x || undefined}
-                                                                            onChange={(v) => updateArea(area.id, { inbound_direction_x: v })}
-                                                                        />
-                                                                    </FormRow>
-                                                                    <FormRow label="Chiều nhập trục Y" required>
-                                                                        <CustomSelect
-                                                                            className="!text-[#484848] !h-[35px] !rounded-[8px]"
-                                                                            placeholder="Chọn chiều nhập trục Y"
-                                                                            options={[
-                                                                                { value: 'TOP_TO_BOTTOM', label: 'Nhập từ trên xuống dưới' },
-                                                                                { value: 'BOTTOM_TO_TOP', label: 'Nhập từ dưới lên trên' },
-                                                                            ]}
-                                                                            value={area.inbound_direction_y || undefined}
-                                                                            onChange={(v) => updateArea(area.id, { inbound_direction_y: v })}
-                                                                        />
-                                                                    </FormRow>
+
                                                                 </>
                                                                 )
 
@@ -1092,6 +728,15 @@ function ProfileInner({ id }: { id: string }) {
                                                                         />
                                                                     </div>
                                                                 </FormRow>
+                                                                <FormRow label="Mô tả">
+                                                                    <CustomInput
+                                                                        className='!h-[35px] !text-[#484848] !rounded-[8px]'
+                                                                        placeholder="Nhập mô tả"
+                                                                        value={area.description || ""}
+                                                                        onChange={(e) => updateArea(area.id, { description: e.target.value })}
+                                                                    />
+                                                                </FormRow>
+
 
                                                                 <ActionIcons onEdit={() => handleEdit(area.id, area.nodes)} onDelete={() => removeArea(area.id)} />
                                                             </div>
@@ -1101,89 +746,195 @@ function ProfileInner({ id }: { id: string }) {
                                             })}
                                         />
                                         <AddButton onClick={() => {
+                                            if (editingId && activeTab === 'area' && selectedCells.size === 0) {
+                                                notify.error("Khu vực chưa có vị trí nào. Vui lòng chọn vị trí trên bản đồ!");
+                                                return;
+                                            }
                                             if (editingId) saveAreaNodes(editingId, Array.from(selectedCells));
-                                            addArea('');
+                                            addArea();
                                         }} />
                                     </div>
                                 </OverlayScrollbarsComponent>
                             )}
-                            <OverlayScrollbarsComponent
-                                defer
-                                options={{
-                                    scrollbars: {
-                                        visibility: 'hidden',
-                                    },
-                                }}
-                                className="w-full max-h-[580px] lg:max-h-[calc(100vh-280px)]"
-                            >
-                                {activeTab === "position" && (
+                            {activeTab === "position" && (() => {
+                                // Position form displayed for the currently selected cell
+                                return (
+                                    <PositionForm />
+                                );
+                            })()}
 
+                            {activeTab === "route" && (
+                                <OverlayScrollbarsComponent
+                                    defer
+                                    options={{ scrollbars: { visibility: 'hidden' } }}
+                                    className="w-full max-h-[580px] lg:max-h-[calc(100vh-280px)]"
+                                >
                                     <div className="pr-[15px]">
                                         <div className="flex flex-col gap-4 bg-white p-4 rounded-lg" style={{ border: "0.5px solid #076eb8", boxShadow: "0px 4px 4px 0px rgba(0, 0, 0, 0.05)" }}>
-                                            {isSingleSelect && (
-                                                <FormRow label="Tên vị trí" required>
-                                                    <CustomInput
-                                                        placeholder="Nhập tên vị trí"
-                                                        value={posName}
-                                                        onChange={(e) => setPosName(e.target.value)}
-                                                        className='!h-[35px] !text-[#484848] !rounded-[8px]'
-                                                    />
-                                                </FormRow>
-                                            )}
+                                            <div className="flex justify-between items-center pb-2 border-b border-[#D9D9D9]">
+                                                <span className="text-[#076eb8] text-[14px] font-medium">Tuyến đường 1</span>
+                                                <DownOutlined style={{ color: '#076eb8', fontSize: 12 }} />
+                                            </div>
 
-                                            <FormRow label="Vị trí" required>
-                                                <div className="flex flex-col gap-1">
-                                                    <span className="text-[12px] text-[#484848] truncate">Đã chọn: {selectedCells.size} vị trí</span>
-                                                    <SelectedCellsTags
-                                                        cells={Array.from(selectedCells)}
-                                                        canRemove={true}
-                                                        onRemove={(cell) => { const n = new Set(selectedCells); n.delete(cell); setSelectedCells(n); }}
-                                                    />
-                                                </div>
-                                            </FormRow>
-
-                                            {isSingleSelect && (
-                                                <FormRow label="QR Code" required>
-                                                    <CustomInput
-                                                        placeholder="Nhập mã QR Code"
-                                                        value={posQrCode}
-                                                        onChange={(e) => setPosQrCode(e.target.value)}
-                                                        className='!h-[35px] !text-[#484848] !rounded-[8px]'
-                                                    />
-                                                </FormRow>
-                                            )}
-
-                                            <FormRow label="Hướng đi" required>
-                                                <Select
-                                                    style={{ width: "100%" }}
-                                                    className="!h-[35px] !rounded-[8px] !text-[#54545499]"
-                                                    mode="multiple" placeholder="Chọn hướng di chuyển"
-                                                    value={Object.entries(posDirections).filter(([_, v]) => v).map(([k]) => k)}
-                                                    onChange={(vals: string[]) => {
-                                                        const newDirs: DirectionFlags = { up: false, down: false, left: false, right: false };
-                                                        vals.forEach(v => { if (v in newDirs) newDirs[v as keyof DirectionFlags] = true; });
-                                                        setPosDirections(newDirs);
-                                                    }}
-                                                    options={[{ value: 'up', label: 'Trên' }, { value: 'down', label: 'Dưới' }, { value: 'left', label: 'Trái' }, { value: 'right', label: 'Phải' }]}
+                                            <FormRow label="Tuyến đường" required>
+                                                <CustomInput
+                                                    placeholder="Ví dụ: E4 - F3"
+                                                    value={routeName}
+                                                    onChange={(e) => setRouteName(e.target.value)}
+                                                    className="!h-[35px] !text-[#484848] !rounded-[8px]"
                                                 />
                                             </FormRow>
 
-                                            <FormRow label="Hình ảnh">
-                                                <div className="w-20 h-20 border border-[#D6E4F0] rounded-lg flex flex-col items-center justify-center bg-[#F8FCFF] overflow-hidden">
-                                                    <img
-                                                        src={`/svgMap/${positionPreviewImg}`}
-                                                        alt="Preview"
-                                                        className="w-full h-full object-contain p-2"
-                                                        onError={(e) => {
-                                                            (e.target as HTMLImageElement).src = '/svgMap/node.svg';
-                                                        }}
-                                                    />
+                                            <FormRow label="Hướng đi" required>
+                                                <Select
+                                                    className="!text-[#484848] !h-[35px] !rounded-[8px] w-full"
+                                                    placeholder="Chọn hướng đi"
+                                                    value={routeDirection || undefined}
+                                                    onChange={(val) => setRouteDirection(val)}
+                                                    optionLabelProp="label"
+                                                >
+                                                    <Select.Option
+                                                        value="right"
+                                                        label={
+                                                            <div className="flex items-center gap-1">
+                                                                Cùng chiều ({getRouteDirectionOptions().from}
+                                                                <img src="/svgMap/right.svg" alt="right" className="w-3 h-3 object-contain" />
+                                                                {getRouteDirectionOptions().to})
+                                                            </div>
+                                                        }
+                                                    >
+                                                        <div className="flex items-center gap-1">
+                                                            Cùng chiều ({getRouteDirectionOptions().from}
+                                                            <img src="/svgMap/right.svg" alt="right" className="w-3 h-3 object-contain" />
+                                                            {getRouteDirectionOptions().to})
+                                                        </div>
+                                                    </Select.Option>
+                                                    <Select.Option
+                                                        value="left"
+                                                        label={
+                                                            <div className="flex items-center gap-1">
+                                                                Ngược chiều ({getRouteDirectionOptions().from}
+                                                                <img src="/svgMap/left.svg" alt="left" className="w-3 h-3 object-contain" />
+                                                                {getRouteDirectionOptions().to})
+                                                            </div>
+                                                        }
+                                                    >
+                                                        <div className="flex items-center gap-1">
+                                                            Ngược chiều ({getRouteDirectionOptions().from}
+                                                            <img src="/svgMap/left.svg" alt="left" className="w-3 h-3 object-contain" />
+                                                            {getRouteDirectionOptions().to})
+                                                        </div>
+                                                    </Select.Option>
+                                                    <Select.Option
+                                                        value="left_right"
+                                                        label={
+                                                            <div className="flex items-center gap-1">
+                                                                Hai chiều ({getRouteDirectionOptions().from}
+                                                                <img src="/svgMap/left_right.svg" alt="left_right" className="w-3 h-3 object-contain" />
+                                                                {getRouteDirectionOptions().to})
+                                                            </div>
+                                                        }
+                                                    >
+                                                        <div className="flex items-center gap-1">
+                                                            Hai chiều ({getRouteDirectionOptions().from}
+                                                            <img src="/svgMap/left_right.svg" alt="left_right" className="w-3 h-3 object-contain" />
+                                                            {getRouteDirectionOptions().to})
+                                                        </div>
+                                                    </Select.Option>
+                                                </Select>
+                                            </FormRow>
+
+                                            <FormRow label="Loại đường" required>
+                                                <CustomSelect
+                                                    className="!text-[#484848] !h-[35px] !rounded-[8px]"
+                                                    value={routeType || undefined}
+                                                    placeholder="Chọn loại đường"
+                                                    onChange={(val) => {
+                                                        setRouteType(val);
+                                                        if (val === 'Đường thẳng') {
+                                                            setCurveDirection(null);
+                                                            setCurveAngle("45");
+                                                            setRouteControlPoint(null);
+                                                        }
+                                                    }}
+                                                    options={[
+                                                        { value: 'Arc tròn', label: 'Arc tròn' },
+                                                        { value: 'Đường thẳng', label: 'Đường thẳng' }
+                                                    ]}
+                                                />
+                                            </FormRow>
+
+
+                                            <FormRow label="Hướng cong" required={routeType !== 'Đường thẳng'}>
+                                                <CustomSelect
+                                                    className="!text-[#484848] !h-[35px] !rounded-[8px]"
+                                                    value={curveDirection || undefined}
+                                                    placeholder="Chọn hướng cong"
+                                                    onChange={(val) => {
+                                                        setCurveDirection(val);
+                                                        setRouteControlPoint(null);
+                                                    }}
+                                                    disabled={routeType === 'Đường thẳng'}
+                                                    options={
+                                                        isVerticalLine
+                                                            ? [
+                                                                { value: 'trái', label: 'Trái' },
+                                                                { value: 'phải', label: 'Phải' }
+                                                            ]
+                                                            : [
+                                                                { value: 'trên', label: 'Trên' },
+                                                                { value: 'dưới', label: 'Dưới' }
+                                                            ]
+                                                    }
+                                                />
+                                            </FormRow>
+
+                                            <FormRow label="Độ cong (độ)" required={routeType !== 'Đường thẳng'}>
+                                                <div className="flex flex-col">
+                                                    <div className="flex items-center gap-2">
+                                                        <Slider
+                                                            className="flex-1"
+                                                            min={0}
+                                                            max={180}
+                                                            value={curveAngle !== null && curveAngle !== '' ? Number(curveAngle) : 45}
+                                                            onChange={(val) => {
+                                                                setCurveAngle(val.toString());
+                                                                setRouteControlPoint(null);
+                                                            }}
+                                                            disabled={routeType === 'Đường thẳng'}
+                                                        />
+                                                        <span className="w-10 text-sm text-gray-600">{curveAngle !== null && curveAngle !== '' ? curveAngle : "45"}°</span>
+                                                    </div>
+                                                    {routeControlPoint && (
+                                                        <div className="text-[12px] text-[#f59e0b] mt-1 font-medium">
+                                                            Tọa độ tự do: (X: {Math.round(routeControlPoint.x)}, Y: {Math.round(routeControlPoint.y)})
+                                                        </div>
+                                                    )}
                                                 </div>
+                                            </FormRow>
+
+                                            <FormRow label="Khoảng cách (mm)">
+                                                <CustomInput
+                                                    placeholder="Nhập khoảng cách thực tế"
+                                                    value={routeDistance}
+                                                    onChange={(e) => setRouteDistance(e.target.value)}
+                                                    className="!h-[35px] !text-[#484848] !rounded-[8px]"
+                                                />
+                                            </FormRow>
+
+                                            <FormRow label="Tốc độ (m/s)">
+                                                <CustomInput
+                                                    placeholder="Nhập tốc độ tối đa cho..."
+                                                    value={routeSpeed}
+                                                    onChange={(e) => setRouteSpeed(e.target.value)}
+                                                    className="!h-[35px] !text-[#484848] !rounded-[8px]"
+                                                    type="number"
+                                                />
                                             </FormRow>
                                         </div>
                                     </div>
-                                )}
-                            </OverlayScrollbarsComponent>
+                                </OverlayScrollbarsComponent>
+                            )}
                         </div>
 
                         <div className="relative lg:absolute bottom-0 lg:bottom-[15px] left-0 lg:left-[15px] right-0 lg:right-[15px] flex flex-row items-center justify-center gap-2 md:gap-[20px] bg-white pt-4 lg:pt-2 pb-4 lg:pb-0 z-10">
@@ -1208,33 +959,6 @@ function ProfileInner({ id }: { id: string }) {
                     )}
                 </div>
 
-                <Modal
-                    zIndex={1560}
-                    title="Sao chép cấu hình sang tầng khác"
-                    open={copyModalVisible}
-                    onOk={() => {
-                        if (fromWFloorId && fromWFloorId !== currentWarehouseFloorId) {
-                            copyFloorConfig(fromWFloorId, currentWarehouseFloorId);
-                            setCopyModalVisible(false);
-                            setFromWFloorId("");
-                        }
-                    }}
-                    onCancel={() => setCopyModalVisible(false)}
-                    okText="Sao chép"
-                    cancelText="Đóng"
-                >
-                    <div className="py-4">
-                        <p className="mb-2 text-[#545454]">Chọn tầng để sao chép cấu hình sang <b>{warehouseFloors.find(wf => wf.id.toString() === currentWarehouseFloorId)?.name || 'tầng hiện tại'}</b>:</p>
-                        <CustomSelect
-                            placeholder="Chọn tầng nguồn"
-                            style={{ width: '100%' }}
-                            options={warehouseFloors.filter(wf => wf.id.toString() !== currentWarehouseFloorId).map(wf => ({ value: wf.id.toString(), label: wf.name || `Tầng ${wf.floor_number || ''}` }))}
-                            value={fromWFloorId || undefined}
-                            onChange={setFromWFloorId}
-                        />
-                    </div>
-                </Modal>
-
                 <style jsx global>{`
             `}</style>
             </div>
@@ -1255,8 +979,8 @@ function ActionIcons({ onEdit, onDelete }: { onEdit?: () => void; onDelete: () =
     return (
         <div className="flex items-center justify-center gap-2 pt-1">
             {onEdit && (
-                <button onClick={onEdit} className="w-7 h-7 rounded-full bg-[#076EB8] flex items-center justify-center text-[white] hover:opacity-80 transition-opacity cursor-pointer focus:outline-none focus-visible:outline-none">
-                    <EditOutlined style={{ fontSize: 12 }} />
+                <button onClick={onEdit} className="w-7 h-7 flex items-center justify-center hover:opacity-80 transition-opacity cursor-pointer focus:outline-none focus-visible:outline-none">
+                    <img src="/svgMap/updatezone.svg" alt="edit" className="w-full h-full object-contain" />
                 </button>
             )}
             <button onClick={onDelete} className="w-7 h-7 rounded-full border-[#C60808] border-[1px] bg-white flex items-center justify-center text-[#C60808] hover:opacity-80 transition-opacity cursor-pointer focus:outline-none focus-visible:outline-none">
@@ -1267,8 +991,8 @@ function ActionIcons({ onEdit, onDelete }: { onEdit?: () => void; onDelete: () =
 }
 // chuyển đổi tọa độ thành tên vị trí 
 function SelectedCellsTags({ cells, canRemove, onRemove }: { cells: string[]; canRemove: boolean; onRemove: (cell: string) => void }) {
-    const { currentWarehouseFloorId, warehouseFloors } = useWarehouseConfig();
-    const currentFloorNum = warehouseFloors.find(wf => wf.id.toString() === currentWarehouseFloorId)?.floor_number || 1;
+    const { warehouseName } = useWarehouseConfig();
+    const currentFloorNum = 1; // Default to floor 1 since floors are not used anymore
     if (cells.length === 0) return <div className="border-[0.5px] border-[#d9d9d9] bg-white rounded-lg p-2  h-[35px]min-h-[35px] text-[#545454] text-[14px] truncate ">Chọn vị trí trên bản đồ</div>;
     // code của vị trí tự sinh 
     const getLabel = (cell: string) => {
@@ -1306,14 +1030,106 @@ function SelectedCellsTags({ cells, canRemove, onRemove }: { cells: string[]; ca
         </OverlayScrollbarsComponent>
     );
 }
+function PositionForm() {
+    const { selectedCells, areas } = useWarehouseConfig();
+    const [posData, setPosData] = useState<Record<string, { posCode: string; isJunction: boolean; isActive: boolean }>>({});
 
+    const cellKey = Array.from(selectedCells).sort().join('|');
+    const data = posData[cellKey] || { posCode: '', isJunction: false, isActive: true };
+    const update = (fields: Partial<typeof data>) =>
+        setPosData(prev => ({ ...prev, [cellKey]: { ...data, ...fields } }));
 
+    const matchingArea = areas.find(area =>
+        Array.from(selectedCells).some(cell => area.nodes.includes(cell))
+    );
+
+    const collapseItems = [
+        {
+            key: '1',
+            label: (
+                <div className="w-full">
+                    <span className="font-normal text-[#076EB8] text-[14px]">
+                        {matchingArea?.name || `Vị trí`}
+                    </span>
+                </div>
+            ),
+            style: {
+                marginBottom: 12,
+                border: '0.5px solid #076eb8',
+                borderRadius: '8px',
+                overflow: 'hidden',
+                background: '#fff',
+                boxShadow: '0px 4px 4px 0px rgba(0, 0, 0, 0.05)',
+            },
+            children: (
+                <div>
+                    <div className="h-[0.5px] bg-[#076eb8] mx-4" />
+                    <div className="flex flex-col gap-3 pt-3 pb-2 px-2.5">
+                        <FormRow label="Vị trí" required>
+                            <div className="flex flex-col gap-1">
+                                <span className="text-[12px] text-[#484848] truncate">
+                                    Đã chọn: {matchingArea ? selectedCells.size : 0} vị trí
+                                </span>
+                                {matchingArea && selectedCells.size > 0 ? (
+                                    <SelectedCellsTags
+                                        cells={Array.from(selectedCells)}
+                                        canRemove={false}
+                                        onRemove={() => { }}
+                                    />
+                                ) : (
+                                    <div className="flex items-center px-3 py-1.5 border border-[#d9d9d9] rounded-[8px] bg-[#f5f5f5] cursor-not-allowed text-[14px] text-[#bfbfbf] min-h-[35px]">
+                                        Chọn vị trí trên bản đồ
+                                    </div>
+                                )}
+                            </div>
+                        </FormRow>
+                        <FormRow label="Mã vị trí" required>
+                            <CustomInput
+                                placeholder="Nhập mã vị trí"
+                                value={data.posCode}
+                                onChange={(e) => update({ posCode: e.target.value })}
+                                className="!h-[35px] !text-[#484848] !rounded-[8px]"
+                                disabled={!(matchingArea && selectedCells.size > 0)}
+                            />
+                        </FormRow>
+                        <FormRow label="Giao lộ" required>
+                            <Switch checked={data.isJunction} onChange={(v) => update({ isJunction: v })} disabled />
+                        </FormRow>
+                        <FormRow label="Hoạt động" required>
+                            <Switch checked={data.isActive} onChange={(v) => update({ isActive: v })} disabled />
+                        </FormRow>
+                    </div>
+                </div>
+            ),
+        }
+    ];
+
+    return (
+        <OverlayScrollbarsComponent
+            defer
+            options={{ scrollbars: { visibility: 'hidden' } }}
+            className="w-full max-h-[580px] lg:max-h-[calc(100vh-280px)]"
+        >
+            <div className="flex flex-col gap-3 pr-[15px] pl-[1px] pb-4">
+                <Collapse
+                    defaultActiveKey={['1']}
+                    expandIcon={({ isActive }) => <DownOutlined rotate={isActive ? -180 : 0} style={{ color: '#076EB8', fontSize: 12 }} />}
+                    expandIconPlacement="end"
+                    collapsible="header"
+                    style={{ background: 'transparent', border: 'none' }}
+                    styles={collapseStyles}
+                    items={collapseItems}
+                />
+            </div>
+        </OverlayScrollbarsComponent>
+    );
+}
 
 function AddButton({ onClick }: { onClick: () => void }) {
     return (
         <div className="flex justify-center pt-2">
-            <button onClick={onClick} className="text-[#076EB8] hover:opacity-80 rounded-full transition-opacity cursor-pointer focus:outline-none focus-visible:outline-none">
-                <PlusCircleFilled style={{ fontSize: 24 }} />
+            <button onClick={onClick} >
+                <img src="/svgMap/updatezone2.svg" alt="add" width={27} height={27} />
             </button>
         </div>
     );

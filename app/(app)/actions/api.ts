@@ -24,18 +24,7 @@ export async function api<T>(url: string, options?: RequestInit): Promise<T> {
     });
     return response;
   } catch (e: any) {
-    if ((e?.status === 401) && !isAuth(url)) {
-      try {
-        const cookieStore = await cookies();
-        cookieStore.delete("accessToken");
-        cookieStore.delete("refreshToken");
-        redirect("/login?reason=session_expired");
-      } catch (err: any) {
-        if (err?.digest?.startsWith('NEXT_REDIRECT')) throw err;
-        //hệ thống lập tức bắt được mã lỗi 401 này và đá User ra trang login
-        redirect("/login");
-      }
-    }
+    // Không tự động đá ra trang login theo yêu cầu (chế độ test/demo)
     throw e;
   }
 }

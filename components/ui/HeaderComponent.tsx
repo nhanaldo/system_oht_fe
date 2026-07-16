@@ -13,7 +13,7 @@ import {
     HomeOutlined
 } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
-import { logoutAction, setWarehouseIdAction } from '@/app/(app)/actions/authAction';
+// import { logoutAction, setWarehouseIdAction } from '@/app/(app)/actions/authAction';
 // import { getCurrentAccountProfile } from '@/app/(app)/system/accounts/accountAction';
 import { OverlayScrollbarsComponent } from "overlayscrollbars-react";
 import "overlayscrollbars/overlayscrollbars.css";
@@ -158,7 +158,7 @@ export default function HeaderComponent({ collapsed, setCollapsed, username }: H
 
     const handleWarehouseSelect = async (wh: Warehouse) => {
         setSelectedWarehouseId(wh.id);
-        await setWarehouseIdAction(wh.id);
+        // await setWarehouseIdAction(wh.id);
         setDropdownOpen(false); // Đóng popup sau khi chọn xong
         router.refresh();
     };
