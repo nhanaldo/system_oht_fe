@@ -27,6 +27,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ showDevices = false }) => {
     images, rows, columns, updateArea, editingId, setEditingId, setInitialEditingKeys,
     posDirections, posName, posQrCode, allProducts, categories,
     routeType, curveAngle, setCurveAngle, routeControlPoint, setRouteControlPoint, curveDirection, setCurveDirection, routeDirection, routes,
+    setRouteType, setRouteDirection,
     setActiveTab, readOnly, allDevices, allDeviceTypes, allLocations
   } = useWarehouseConfig();
 
@@ -170,11 +171,13 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ showDevices = false }) => {
 
   // Ref for event handlers to avoid stale closures
   const latestRef = React.useRef({
-    activeTab, editingId, areas, cellToAreaMap, areaNodes, selectedCells, getTakenCells, rows, columns, updateArea, setSelectedCells, setEditingId, setInitialEditingKeys, nodeMap, routeType, setCurveAngle
+    activeTab, editingId, areas, cellToAreaMap, areaNodes, selectedCells, getTakenCells, rows, columns, updateArea, setSelectedCells, setEditingId, setInitialEditingKeys, nodeMap, routeType, setCurveAngle,
+    setRouteType, setCurveDirection, setRouteControlPoint, setRouteDirection, routes, curveDirection, routeControlPoint, routeDirection, curveAngle
   });
   useEffect(() => {
     latestRef.current = {
-      activeTab, editingId, areas, cellToAreaMap, areaNodes, selectedCells, getTakenCells, rows, columns, updateArea, setSelectedCells, setEditingId, setInitialEditingKeys, nodeMap, routeType, setCurveAngle
+      activeTab, editingId, areas, cellToAreaMap, areaNodes, selectedCells, getTakenCells, rows, columns, updateArea, setSelectedCells, setEditingId, setInitialEditingKeys, nodeMap, routeType, setCurveAngle,
+      setRouteType, setCurveDirection, setRouteControlPoint, setRouteDirection, routes, curveDirection, routeControlPoint, routeDirection, curveAngle
     };
   });
 
@@ -292,12 +295,14 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ showDevices = false }) => {
     if (!ctx) return;
     ctx.setTransform(resolutionScale, 0, 0, resolutionScale, 0, 0);
     ctx.clearRect(0, 0, w, h);
-    ctx.fillStyle = "#677594";
-    for (let r = visibleRange.rStart; r <= visibleRange.rEnd; r++) {
-      for (let c = visibleRange.cStart; c <= visibleRange.cEnd; c++) {
-        ctx.beginPath();
-        ctx.arc(c * CELL_SIZE + CELL_SIZE / 2, r * CELL_SIZE + CELL_SIZE / 2, 2, 0, Math.PI * 2);
-        ctx.fill();
+    if (!readOnly) {
+      ctx.fillStyle = "#677594";
+      for (let r = visibleRange.rStart; r <= visibleRange.rEnd; r++) {
+        for (let c = visibleRange.cStart; c <= visibleRange.cEnd; c++) {
+          ctx.beginPath();
+          ctx.arc(c * CELL_SIZE + CELL_SIZE / 2, r * CELL_SIZE + CELL_SIZE / 2, 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
       }
     }
     const isEditing = !!editingId;
@@ -324,6 +329,8 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ showDevices = false }) => {
 
       if (rType === 'Đường thẳng') {
         ctx.lineTo(x2, y2);
+        cx_curve = (x1 + x2) / 2;
+        cy_curve = (y1 + y2) / 2;
       } else {
         const angleDegree = (cAngle !== null && cAngle !== undefined && cAngle !== '') ? Number(cAngle) : 45;
         const scale = angleDegree / 90; // Độ cong tỷ lệ với góc
@@ -381,7 +388,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ showDevices = false }) => {
       ctx.stroke();
 
       // Vẽ điểm điều khiển nếu đang chỉnh sửa (Active Route) - Phải vẽ sau khi stroke đường chính
-      if (rType !== 'Đường thẳng' && isActiveRoute && !readOnly) {
+      if (isActiveRoute && !readOnly) {
         ctx.save();
         ctx.beginPath();
         ctx.arc(cx_curve, cy_curve, 6, 0, Math.PI * 2);
@@ -473,16 +480,23 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ showDevices = false }) => {
         } else if (rDir === 'left') {
           drawArrow(midX, midY, angle + Math.PI);
         } else if (rDir === 'left_right') {
-          drawArrow(midX - Math.cos(angle) * 8, midY - Math.sin(angle) * 8, angle + Math.PI);
-          drawArrow(midX + Math.cos(angle) * 8, midY + Math.sin(angle) * 8, angle);
+          // khoản cách hai chiều 
+          drawArrow(midX - Math.cos(angle) * 3, midY - Math.sin(angle) * 3, angle + Math.PI);
+          drawArrow(midX + Math.cos(angle) * 3, midY + Math.sin(angle) * 3, angle);
         }
       }
     };
 
     // Vẽ các tuyến đường đã lưu
     if (activeTab === 'route') {
+      const selectedCellsStr = Array.from(selectedCells).sort().join('|');
+      
       routes.forEach(rt => {
         if (rt.cells.length === 2) {
+          // Bỏ qua tuyến đường đang được chọn để chỉnh sửa (tránh vẽ đè đường cũ và mới)
+          const rtCellsStr = [...rt.cells].sort().join('|');
+          if (rtCellsStr === selectedCellsStr) return;
+
           const [r1, c1] = rt.cells[0].split(',').map(Number);
           const [r2, c2] = rt.cells[1].split(',').map(Number);
           drawSingleRoute(r1, c1, r2, c2, rt.routeType, rt.curveDirection, rt.routeDirection, rt.curveAngle, rt.controlPoint, false);
@@ -540,6 +554,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ showDevices = false }) => {
             const area = areaId ? areaMap.get(areaId) : null;
             // Lấy tên ảnh cơ bản (không hướng) dựa trên loại khu vực
             imgName = getSelectedTileName({ up: false, down: false, left: false, right: false }, area?.areaType);
+          
           }
         }
         if (bgColor) {
@@ -613,7 +628,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ showDevices = false }) => {
     const y = (e.clientY - rect.top) / scale;
 
     // Kiểm tra xem có đang click vào điểm điều khiển (control point) không
-    if (activeTab === 'route' && selectedCells.size === 2 && routeType && routeType !== 'Đường thẳng') {
+    if (activeTab === 'route' && selectedCells.size === 2 && routeType) {
       const arr = Array.from(selectedCells);
       const [r1, c1] = arr[0].split(',').map(Number);
       const [r2, c2] = arr[1].split(',').map(Number);
@@ -626,6 +641,9 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ showDevices = false }) => {
       if (routeControlPoint) {
         cx = routeControlPoint.x;
         cy = routeControlPoint.y;
+      } else if (routeType === 'Đường thẳng') {
+        cx = (x1 + x2) / 2;
+        cy = (y1 + y2) / 2;
       } else {
         const dx = x2 - x1;
         const dy = y2 - y1;
@@ -671,6 +689,106 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ showDevices = false }) => {
         handlersRef.current.up = handleMouseUp;
         window.addEventListener('mousemove', handleMouseMove);
         window.addEventListener('mouseup', handleMouseUp);
+        return;
+      }
+    }
+
+    // Kiểm tra xem có đang click vào một tuyến đường đã lưu hay không
+    if (activeTab === 'route') {
+      let clickedRoute = null;
+      for (const rt of routes) {
+        if (rt.cells.length === 2) {
+          const [r1, c1] = rt.cells[0].split(',').map(Number);
+          const [r2, c2] = rt.cells[1].split(',').map(Number);
+          const x1 = c1 * CELL_SIZE + CELL_SIZE / 2;
+          const y1 = r1 * CELL_SIZE + CELL_SIZE / 2;
+          const x2 = c2 * CELL_SIZE + CELL_SIZE / 2;
+          const y2 = r2 * CELL_SIZE + CELL_SIZE / 2;
+
+          const distToNode1 = Math.hypot(x - x1, y - y1);
+          const distToNode2 = Math.hypot(x - x2, y - y2);
+          if (distToNode1 <= 15 || distToNode2 <= 15) {
+            continue;
+          }
+
+          if (rt.routeType === 'Đường thẳng' || !rt.routeType) {
+            const L2 = (x2 - x1) ** 2 + (y2 - y1) ** 2;
+            let dist = 0;
+            if (L2 === 0) {
+              dist = Math.hypot(x - x1, y - y1);
+            } else {
+              let t = ((x - x1) * (x2 - x1) + (y - y1) * (y2 - y1)) / L2;
+              t = Math.max(0, Math.min(1, t));
+              const projX = x1 + t * (x2 - x1);
+              const projY = y1 + t * (y2 - y1);
+              dist = Math.hypot(x - projX, y - projY);
+            }
+            if (dist <= 20) {
+              clickedRoute = rt;
+              break;
+            }
+          } else {
+            let cx = 0, cy = 0;
+            if (rt.controlPoint) {
+              cx = rt.controlPoint.x;
+              cy = rt.controlPoint.y;
+            } else {
+              const dx = x2 - x1;
+              const dy = y2 - y1;
+              const L = Math.hypot(dx, dy);
+              const midX = (x1 + x2) / 2;
+              const midY = (y1 + y2) / 2;
+
+              let Nx = 0, Ny = 0;
+              const dirStr = rt.curveDirection?.toLowerCase() || '';
+              if (dirStr === 'trái' || dirStr === 'phải') {
+                const wantLeft = dirStr === 'trái';
+                if (wantLeft) {
+                  if (dy > 0) { Nx = -dy; Ny = dx; } else { Nx = dy; Ny = -dx; }
+                } else {
+                  if (dy > 0) { Nx = dy; Ny = -dx; } else { Nx = -dy; Ny = dx; }
+                }
+              } else {
+                const wantUp = dirStr === 'trên';
+                if (wantUp) {
+                  if (-dx < 0) { Nx = dy; Ny = -dx; } else { Nx = -dy; Ny = dx; }
+                } else {
+                  if (-dx > 0) { Nx = dy; Ny = -dx; } else { Nx = -dy; Ny = dx; }
+                }
+              }
+
+              if (L > 0) { Nx /= L; Ny /= L; }
+              const angleDegree = (rt.curveAngle !== null && rt.curveAngle !== undefined && rt.curveAngle !== '') ? Number(rt.curveAngle) : 45;
+              const scaleDist = angleDegree / 90;
+              const cx_bezier = midX + Nx * L * scaleDist;
+              const cy_bezier = midY + Ny * L * scaleDist;
+              cx = 0.25 * x1 + 0.5 * cx_bezier + 0.25 * x2;
+              cy = 0.25 * y1 + 0.5 * cy_bezier + 0.25 * y2;
+            }
+
+            let minDist = Infinity;
+            for (let i = 0; i <= 20; i++) {
+              const t = i / 20;
+              const px = (1 - t) ** 2 * x1 + 2 * (1 - t) * t * cx + t ** 2 * x2;
+              const py = (1 - t) ** 2 * y1 + 2 * (1 - t) * t * cy + t ** 2 * y2;
+              const d = Math.hypot(x - px, y - py);
+              if (d < minDist) minDist = d;
+            }
+            if (minDist <= 20) {
+              clickedRoute = rt;
+              break;
+            }
+          }
+        }
+      }
+
+      if (clickedRoute) {
+        latestRef.current.setSelectedCells(new Set(clickedRoute.cells));
+        latestRef.current.setRouteType(clickedRoute.routeType || null);
+        latestRef.current.setCurveDirection(clickedRoute.curveDirection || null);
+        latestRef.current.setCurveAngle(String(clickedRoute.curveAngle || "45"));
+        latestRef.current.setRouteControlPoint(clickedRoute.controlPoint || null);
+        latestRef.current.setRouteDirection((clickedRoute.routeDirection as '' | 'left' | 'right' | 'left_right') || '');
         return;
       }
     }
@@ -758,6 +876,9 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ showDevices = false }) => {
             newDir = currentY < midY ? 'trên' : 'dưới';
           }
 
+          if (latestRef.current.setRouteType && routeType === 'Đường thẳng') {
+            latestRef.current.setRouteType('Arc tròn');
+          }
           setCurveAngle(newAngle.toString());
           setCurveDirection(newDir);
         }
@@ -930,7 +1051,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ showDevices = false }) => {
           }}
         >
           <div className="absolute -top-5 left-0 h-5">
-            {Array.from({ length: visibleRange.cEnd - visibleRange.cStart + 1 }).map((_, i) => {
+            {!readOnly && Array.from({ length: visibleRange.cEnd - visibleRange.cStart + 1 }).map((_, i) => {
               const c = visibleRange.cStart + i;
               return (
                 <div key={`col-${c}`} className="text-[14px] text-[#545454] font-normal text-center absolute bottom-0" style={{ width: CELL_SIZE, left: c * CELL_SIZE }}>
@@ -941,7 +1062,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ showDevices = false }) => {
           </div>
           {/* Vẽ Tên Hàng (Số 1, 2, 3...) ở bên trái */}
           <div className="absolute -left-6 top-0" style={{ width: 24 }}>
-            {Array.from({ length: visibleRange.rEnd - visibleRange.rStart + 1 }).map((_, i) => {
+            {!readOnly && Array.from({ length: visibleRange.rEnd - visibleRange.rStart + 1 }).map((_, i) => {
               const r = visibleRange.rStart + i; // in ra số hàng bắt đầu từ 1
               return (
                 <div key={`row-${r}`} className="text-[14px] text-[#545454] font-normal text-right absolute flex items-center justify-end pr-[5px] pt-[5px] pb-[5px]" style={{ height: CELL_SIZE, top: r * CELL_SIZE, width: 24 }}>

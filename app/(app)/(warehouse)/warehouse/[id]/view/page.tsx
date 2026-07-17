@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { WarehouseConfigProvider, useWarehouseConfig } from "../../[id]/components/WarehouseContext";
 import WarehouseMap from "../../[id]/components/WarehouseMap";
 import ModalThemeProvider from "@/components/ui/ModalThemeProvider";
+import ActivitiesPanels from "@/app/(app)/minitor/components/ActivitiesPanels";
 
 const MapViewer: React.FC = () => {
     const { setActiveTab } = useWarehouseConfig();
@@ -15,9 +16,12 @@ const MapViewer: React.FC = () => {
     }, [setActiveTab]);
 
     return (
-        <div className="flex flex-col h-full w-full">
-            <div className="flex-1 min-h-0 relative w-full bg-[#F8FCFF]">
+        <div className="flex flex-row h-full w-full gap-4 p-4 bg-[#F8FCFF]">
+            <div className="flex-[3] min-w-0 relative h-full rounded-xl border border-[#D6E4F0] overflow-hidden bg-white shadow-sm">
                 <WarehouseMap />
+            </div>
+            <div className="w-[400px] shrink-0 h-full overflow-hidden rounded-xl  flex flex-col">
+                <ActivitiesPanels />
             </div>
         </div>
     );

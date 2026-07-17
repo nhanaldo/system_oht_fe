@@ -4,11 +4,8 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Layout } from 'antd';
-import SideBar from './SideBar';
 import HeaderComponent from '@/components/ui/HeaderComponent';
 import { OverlayScrollbarsComponent } from "overlayscrollbars-react";
-import { RealtimeProvider } from '../realtime/RealtimeProvider';
-
 const { Header, Sider, Content, Footer } = Layout;
 
 interface AppLayoutProps {
@@ -77,9 +74,7 @@ export default function AppLayoutComponents({ children, menuData = [], username 
         return (
             <Layout style={{ height: '100vh', width: '100vw', overflow: 'hidden' }}>
                 <Content style={{ padding: 0, margin: 0, background: '#f1f5f9', position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column', width: '100%', height: '100%' }}>
-                    <RealtimeProvider>
                         {children}
-                    </RealtimeProvider>
                 </Content>
             </Layout>
         );
@@ -159,9 +154,7 @@ export default function AppLayoutComponents({ children, menuData = [], username 
                             height: '100%'
                         }}
                     >
-                        <RealtimeProvider>
                             {children}
-                        </RealtimeProvider>
                     </Content>
 
                     {/* Footer */}

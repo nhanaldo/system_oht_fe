@@ -24,6 +24,8 @@ import {
     getNodeById,
     updateNodeDetails,
     createNodeEdge,
+    updateNodeEdge,
+    deleteNodeEdge,
 } from "../../warehouseAcction";
 import ModalThemeProvider from "@/components/ui/ModalThemeProvider";
 import { log } from "console";
@@ -93,7 +95,7 @@ function ProfileInner({ id }: { id: string }) {
         posDirections, setPosDirections, posName, setPosName, posQrCode, setPosQrCode,
         routeType, setRouteType, curveAngle, setCurveAngle, routeControlPoint, setRouteControlPoint, curveDirection, setCurveDirection,
         routeDirection, setRouteDirection,
-        routes, addRoute,
+        routes, addRoute, updateRoute,
         zoneTypes, warehouses, restoreSnapshot,
         isLoading, refreshGlobal, refreshFloor,
         categories, products, setSelectedCategories, allDevices,
@@ -142,7 +144,82 @@ function ProfileInner({ id }: { id: string }) {
     const [routeDistance, setRouteDistance] = useState("");
     const [routeSpeed, setRouteSpeed] = useState("");
 
+    const [viewingRouteId, setViewingRouteId] = useState<string | null>(null);
+    const [editingRouteId, setEditingRouteId] = useState<string | null>(null);
 
+    const prevSelectedRouteCellsRef = React.useRef<string>("");
+
+    useEffect(() => {
+        if (activeTab === 'route' && selectedCells.size === 2) {
+            const arr = Array.from(selectedCells).sort();
+            const cellsStr = arr.join('|');
+            if (cellsStr !== prevSelectedRouteCellsRef.current) {
+                prevSelectedRouteCellsRef.current = cellsStr;
+                const existingRoute = routes.find(r => {
+                    const rCells = [...r.cells].sort();
+                    return rCells.join('|') === cellsStr;
+                });
+                if (existingRoute) {
+                    setViewingRouteId(existingRoute.id);
+                    setEditingRouteId(existingRoute.id);
+                    setRouteName(existingRoute.name || "");
+                    setRouteType(existingRoute.routeType || null);
+                    setCurveDirection(existingRoute.curveDirection || null);
+                    setCurveAngle(existingRoute.curveAngle !== null && existingRoute.curveAngle !== undefined ? existingRoute.curveAngle.toString() : "45");
+                    setRouteControlPoint(existingRoute.controlPoint || null);
+                    setRouteDirection((existingRoute.routeDirection as any) || '');
+                    setRouteDistance((existingRoute.distance && existingRoute.distance != 0) ? existingRoute.distance.toString() : "");
+                    setRouteSpeed((existingRoute.speed && existingRoute.speed != 0) ? existingRoute.speed.toString() : "");
+                } else {
+                    setViewingRouteId(null);
+                    setEditingRouteId(null);
+                    setRouteName("");
+                    setRouteDistance("");
+                    setRouteSpeed("");
+                    setRouteType(null);
+                    setCurveDirection(null);
+                    setCurveAngle("45");
+                    setRouteControlPoint(null);
+                    setRouteDirection('');
+                }
+            }
+        } else if (activeTab === 'route' && selectedCells.size !== 2) {
+            prevSelectedRouteCellsRef.current = "";
+        }
+    }, [activeTab, selectedCells, routes, setRouteType, setCurveDirection, setCurveAngle, setRouteControlPoint, setRouteDirection]);
+
+    const handleDeleteRoute = async (routeId: string) => {
+        Modal.confirm({
+            title: 'Xóa tuyến đường',
+            content: 'Bạn có chắc chắn muốn xóa tuyến đường này?',
+            okText: 'Xóa',
+            okType: 'danger',
+            cancelText: 'Hủy',
+            onOk: async () => {
+                const res = await deleteNodeEdge(id, routeId);
+                if (res?.error) {
+                    notify.error(`Lỗi khi xóa tuyến đường: ${res.error}`);
+                    return;
+                }
+                notify.success("Xóa tuyến đường thành công!");
+
+                // Reset toàn bộ form sau khi xoá
+                setViewingRouteId(null);
+                setEditingRouteId(null);
+                setSelectedCells(new Set());
+                setRouteType(null);
+                setCurveDirection(null);
+                setCurveAngle("45");
+                setRouteControlPoint(null);
+                setRouteDirection('');
+                setRouteName('');
+                setRouteDistance('');
+                setRouteSpeed('');
+
+                refreshFloor();
+            }
+        });
+    };
 
     const getRouteDirectionOptions = () => {
         const parts = routeName.split('-');
@@ -545,7 +622,7 @@ function ProfileInner({ id }: { id: string }) {
                     const angle = parseFloat(curveAngle || "45") || 45;
                     const cpX = routeControlPoint?.x ?? defaultControlPoint?.x ?? 0;
                     const cpY = routeControlPoint?.y ?? defaultControlPoint?.y ?? 0;
-                    
+
                     configObj = {
                         curve_dir: curveDirection || "",
                         curvature: angle,
@@ -554,8 +631,8 @@ function ProfileInner({ id }: { id: string }) {
                     };
                 }
 
-                const dist = parseFloat(routeDistance) || 0;
-                const spd = parseFloat(routeSpeed) || 0;
+                const dist = routeDistance ? parseFloat(routeDistance) : null;
+                const spd = routeSpeed ? parseFloat(routeSpeed) : null;
 
                 const payload: any = {
                     config: configObj,
@@ -566,32 +643,43 @@ function ProfileInner({ id }: { id: string }) {
                     max_speed: spd,
                     to_node_id: toNode.nodeId,
                 };
-                
+
                 console.log(payload)
 
-                const resEdge = await createNodeEdge(id, payload);
-                if (resEdge?.error) {
-                    notify.error(`Lỗi khi tạo tuyến đường: ${resEdge.error}`);
-                    setIsSaving(false);
-                    return;
+                if (editingRouteId) {
+                    const resEdge = await updateNodeEdge(id, editingRouteId, payload);
+                    if (resEdge?.error) {
+                        notify.error(`Lỗi khi cập nhật tuyến đường: ${resEdge.error}`);
+                        setIsSaving(false);
+                        return;
+                    }
+
+                    // Cập nhật ngay trên UI local trước khi refresh data để tránh nhấp nháy
+                    updateRoute(editingRouteId, {
+                        name: routeName || `Tuyến đường ${routes.length + 1}`,
+                        routeType,
+                        curveDirection,
+                        curveAngle: routeType !== 'Đường thẳng' ? (curveAngle || "45") : null,
+                        controlPoint: routeType !== 'Đường thẳng' ? routeControlPoint : null,
+                        routeDirection,
+                        distance: routeDistance,
+                        speed: routeSpeed
+                    });
+
+                    notify.success("Cập nhật tuyến đường thành công!");
+                } else {
+                    const resEdge = await createNodeEdge(id, payload);
+                    if (resEdge?.error) {
+                        notify.error(`Lỗi khi tạo tuyến đường: ${resEdge.error}`);
+                        setIsSaving(false);
+                        return;
+                    }
+                    notify.success("Lưu tuyến đường thành công!");
                 }
 
-                const newRoute: import('./warehouse-types').RouteConfig = {
-                    id: Date.now().toString(),
-                    name: routeName || `Tuyến đường ${routes.length + 1}`,
-                    cells: Array.from(selectedCells),
-                    routeType,
-                    curveDirection,
-                    curveAngle: routeType !== 'Đường thẳng' ? (curveAngle || "45") : null,
-                    controlPoint: routeType !== 'Đường thẳng' ? routeControlPoint : null,
-                    routeDirection,
-                    distance: routeDistance,
-                    speed: routeSpeed
-                };
-                addRoute(newRoute);
-                notify.success("Lưu tuyến đường thành công!");
-
-                // Clear selection
+                // Cập nhật lại UI sau khi save
+                setViewingRouteId(null);
+                setEditingRouteId(null);
                 setSelectedCells(new Set());
                 setRouteType(null);
                 setCurveDirection(null);
@@ -601,6 +689,7 @@ function ProfileInner({ id }: { id: string }) {
                 setRouteName('');
                 setRouteDistance('');
                 setRouteSpeed('');
+                refreshFloor();
                 setIsSaving(false);
                 return;
             }
@@ -953,187 +1042,220 @@ function ProfileInner({ id }: { id: string }) {
                                     className="w-full max-h-[580px] lg:max-h-[calc(100vh-280px)]"
                                 >
                                     <div className="pr-[15px]">
-                                        <div className="flex flex-col gap-4 bg-white p-4 rounded-lg" style={{ border: "0.5px solid #076eb8", boxShadow: "0px 4px 4px 0px rgba(0, 0, 0, 0.05)" }}>
-                                            <div className="flex justify-between items-center pb-2 border-b border-[#D9D9D9]">
-                                                <span className="text-[#076eb8] text-[14px] font-medium">Tuyến đường 1</span>
-                                                <DownOutlined style={{ color: '#076eb8', fontSize: 12 }} />
-                                            </div>
-
-                                            <FormRow label="Tuyến đường" required>
-                                                <CustomInput
-                                                    placeholder="Chọn 2 vị trí "
-                                                    value={routeName}
-                                                    onChange={(e) => setRouteName(e.target.value)}
-                                                    className="!h-[35px] !text-[#484848] !rounded-[8px]"
-                                                />
-                                            </FormRow>
-
-                                            <FormRow label="Hướng đi" required>
-                                                <Select
-                                                    className="!text-[#484848] !h-[35px] !rounded-[8px] w-full"
-                                                    placeholder="Chọn hướng đi"
-                                                    value={routeDirection || undefined}
-                                                    onChange={(val) => setRouteDirection(val)}
-                                                    optionLabelProp="label"
-                                                >
-                                                    <Select.Option
-                                                        value="right"
-                                                        label={
-                                                            <div className="flex items-center gap-1">
-                                                                Cùng chiều ({getRouteDirectionOptions().from}
-                                                                <img src="/svgMap/right.svg" alt="right" className="w-3 h-3 object-contain" />
-                                                                {getRouteDirectionOptions().to})
-                                                            </div>
-                                                        }
-                                                    >
-                                                        <div className="flex items-center gap-1">
-                                                            Cùng chiều ({getRouteDirectionOptions().from}
-                                                            <img src="/svgMap/right.svg" alt="right" className="w-3 h-3 object-contain" />
-                                                            {getRouteDirectionOptions().to})
+                                        <Collapse
+                                            defaultActiveKey={['route_1']}
+                                            expandIcon={({ isActive }) => <DownOutlined rotate={isActive ? -180 : 0} style={{ color: "#076EB8", fontSize: 12 }} />}
+                                            expandIconPlacement="end" collapsible="header"
+                                            style={{ background: "transparent", border: "none" }}
+                                            styles={collapseStyles}
+                                            items={[
+                                                {
+                                                    key: 'route_1',
+                                                    label: (
+                                                        <div className="w-full">
+                                                            <span className="font-normal text-[#076EB8] text-[14px]">Tuyến đường 1</span>
                                                         </div>
-                                                    </Select.Option>
-                                                    <Select.Option
-                                                        value="left"
-                                                        label={
-                                                            <div className="flex items-center gap-1">
-                                                                Ngược chiều ({getRouteDirectionOptions().from}
-                                                                <img src="/svgMap/left.svg" alt="left" className="w-3 h-3 object-contain" />
-                                                                {getRouteDirectionOptions().to})
+                                                    ),
+                                                    style: { border: "0.5px solid #076eb8", borderRadius: "8px", overflow: "hidden", background: "#fff", boxShadow: "0px 4px 4px 0px rgba(0, 0, 0, 0.05)" },
+                                                    children: (
+                                                        <div>
+                                                            <div className="h-[0.5px] bg-[#076eb8] mx-4" />
+                                                            <div className="flex flex-col gap-3 pt-3 pb-4 px-2.5">
+                                                                <FormRow label="Tuyến đường" required>
+                                                                    <CustomInput
+                                                                        placeholder="Chọn 2 vị trí "
+                                                                        value={routeName}
+                                                                        onChange={(e) => setRouteName(e.target.value)}
+                                                                        className="!h-[35px] !text-[#484848] !rounded-[8px]"
+                                                                        disabled={!!viewingRouteId}
+                                                                    />
+                                                                </FormRow>
+
+                                                                <FormRow label="Hướng đi" required>
+                                                                    <Select
+                                                                        className="!text-[#484848] !h-[35px] !rounded-[8px] w-full"
+                                                                        placeholder="Chọn hướng đi"
+                                                                        value={routeDirection || undefined}
+                                                                        onChange={(val) => setRouteDirection(val)}
+                                                                        optionLabelProp="label"
+                                                                        disabled={viewingRouteId !== null && viewingRouteId !== editingRouteId}
+                                                                    >
+                                                                        <Select.Option
+                                                                            value="right"
+                                                                            label={
+                                                                                <div className="flex items-center gap-1">
+                                                                                    Cùng chiều ({getRouteDirectionOptions().from}
+                                                                                    <img src="/svgMap/right.svg" alt="right" className="w-3 h-3 object-contain" />
+                                                                                    {getRouteDirectionOptions().to})
+                                                                                </div>
+                                                                            }
+                                                                        >
+                                                                            <div className="flex items-center gap-1">
+                                                                                Cùng chiều ({getRouteDirectionOptions().from}
+                                                                                <img src="/svgMap/right.svg" alt="right" className="w-3 h-3 object-contain" />
+                                                                                {getRouteDirectionOptions().to})
+                                                                            </div>
+                                                                        </Select.Option>
+                                                                        <Select.Option
+                                                                            value="left"
+                                                                            label={
+                                                                                <div className="flex items-center gap-1">
+                                                                                    Ngược chiều ({getRouteDirectionOptions().from}
+                                                                                    <img src="/svgMap/left.svg" alt="left" className="w-3 h-3 object-contain" />
+                                                                                    {getRouteDirectionOptions().to})
+                                                                                </div>
+                                                                            }
+                                                                        >
+                                                                            <div className="flex items-center gap-1">
+                                                                                Ngược chiều ({getRouteDirectionOptions().from}
+                                                                                <img src="/svgMap/left.svg" alt="left" className="w-3 h-3 object-contain" />
+                                                                                {getRouteDirectionOptions().to})
+                                                                            </div>
+                                                                        </Select.Option>
+                                                                        <Select.Option
+                                                                            value="left_right"
+                                                                            label={
+                                                                                <div className="flex items-center gap-1">
+                                                                                    Hai chiều ({getRouteDirectionOptions().from}
+                                                                                    <img src="/svgMap/left_right.svg" alt="left_right" className="w-3 h-3 object-contain" />
+                                                                                    {getRouteDirectionOptions().to})
+                                                                                </div>
+                                                                            }
+                                                                        >
+                                                                            <div className="flex items-center gap-1">
+                                                                                Hai chiều ({getRouteDirectionOptions().from}
+                                                                                <img src="/svgMap/left_right.svg" alt="left_right" className="w-3 h-3 object-contain" />
+                                                                                {getRouteDirectionOptions().to})
+                                                                            </div>
+                                                                        </Select.Option>
+                                                                    </Select>
+                                                                </FormRow>
+
+                                                                <FormRow label="Loại đường" required>
+                                                                    <CustomSelect
+                                                                        className="!text-[#484848] !h-[35px] !rounded-[8px]"
+                                                                        value={routeType || undefined}
+                                                                        placeholder="Chọn loại đường"
+                                                                        onChange={(val) => {
+                                                                            setRouteType(val);
+                                                                            if (val === 'Đường thẳng') {
+                                                                                setCurveDirection(null);
+                                                                                setCurveAngle("45");
+                                                                                setRouteControlPoint(null);
+                                                                            }
+                                                                        }}
+                                                                        options={[
+                                                                            { value: 'Arc tròn', label: 'Arc tròn' },
+                                                                            { value: 'Đường thẳng', label: 'Đường thẳng' }
+                                                                        ]}
+                                                                        disabled={viewingRouteId !== null && viewingRouteId !== editingRouteId}
+                                                                    />
+                                                                </FormRow>
+
+
+                                                                {routeType === 'Arc tròn' && (
+                                                                    <>
+                                                                        <FormRow label="Hướng cong" required>
+                                                                            <CustomSelect
+                                                                                className="!text-[#484848] !h-[35px] !rounded-[8px]"
+                                                                                value={curveDirection || undefined}
+                                                                                placeholder="Chọn hướng cong"
+                                                                                onChange={(val) => {
+                                                                                    setCurveDirection(val);
+                                                                                    setRouteControlPoint(null);
+                                                                                }}
+                                                                                options={
+                                                                                    isVerticalLine
+                                                                                        ? [
+                                                                                            { value: 'trái', label: 'Trái' },
+                                                                                            { value: 'phải', label: 'Phải' }
+                                                                                        ]
+                                                                                        : [
+                                                                                            { value: 'trên', label: 'Trên' },
+                                                                                            { value: 'dưới', label: 'Dưới' }
+                                                                                        ]
+                                                                                }
+                                                                                disabled={viewingRouteId !== null && viewingRouteId !== editingRouteId}
+                                                                            />
+                                                                        </FormRow>
+
+                                                                        <FormRow label="Độ cong (độ)" required>
+                                                                            <div className="flex flex-col">
+                                                                                <div className="flex items-center gap-2">
+                                                                                    <Slider
+                                                                                        className="flex-1"
+                                                                                        min={0}
+                                                                                        max={180}
+                                                                                        value={curveAngle !== null && curveAngle !== '' ? Number(curveAngle) : 45}
+                                                                                        onChange={(val) => {
+                                                                                            setCurveAngle(val.toString());
+                                                                                            setRouteControlPoint(null);
+                                                                                        }}
+                                                                                        disabled={viewingRouteId !== null && viewingRouteId !== editingRouteId}
+                                                                                    />
+                                                                                    <span className="w-10 text-sm text-gray-600">{curveAngle !== null && curveAngle !== '' ? curveAngle : "45"}°</span>
+                                                                                </div>
+                                                                                {(routeControlPoint || defaultControlPoint) && (
+                                                                                    <div className="flex items-center gap-2 mt-2">
+                                                                                        <div className="flex items-center gap-1">
+                                                                                            <span className="text-[12px] text-[#f59e0b] font-medium">X:</span>
+                                                                                            <CustomInput
+                                                                                                type="number"
+                                                                                                value={Math.round((routeControlPoint || defaultControlPoint!).x)}
+                                                                                                onChange={(e) => setRouteControlPoint({ ...(routeControlPoint || defaultControlPoint!), x: Number(e.target.value) })}
+                                                                                                className="!h-[28px] !text-[#484848] !rounded-[4px] w-[60px] text-center"
+                                                                                                disabled={viewingRouteId !== null && viewingRouteId !== editingRouteId}
+                                                                                            />
+                                                                                        </div>
+                                                                                        <div className="flex items-center gap-1">
+                                                                                            <span className="text-[12px] text-[#f59e0b] font-medium">Y:</span>
+                                                                                            <CustomInput
+                                                                                                type="number"
+                                                                                                value={Math.round((routeControlPoint || defaultControlPoint!).y)}
+                                                                                                onChange={(e) => setRouteControlPoint({ ...(routeControlPoint || defaultControlPoint!), y: Number(e.target.value) })}
+                                                                                                className="!h-[28px] !text-[#484848] !rounded-[4px] w-[60px] text-center"
+                                                                                                disabled={viewingRouteId !== null && viewingRouteId !== editingRouteId}
+                                                                                            />
+                                                                                        </div>
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        </FormRow>
+                                                                    </>
+                                                                )}
+
+                                                                <FormRow label="Khoảng cách (mm)">
+                                                                    <CustomInput
+                                                                        placeholder="Nhập khoảng cách thực tế"
+                                                                        value={routeDistance}
+                                                                        onChange={(e) => setRouteDistance(e.target.value)}
+                                                                        className="!h-[35px] !text-[#484848] !rounded-[8px]"
+                                                                        disabled={viewingRouteId !== null && viewingRouteId !== editingRouteId}
+                                                                    />
+                                                                </FormRow>
+
+                                                                <FormRow label="Tốc độ (m/s)">
+                                                                    <CustomInput
+                                                                        placeholder="Nhập tốc độ tối đa cho..."
+                                                                        value={routeSpeed}
+                                                                        onChange={(e) => setRouteSpeed(e.target.value)}
+                                                                        className="!h-[35px] !text-[#484848] !rounded-[8px]"
+                                                                        type="number"
+                                                                        disabled={viewingRouteId !== null && viewingRouteId !== editingRouteId}
+                                                                    />
+                                                                </FormRow>
+
+                                                                {viewingRouteId && (
+                                                                    <ActionIcons
+                                                                        onDelete={() => handleDeleteRoute(viewingRouteId)}
+                                                                    />
+                                                                )}
                                                             </div>
-                                                        }
-                                                    >
-                                                        <div className="flex items-center gap-1">
-                                                            Ngược chiều ({getRouteDirectionOptions().from}
-                                                            <img src="/svgMap/left.svg" alt="left" className="w-3 h-3 object-contain" />
-                                                            {getRouteDirectionOptions().to})
                                                         </div>
-                                                    </Select.Option>
-                                                    <Select.Option
-                                                        value="left_right"
-                                                        label={
-                                                            <div className="flex items-center gap-1">
-                                                                Hai chiều ({getRouteDirectionOptions().from}
-                                                                <img src="/svgMap/left_right.svg" alt="left_right" className="w-3 h-3 object-contain" />
-                                                                {getRouteDirectionOptions().to})
-                                                            </div>
-                                                        }
-                                                    >
-                                                        <div className="flex items-center gap-1">
-                                                            Hai chiều ({getRouteDirectionOptions().from}
-                                                            <img src="/svgMap/left_right.svg" alt="left_right" className="w-3 h-3 object-contain" />
-                                                            {getRouteDirectionOptions().to})
-                                                        </div>
-                                                    </Select.Option>
-                                                </Select>
-                                            </FormRow>
-
-                                            <FormRow label="Loại đường" required>
-                                                <CustomSelect
-                                                    className="!text-[#484848] !h-[35px] !rounded-[8px]"
-                                                    value={routeType || undefined}
-                                                    placeholder="Chọn loại đường"
-                                                    onChange={(val) => {
-                                                        setRouteType(val);
-                                                        if (val === 'Đường thẳng') {
-                                                            setCurveDirection(null);
-                                                            setCurveAngle("45");
-                                                            setRouteControlPoint(null);
-                                                        }
-                                                    }}
-                                                    options={[
-                                                        { value: 'Arc tròn', label: 'Arc tròn' },
-                                                        { value: 'Đường thẳng', label: 'Đường thẳng' }
-                                                    ]}
-                                                />
-                                            </FormRow>
-
-
-                                            {routeType === 'Arc tròn' && (
-                                                <>
-                                                    <FormRow label="Hướng cong" required>
-                                                        <CustomSelect
-                                                            className="!text-[#484848] !h-[35px] !rounded-[8px]"
-                                                            value={curveDirection || undefined}
-                                                            placeholder="Chọn hướng cong"
-                                                            onChange={(val) => {
-                                                                setCurveDirection(val);
-                                                                setRouteControlPoint(null);
-                                                            }}
-                                                            options={
-                                                                isVerticalLine
-                                                                    ? [
-                                                                        { value: 'trái', label: 'Trái' },
-                                                                        { value: 'phải', label: 'Phải' }
-                                                                    ]
-                                                                    : [
-                                                                        { value: 'trên', label: 'Trên' },
-                                                                        { value: 'dưới', label: 'Dưới' }
-                                                                    ]
-                                                            }
-                                                        />
-                                                    </FormRow>
-
-                                                    <FormRow label="Độ cong (độ)" required>
-                                                        <div className="flex flex-col">
-                                                            <div className="flex items-center gap-2">
-                                                                <Slider
-                                                                    className="flex-1"
-                                                                    min={0}
-                                                                    max={180}
-                                                                    value={curveAngle !== null && curveAngle !== '' ? Number(curveAngle) : 45}
-                                                                    onChange={(val) => {
-                                                                        setCurveAngle(val.toString());
-                                                                        setRouteControlPoint(null);
-                                                                    }}
-                                                                />
-                                                                <span className="w-10 text-sm text-gray-600">{curveAngle !== null && curveAngle !== '' ? curveAngle : "45"}°</span>
-                                                            </div>
-                                                            {(routeControlPoint || defaultControlPoint) && (
-                                                                <div className="flex items-center gap-2 mt-2">
-                                                                    <div className="flex items-center gap-1">
-                                                                        <span className="text-[12px] text-[#f59e0b] font-medium">X:</span>
-                                                                        <CustomInput
-                                                                            type="number"
-                                                                            value={Math.round((routeControlPoint || defaultControlPoint!).x)}
-                                                                            onChange={(e) => setRouteControlPoint({ ...(routeControlPoint || defaultControlPoint!), x: Number(e.target.value) })}
-                                                                            className="!h-[28px] !text-[#484848] !rounded-[4px] w-[60px] text-center"
-                                                                        />
-                                                                    </div>
-                                                                    <div className="flex items-center gap-1">
-                                                                        <span className="text-[12px] text-[#f59e0b] font-medium">Y:</span>
-                                                                        <CustomInput
-                                                                            type="number"
-                                                                            value={Math.round((routeControlPoint || defaultControlPoint!).y)}
-                                                                            onChange={(e) => setRouteControlPoint({ ...(routeControlPoint || defaultControlPoint!), y: Number(e.target.value) })}
-                                                                            className="!h-[28px] !text-[#484848] !rounded-[4px] w-[60px] text-center"
-                                                                        />
-                                                                    </div>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </FormRow>
-                                                </>
-                                            )}
-
-                                            <FormRow label="Khoảng cách (mm)">
-                                                <CustomInput
-                                                    placeholder="Nhập khoảng cách thực tế"
-                                                    value={routeDistance}
-                                                    onChange={(e) => setRouteDistance(e.target.value)}
-                                                    className="!h-[35px] !text-[#484848] !rounded-[8px]"
-                                                />
-                                            </FormRow>
-
-                                            <FormRow label="Tốc độ (m/s)">
-                                                <CustomInput
-                                                    placeholder="Nhập tốc độ tối đa cho..."
-                                                    value={routeSpeed}
-                                                    onChange={(e) => setRouteSpeed(e.target.value)}
-                                                    className="!h-[35px] !text-[#484848] !rounded-[8px]"
-                                                    type="number"
-                                                />
-                                            </FormRow>
-                                        </div>
+                                                    )
+                                                }
+                                            ]}
+                                        />
                                     </div>
                                 </OverlayScrollbarsComponent>
                             )}

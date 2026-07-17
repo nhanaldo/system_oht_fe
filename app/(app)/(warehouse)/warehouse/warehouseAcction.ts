@@ -182,7 +182,7 @@ export async function createWarehouse(body: WareHouseProps) {
     } catch (error: any) {
         if (error?.digest?.startsWith('NEXT_REDIRECT')) throw error;
 
-        return error?.message || 'Failed to create warehouse';
+        return { error: error?.message || 'Failed to create warehouse' };
     }
 }
 export async function updateWarehouse(id: string, body: WareHouseProps) {
@@ -205,9 +205,10 @@ export async function updateWarehouse(id: string, body: WareHouseProps) {
     } catch (error: any) {
         if (error?.digest?.startsWith('NEXT_REDIRECT')) throw error;
 
-        return error?.message || 'Failed to update warehouse';
+        return { error: error?.message || 'Failed to update warehouse' };
     }
 }
+
 // ==========================================
 // 5. QUẢN LÝ KHU VỰC (ZONE)
 // ==========================================
@@ -407,6 +408,45 @@ export async function createNodeEdge(warehouseId: string, payload: any): Promise
         if (error?.digest?.startsWith('NEXT_REDIRECT')) throw error;
         console.log("error ", error);
         return { error: error?.message || 'Failed to create node edge' };
+    }
+}
+
+export async function updateNodeEdge(warehouseId: string, id: string, payload: any): Promise<any> {
+    try {
+        const data = await api(
+            `/warehouses/${warehouseId}/node_edges/${id}`,
+            {
+                method: 'PUT',
+                body: JSON.stringify(payload),
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            }
+        );
+        return data;
+    } catch (error: any) {
+        if (error?.digest?.startsWith('NEXT_REDIRECT')) throw error;
+        console.log("error ", error);
+        return { error: error?.message || 'Failed to update node edge' };
+    }
+}
+
+export async function deleteNodeEdge(warehouseId: string, id: string): Promise<any> {
+    try {
+        const data = await api(
+            `/warehouses/${warehouseId}/node_edges/${id}`,
+            {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            }
+        );
+        return data;
+    } catch (error: any) {
+        if (error?.digest?.startsWith('NEXT_REDIRECT')) throw error;
+        console.log("error ", error);
+        return { error: error?.message || 'Failed to delete node edge' };
     }
 }
 

@@ -6,13 +6,7 @@ import type {
 } from './warehouse-types';
 import { getZone, getZoneType, getWarehouse, getWarehouseById, getCategory, getProduct, getDevices, getLocations, getNodeEdges } from '../../warehouseAcction';
 // import { getDeviceTypes } from '@/app/(app)/workflows/list/workflowsAction';
-import { useRealtime } from '@/app/(app)/realtime/RealtimeProvider';
-import { useWarehouseSocket } from './useWarehouseSocket';
 import { MOCK_ZONE_TYPES } from '../mockdata';
-// giúp map và sideBar chia sẽ dữ liệu với nhau 
-//Quan trọng hơn, đây là nơi chứa dữ liệu sống chạy trong ứng dụng bằng React State (useState). 
-// Nó là bộ não tính toán xem ô nào đang chọn, dữ liệu tầng nào đang được load.
-// Nơi định nghĩa các hành động (Actions): Chứa các hàm nghiệp vụ thực tế như xử lý copy tầng, xoá ô, lưu nháp...
 interface WarehouseConfigContextType {
   // Data
   areas: AreaConfig[];
@@ -78,6 +72,7 @@ interface WarehouseConfigContextType {
   setRouteDirection: (v: 'left' | 'right' | 'left_right' | '') => void;
   routes: import('./warehouse-types').RouteConfig[];
   addRoute: (route: import('./warehouse-types').RouteConfig) => void;
+  updateRoute: (routeId: string, updatedFields: Partial<import('./warehouse-types').RouteConfig>) => void;
   zoneTypes: any[];
   warehouses: any[];
   restoreSnapshot: (snapshot: any) => void;
@@ -108,7 +103,6 @@ export const WarehouseConfigProvider: React.FC<{
   initialFloors?: number;
   readOnly?: boolean;
 }> = ({ children, warehouseId, initialRows = 14, initialColumns = 38, initialModules = 1, initialFloors = 1, readOnly = false }) => {
-  const { socket } = useRealtime();// lấy socket đã được thiết lập ( kết nối )
   const [rows, setRows] = useState(initialRows);
   const [columns, setColumns] = useState(initialColumns);
   const [warehouseName, setWarehouseName] = useState("");
@@ -160,6 +154,10 @@ export const WarehouseConfigProvider: React.FC<{
 
   const addRoute = useCallback((route: import('./warehouse-types').RouteConfig) => {
     setRoutes(prev => [...prev, route]);
+  }, []);
+
+  const updateRoute = useCallback((routeId: string, updatedFields: Partial<import('./warehouse-types').RouteConfig>) => {
+    setRoutes(prev => prev.map(rt => rt.id === routeId ? { ...rt, ...updatedFields } : rt));
   }, []);
 
   const [images, setImages] = useState<Record<string, HTMLImageElement>>({});
@@ -278,14 +276,7 @@ export const WarehouseConfigProvider: React.FC<{
     fetchData();
   }, [warehouseId, globalRefreshCounter]);
 
-  // đồng bộ hóa và cập nhật tức thời vị trí của shuttle cũng như các ô 
-  //khi có sự thay đổi từ hệ thống thực tế (backend gửi tín hiệu qua Socket.IO
-  useWarehouseSocket({
-    socket,
-    warehouseId,
-    setAllLocations,
-    setAllDevices
-  });
+ 
 
   // --- Fetch data for specific floor ---
   React.useEffect(() => {
@@ -324,7 +315,7 @@ export const WarehouseConfigProvider: React.FC<{
 
             let areaType = "";
             const zCode = z.zone_type_code || z.zone_type || "";
-            const zName = z.zone_type_name || "";
+            const zName = z.zone_type_name || ""; 
 
             if (zCode === 'PICKING' || zName.includes("lấy hàng")) areaType = "inbound";
             else if (zCode === 'DROPPING' || zName.includes("bỏ hàng")) areaType = "outbound";
@@ -646,7 +637,7 @@ export const WarehouseConfigProvider: React.FC<{
     posName, setPosName,
     posQrCode, setPosQrCode,
     routeType, setRouteType, curveAngle, setCurveAngle, routeControlPoint, setRouteControlPoint, curveDirection, setCurveDirection,
-    routeDirection, setRouteDirection, routes, addRoute,
+    routeDirection, setRouteDirection, routes, addRoute, updateRoute,
     selectedCategory, products, categories, setSelectedCategories,
     zoneTypes, warehouses, restoreSnapshot, isLoading, refreshGlobal, refreshFloor,
     allProducts, allDevices, allDeviceTypes, allLocations,
@@ -666,7 +657,7 @@ export const WarehouseConfigProvider: React.FC<{
     posName, setPosName,
     posQrCode, setPosQrCode,
     routeType, setRouteType, curveAngle, setCurveAngle, routeControlPoint, setRouteControlPoint, curveDirection, setCurveDirection,
-    routeDirection, setRouteDirection, routes, addRoute,
+    routeDirection, setRouteDirection, routes, addRoute, updateRoute,
     selectedCategory, products, categories, setSelectedCategories,
     zoneTypes, warehouses, restoreSnapshot, isLoading, refreshGlobal, refreshFloor,
     allProducts, allDevices, allDeviceTypes, allLocations,
