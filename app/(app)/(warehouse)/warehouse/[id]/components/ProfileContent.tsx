@@ -1,8 +1,8 @@
 "use client";
 import React, { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Button, Collapse, Segmented, Switch, Checkbox, ConfigProvider, Modal, Select, Slider } from "antd";
-import { DownOutlined, PlusCircleFilled, EditFilled, DeleteFilled, ExclamationCircleOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons";
+import { Button, Collapse, Segmented, Switch, ConfigProvider, Modal, Select, Slider } from "antd";
+import { DownOutlined, DeleteOutlined } from "@ant-design/icons";
 import CustomInput from "@/components/ui/CustomInput";
 import CustomSelect from "@/components/ui/CustomSelect";
 import { OverlayScrollbarsComponent } from "overlayscrollbars-react";
@@ -10,16 +10,13 @@ import LoadingComponent from "@/components/ui/LoadingComponent";
 import WarehouseMap from "./WarehouseMap";
 import { WarehouseConfigProvider, useWarehouseConfig } from "./WarehouseContext";
 import {
-    type TabKey, type AreaConfig, type DirectionFlags,
+    type TabKey
 } from "./warehouse-types";
 import { getSelectedTileName } from "./warehouse-types";
 import { useNotify } from "@/hook/notification/NotificationProvider";
 import {
-    type ZoneCreateProps, type ZoneUpdateProps, type NodeProps,
-    updateZone,
     createZone,
     updateZoneById,
-    NodeBulkProps,
     bulkDeleteZones,
     getNodeById,
     updateNodeDetails,
@@ -28,7 +25,6 @@ import {
     deleteNodeEdge,
 } from "../../warehouseAcction";
 import ModalThemeProvider from "@/components/ui/ModalThemeProvider";
-import { log } from "console";
 
 /* ============================
    Tab Segment labels
@@ -81,23 +77,22 @@ const collapseStyles = {
    ============================ */
 function ProfileInner({ id }: { id: string }) {
     const notify = useNotify();
-    const { success, error, warning } = notify;
     const [modal, contextHolder] = Modal.useModal();
     const ctx = useWarehouseConfig();
     const {
         areas, nodes: savedNodes,
-        positionItems, addPositionItem, updatePositionItem, removePositionItem, discardUnsaved,
+        positionItems, discardUnsaved,
         activeTab, setActiveTab, selectedCells,
         addArea, updateArea, removeArea, saveAreaNodes,
         upsertNodes, removeNodes, setSelectedCells,
         editingId, setEditingId, initialEditingKeys, setInitialEditingKeys,
         clearModifiedFlags,
-        posDirections, setPosDirections, posName, setPosName, posQrCode, setPosQrCode,
+        posDirections, setPosDirections, posName, setPosName,
         routeType, setRouteType, curveAngle, setCurveAngle, routeControlPoint, setRouteControlPoint, curveDirection, setCurveDirection,
         routeDirection, setRouteDirection,
-        routes, addRoute, updateRoute,
+        routes, updateRoute,
         zoneTypes, warehouses, restoreSnapshot,
-        isLoading, refreshGlobal, refreshFloor,
+        isLoading, refreshFloor,
         categories, products, setSelectedCategories, allDevices,
         zonesToDelete, clearDeleteQueue
     } = useWarehouseConfig();
@@ -105,45 +100,13 @@ function ProfileInner({ id }: { id: string }) {
     const [isSaving, setIsSaving] = useState(false);
 
     const showMap = true;
-    //Đoạn code kiểm tra trạng thái chọn trên Sidebar để ẩn/hiển thị form nhập code và đổi
     const isSingleSelect = selectedCells.size === 1;
-    const isMultiSelect = selectedCells.size > 1;
 
-    // Lọc dữ liệu khi chọn và tầng và hiển thị bên sidebar
-    // Display all areas and position items since there are no floors anymore
     const filteredAreas = useMemo(() => areas, [areas]);
-    const filteredPositionItems = useMemo(() => positionItems, [positionItems]);
     const positionFormRef = React.useRef<{ getPosData: () => any }>(null);
-
-
-
-    // Device selection state
-    const [deviceSearch, setDeviceSearch] = useState("");
-
-    const groupedDevices = useMemo(() => {
-        const groups: Record<string, any[]> = {};
-        allDevices.forEach(d => {
-            const cat = d.device_type_code || d.device_type_name || 'Khác';
-            if (!groups[cat]) groups[cat] = [];
-            groups[cat].push(d);
-        });
-        return groups;
-    }, [allDevices]);
-
-    // Device capability selection per device: deviceId -> selected cap
-    const [selectedDeviceCaps, setSelectedDeviceCaps] = useState<Record<string, string>>({});
-    const toggleDeviceCap = (deviceId: string, cap: string) => {
-        setSelectedDeviceCaps(prev => ({
-            ...prev,
-            [deviceId]: prev[deviceId] === cap ? '' : cap
-        }));
-    };
-
-    // Route form state
     const [routeName, setRouteName] = useState("");
     const [routeDistance, setRouteDistance] = useState("");
     const [routeSpeed, setRouteSpeed] = useState("");
-
     const [viewingRouteId, setViewingRouteId] = useState<string | null>(null);
     const [editingRouteId, setEditingRouteId] = useState<string | null>(null);
 
@@ -183,7 +146,7 @@ function ProfileInner({ id }: { id: string }) {
                     setRouteDirection('');
                 }
             }
-        } else if (activeTab === 'route' && selectedCells.size !== 2) {
+        } else if (activeTab === 'route' && selectedCells.size !== 1) {
             prevSelectedRouteCellsRef.current = "";
         }
     }, [activeTab, selectedCells, routes, setRouteType, setCurveDirection, setCurveAngle, setRouteControlPoint, setRouteDirection]);
@@ -304,7 +267,6 @@ function ProfileInner({ id }: { id: string }) {
         if (activeTab === 'route') {
             const selectedPositions: string[] = [];
             const prefix = 'node_';
-
             selectedCells.forEach(cell => {
                 const node = savedNodes[`${prefix}${cell}`];
                 if (node && node.name) {
@@ -481,10 +443,10 @@ function ProfileInner({ id }: { id: string }) {
 
 
 
-                    const floorPrefix = `node_`;
+                    const prefix = `node_`;
 
                     const changedNodes = selectedArr.filter(k => {
-                        const node = savedNodes[`${floorPrefix}${k}`];
+                        const node = savedNodes[`${prefix}${k}`];
                         if (!node) return true;
 
                         const directionsArr: string[] = [];
@@ -499,7 +461,6 @@ function ProfileInner({ id }: { id: string }) {
                         existingDirs.push(node.directions.down ? '1' : '0');
                         existingDirs.push(node.directions.left ? '1' : '0');
 
-                        const qrChanged = isSingleSelect ? (posQrCode !== (node.qrCode || "")) : false;
                         const directionsChanged = directionsArr.some((d, i) => d !== existingDirs[i]);
                         const nameChanged = posName !== (node.name || "");
 
@@ -515,7 +476,6 @@ function ProfileInner({ id }: { id: string }) {
                             }
                         }
 
-                        return qrChanged || directionsChanged || nameChanged || formChanged;
                     });
 
                     if (changedNodes.length === 0) {
@@ -523,10 +483,9 @@ function ProfileInner({ id }: { id: string }) {
                     } else {
                         const firstCell = changedNodes[0];
                         const area = filteredAreas.find(a => a.nodes.includes(firstCell));
-                        upsertNodes(changedNodes, posDirections, isSingleSelect ? posQrCode : "", area?.areaType, false, posName);
 
                         for (const k of changedNodes) {
-                            const node = savedNodes[`${floorPrefix}${k}`];
+                            const node = savedNodes[`${prefix}${k}`];
                             if (!node?.nodeId) continue;
 
                             const area = filteredAreas.find(a => a.nodes.includes(k));
@@ -564,7 +523,6 @@ function ProfileInner({ id }: { id: string }) {
                                 is_merge_junction: currentMergeJunction,
                                 is_active: currentActive,
                                 name: posName || node?.name || "",
-                                qr_code: isSingleSelect ? posQrCode : (node?.qrCode || ""),
                                 x: x,
                                 y: y,
                                 zone_id: zone_id
@@ -697,7 +655,6 @@ function ProfileInner({ id }: { id: string }) {
             setEditingId(null);
             setSelectedCells(new Set());
             setInitialEditingKeys(new Set());
-            setPosQrCode("");
             setPosName("");
             setPosDirections({ up: false, down: false, left: false, right: false });
         } catch (error: any) {
@@ -718,6 +675,11 @@ function ProfileInner({ id }: { id: string }) {
         setEditingId(null);
         setSelectedCells(new Set());
         setInitialEditingKeys(new Set());
+        setRouteType(null);
+        setCurveDirection(null);
+        setCurveAngle("45");
+        setRouteControlPoint(null);
+        setRouteDirection('');
     };
 
     /**
@@ -726,6 +688,14 @@ function ProfileInner({ id }: { id: string }) {
      */
     const handleTabChange = (val: TabKey) => {
         const hasUnsaved = areas.some(a => a.isNew) || positionItems.some(p => p.isNew);
+        const clearRouteData = () => {
+            setRouteType(null);
+            setCurveDirection(null);
+            setCurveAngle("45");
+            setRouteControlPoint(null);
+            setRouteDirection('');
+        };
+
         if (hasUnsaved) {
             modal.confirm({
                 title: 'Xác nhận chuyển tab',
@@ -734,6 +704,7 @@ function ProfileInner({ id }: { id: string }) {
                     discardUnsaved();
                     setActiveTab(val);
                     setInitialEditingKeys(new Set());
+                    clearRouteData();
                 }
             });
         } else {
@@ -741,6 +712,7 @@ function ProfileInner({ id }: { id: string }) {
             setEditingId(null);
             setSelectedCells(new Set());
             setInitialEditingKeys(new Set());
+            clearRouteData();
         }
     };
 
@@ -762,7 +734,6 @@ function ProfileInner({ id }: { id: string }) {
             const firstNode = savedNodes[`${prefix}${firstCell}`];
 
             if (firstNode) {
-                if (isSingleSelect) setPosQrCode(firstNode.qrCode || "");
                 setPosDirections(firstNode.directions);
                 setPosName(firstNode.name || "");
             }
@@ -784,45 +755,6 @@ function ProfileInner({ id }: { id: string }) {
             }
         }
     }, [selectedCells, editingId, activeTab, areas, updateArea, removeNodes]);
-    // chọn hướng đi ảnh thay đổi 
-    const positionPreviewImg = useMemo(() => {
-        // if (activeTab !== 'position') return 'node.svg';
-        let areaType = "";
-        if (selectedCells.size > 0) {
-            const firstCell = Array.from(selectedCells)[0];
-            const area = filteredAreas.find(a => a.nodes.includes(firstCell));
-            areaType = area?.areaType || "";
-        }
-        return getSelectedTileName(posDirections, areaType);
-    }, [posDirections, selectedCells, filteredAreas, activeTab]);
-
-    // Auto-open and scroll to the collapse item when editingId changes
-    useEffect(() => {
-        if (editingId) {
-            // Ensure the collapse is open
-            if (activeTab === 'area') {
-                setAreaKeys(prev => prev.includes(editingId) ? prev : [...prev, editingId]);
-
-                const area = areas.find(a => a.id === editingId);
-                if (area?.category_id) {
-                    setSelectedCategories(area.category_id);
-                }
-            }
-
-            // Scroll to the item
-            // Use a small delay to ensure the DOM is updated/expanded
-            const timer = setTimeout(() => {
-                const element = document.getElementById(`collapse-item-${editingId}`);
-                if (element) {
-                    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }
-            }, 300);
-            return () => clearTimeout(timer);
-        }
-    }, [editingId, activeTab, areas, setSelectedCategories]);
-
-    /* ---- Options for select dropdowns ---- */
-    const floorOptions: any[] = [];
 
     return (
         <ModalThemeProvider>
@@ -1463,15 +1395,6 @@ const PositionForm = React.forwardRef<{ getPosData: () => any }, { warehouseId: 
                                 )}
                             </div>
                         </FormRow>
-                        {/* <FormRow label="Tên vị trí (Name)" required>
-                            <CustomInput
-                                placeholder="Nhập tên vị trí"
-                                value={data.posName}
-                                onChange={(e) => update({ posName: e.target.value })}
-                                className="!h-[35px] !text-[#484848] !rounded-[8px]"
-                                disabled={!(matchingArea && selectedCells.size > 0)}
-                            />
-                        </FormRow> */}
                         <FormRow label="Mã vị trí" required>
                             <CustomInput
                                 placeholder="Nhập mã vị trí"
@@ -1524,10 +1447,6 @@ function AddButton({ onClick }: { onClick: () => void }) {
         </div>
     );
 }
-
-/* ============================
-   Wrapper with Provider
-   ============================ */
 export default function ProfileContent({ id }: { id: string }) {
     return (
         <WarehouseConfigProvider warehouseId={id}>

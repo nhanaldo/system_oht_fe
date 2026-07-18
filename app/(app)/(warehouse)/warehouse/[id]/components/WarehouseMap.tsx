@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useWarehouseConfig } from './WarehouseContext';
-import { hasAnyDirection, getSelectedTileName, AreaConfig, PositionConfig } from './warehouse-types';
+import { getSelectedTileName, AreaConfig, PositionConfig } from './warehouse-types';
 import { useOverlayScrollbars } from 'overlayscrollbars-react';
 
 const CELL_SIZE = 30;
@@ -25,10 +25,9 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ showDevices = false }) => {
     activeTab, selectedCells, setSelectedCells, scale, setScale,
     nodes, areas, getTakenCells, positionItems, initialEditingKeys,
     images, rows, columns, updateArea, editingId, setEditingId, setInitialEditingKeys,
-    posDirections, posName, posQrCode, allProducts, categories,
+    posDirections, posName, allProducts, categories,
     routeType, curveAngle, setCurveAngle, routeControlPoint, setRouteControlPoint, curveDirection, setCurveDirection, routeDirection, routes,
-    setRouteType, setRouteDirection,
-    setActiveTab, readOnly, allDevices, allDeviceTypes, allLocations
+    setRouteType, setRouteDirection, readOnly, allDevices, allLocations
   } = useWarehouseConfig();
 
   useEffect(() => {
@@ -295,8 +294,9 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ showDevices = false }) => {
     if (!ctx) return;
     ctx.setTransform(resolutionScale, 0, 0, resolutionScale, 0, 0);
     ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = "#677594";
+
     if (!readOnly) {
-      ctx.fillStyle = "#677594";
       for (let r = visibleRange.rStart; r <= visibleRange.rEnd; r++) {
         for (let c = visibleRange.cStart; c <= visibleRange.cEnd; c++) {
           ctx.beginPath();
@@ -488,9 +488,9 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ showDevices = false }) => {
     };
 
     // Vẽ các tuyến đường đã lưu
-    if (activeTab === 'route') {
+    if (activeTab === 'route' || readOnly) {
       const selectedCellsStr = Array.from(selectedCells).sort().join('|');
-      
+
       routes.forEach(rt => {
         if (rt.cells.length === 2) {
           // Bỏ qua tuyến đường đang được chọn để chỉnh sửa (tránh vẽ đè đường cũ và mới)
@@ -546,15 +546,15 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ showDevices = false }) => {
             const area = areaId ? areaMap.get(areaId) : null;
             // Lấy tên ảnh dựa trên hướng đi của form (posDirections) và loại khu vực hiện tại
             imgName = getSelectedTileName(posDirections, area?.areaType);
-          } else if (nodeConfig && hasAnyDirection(nodeConfig.directions)) {
+          } else if (nodeConfig) {
             // Nếu ô đã lưu cấu hình hướng đi từ trước, lấy ảnh tương ứng của nó
             imgName = nodeConfig.imgName || '';
-          } else if (hasAreaPos) {
+          } else if (hasAreaPos && !readOnly) {
             const areaId = cellToAreaMap.get(key);
             const area = areaId ? areaMap.get(areaId) : null;
             // Lấy tên ảnh cơ bản (không hướng) dựa trên loại khu vực
             imgName = getSelectedTileName({ up: false, down: false, left: false, right: false }, area?.areaType);
-          
+
           }
         }
         if (bgColor) {
@@ -594,7 +594,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ showDevices = false }) => {
     }
 
     // thêm viền xanh cho khu vực lưu trữ
-    if (activeTab === 'area' || readOnly) {
+    if (activeTab === 'area') {
       ctx.strokeStyle = "#076EB8";
       ctx.lineWidth = 1;
       ctx.lineJoin = 'round';
@@ -614,7 +614,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ showDevices = false }) => {
         ctx.stroke();
       }
     }
-  }, [visibleRange, selectedCells, activeTab, areaNodes, nodeMap, areaMap, cellToAreaMap, cellToPositionItemMap, positionItemByKeyMap, storageAreas, images, scale, editingId, initialEditingKeys, rows, columns, posDirections, posName, posQrCode, allLocations, allDevices, showDevices, routeType, curveDirection, routeDirection, curveAngle, routes, routeControlPoint]);
+  }, [visibleRange, selectedCells, activeTab, areaNodes, nodeMap, areaMap, cellToAreaMap, cellToPositionItemMap, positionItemByKeyMap, storageAreas, images, scale, editingId, initialEditingKeys, rows, columns, posDirections, posName, allLocations, allDevices, showDevices, routeType, curveDirection, routeDirection, curveAngle, routes, routeControlPoint]);
 
   /**
    * Bắt đầu sự kiện kéo chuột (drag) để chọn nhiều ô
@@ -1077,82 +1077,13 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ showDevices = false }) => {
             onMouseDown={handleMouseDown}
             onMouseMove={handleContainerMouseMove}
             onMouseLeave={() => setHoveredCell(null)}
-            className="relative bg-[white]"
+            className={`relative ${readOnly ? 'bg-transparent' : 'bg-[white]'}`}
             style={{ width: columns * CELL_SIZE, height: rows * CELL_SIZE }}
           >
             <canvas
               ref={canvasRef}
               className="absolute top-0 left-0"
             />
-
-            {/* Hiển thị tên khu vực và sản phẩm đối với giám sát hoạt động thì ko hiển thị && !showDevices */}
-            {(activeTab === 'area' || (readOnly && !showDevices)) && !hoveredCell && !selectionStateRef.current.isSelecting && storageAreas.map(area => {
-              const product = allProducts?.find(p => p.id?.toString() === area.product_id?.toString());
-              const category = product ? categories?.find(c => c.id?.toString() === product.category_id?.toString()) : null;
-
-              const productLabel = product ? product.code : area.name;
-              const categoryLabel = category ? category.name : null;
-
-              return (
-                (productLabel || categoryLabel) && <div
-                  key={`label-${area.id}`}
-                  className="absolute pointer-events-none bg-white border border-[#D6E4F0] px-2 py-1 rounded shadow-md z-20 flex flex-col items-center justify-center min-w-[100px]"
-                  style={{
-                    left: (area.center.c + 0.5) * CELL_SIZE,
-                    top: (area.center.r + 0.5) * CELL_SIZE,
-                    transform: `translate(-50%, -50%) ${area.isVertical ? 'rotate(-90deg)' : ''}`,
-                    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
-                    whiteSpace: 'nowrap'
-                  }}
-                >
-                  <span className="text-[#076eb8] text-[12px] font-bold leading-tight">{productLabel}</span>
-                </div>
-              );
-            })}
-
-            {/* Hover hiển thị tên khu vực chứa hàng và chi tiết vị trí */}
-            {/* {hoveredArea && hoveredArea.areaType === 'storage' && hoveredArea.code && hoveredArea.code.trim() !== '' && !selectionStateRef.current.isSelecting && (() => { */}
-            {readOnly && showDevices && hoveredArea && hoveredArea.areaType === 'storage' && hoveredArea.code && hoveredArea.code.trim() !== '' && !selectionStateRef.current.isSelecting && !hoveredDeviceId && (() => {
-
-              const nodeConfig = hoveredCell ? nodeMap.get(hoveredCell) : null;
-              const location = allLocations?.find(loc => {
-                const matchesNode = loc.node_id && nodeConfig?.nodeId && loc.node_id.trim().toUpperCase() === nodeConfig.nodeId.trim().toUpperCase();
-                const matchesQr = loc.qrcode && nodeConfig?.qrCode && loc.qrcode.trim().toUpperCase() === nodeConfig.qrCode.trim().toUpperCase();
-                return matchesNode || matchesQr;
-              });
-
-              const code = location?.code || nodeConfig?.name || 'N/A';
-              const qrCode = location?.qrcode || nodeConfig?.qrCode || 'N/A';
-              const isOccupied = location ? location.is_occupied : false;
-
-              return (
-                <div
-                  className="absolute pointer-events-none bg-white text-[#484848] p-3 rounded-lg shadow-xl text-[11px] font-medium z-50 border border-[#D6E4F0] flex flex-col gap-1.5 min-w-[170px]"
-                  style={{
-                    left: (hoveredCell!.split(',').map(Number)[1] * CELL_SIZE) + CELL_SIZE / 2,
-                    top: (hoveredCell!.split(',').map(Number)[0] * CELL_SIZE) - 6,
-                    transform: 'translate(-50%, -100%)',
-                    zIndex: 100
-                  }}
-                >
-                  <div className="font-bold text-[#076eb8] border-b border-[#E8F2FA] pb-1 mb-1 ">{hoveredArea.code}</div>
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-[#888888] ">Vị trí:</span>
-                    <span className="text-[#545454] font-semibold">{code}</span>
-                  </div>
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-[#888888] ">Mã QR:</span>
-                    <span className="text-[#545454] font-semibold">{qrCode}</span>
-                  </div>
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-[#888888]">Trạng thái:</span>
-                    <span className={isOccupied ? 'text-green-500 font-semibold' : 'text-[#076eb8] font-semibold'}>
-                      {isOccupied ? 'Đang chứa hàng' : 'Ô trống'}
-                    </span>
-                  </div>
-                </div>
-              );
-            })()}
 
 
             {/* Selection Box Overlay (Still DOM for performance) */}

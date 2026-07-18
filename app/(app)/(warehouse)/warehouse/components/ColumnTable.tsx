@@ -139,7 +139,7 @@ export const getColumns = ({ onDelete, onEdit, onView, router }: GetColumnsProps
                     </Tooltip>
                     <Tooltip title="Cấu hình">
                         <Image
-                            src="/icon.svg/pig.svg"
+                            src="/icon.svg/cauhinh.svg"
                             alt="Cấu hình"
                             width={18.93}
                             height={20}

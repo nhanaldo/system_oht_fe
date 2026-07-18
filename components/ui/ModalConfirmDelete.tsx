@@ -46,7 +46,7 @@ export default function ModalConfirmDelete({
                     borderRadius: '8px',
                 }}>
                     <div style={{ display: 'flex', alignItems: 'flex-start' }}>
-                        <img src="/icon.svg/message.svg" alt="message" style={{ width: 22, height: 22, flexShrink: 0 }} />
+                        <img src="/icon.svg/warning.svg" alt="message" style={{ width: 22, height: 22, flexShrink: 0 }} />
                         <div style={{ flex: 1 }}>
                             <span style={{ fontSize: '16px', fontWeight: 400, marginLeft: "16px", lineHeight: '100%', color: '#001e33', display: 'block' }}>
                                 {title}

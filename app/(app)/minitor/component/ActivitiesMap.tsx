@@ -21,7 +21,7 @@ const ActivitiesMapInner: React.FC<ActivitiesMapInnerProps> = ({
     isFullscreen,
     setIsFullscreen
 }) => {
-    const {  setActiveTab } = useWarehouseConfig();
+    const { setActiveTab } = useWarehouseConfig();
 
     useEffect(() => {
         setActiveTab('position');
@@ -33,44 +33,7 @@ const ActivitiesMapInner: React.FC<ActivitiesMapInnerProps> = ({
             <div className="flex justify-between items-center mb-[10px] shrink-0">
                 <h2 className="text-[16px] font-medium text-[#484848] truncate">Giám sát hoạt động</h2>
                 <div className="flex items-center gap-2">
-                    {/* Hộp chọn kho chỉ xuất hiện khi phóng to toàn màn hình */}
-                    {isFullscreen && (
-                        <div className="flex items-center gap-2 mr-2">
-                            <ConfigProvider
-                                theme={{
-                                    components: {
-                                        Select: {
-                                            colorText: '#076eb8',
-                                            colorPrimary: '#0367CC',
-                                            controlHeight: 32,
-                                            fontSize: 14,
-                                            borderRadius: 6,
-                                        },
-                                    },
-                                }}
-                            >
-                                <Select
-                                    className="!w-[160px] !h-[32px]"
-                                    value={selectedWarehouseId}
-                                    onChange={onWarehouseChange}
-                                    options={warehouses.map(w => ({
-                                        value: w.id.toString(),
-                                        label: w.name || `Kho ${w.code || w.id}`
-                                    }))}
-                                    placeholder="Chọn kho"
-                                    suffixIcon={<img src="/icon.svg/dow.svg" alt="down" style={{ width: 12, height: 12, filter: 'invert(30%) sepia(90%) saturate(2000%) hue-rotate(186deg) brightness(90%) contrast(100%)' }} />}
-                                    style={{
-                                        fontWeight: 600,
-                                        fontSize: '14px',
-                                        lineHeight: '100%',
-                                        color: '#076eb8',
-                                        border: "0.5px solid rgba(3, 103, 204, 0.3)",
-                                        borderRadius: '6px'
-                                    }}
-                                />
-                            </ConfigProvider>
-                        </div>
-                    )}
+                    {/* Các cấu hình hoặc filter khác nếu cần */}
 
                     <Tooltip title={isFullscreen ? "Thoát toàn màn hình" : "Toàn màn hình"}>
                         <button
@@ -182,11 +145,19 @@ export default function ActivitiesMap() {
 
                 if (elements.length > 0) {
                     const cookieId = getCookie('selectedWarehouseId');
-                    const activeWarehouse = elements.find((w: any) => w.id?.toString() === cookieId) || elements[0];
-
-                    setSelectedWarehouseId(activeWarehouse.id.toString());
-                    setWarehouseRows(activeWarehouse.row || 14);
-                    setWarehouseCols(activeWarehouse.column || 38);
+                    const activeWarehouse = elements.find((w: any) => (w.id || w._id)?.toString() === cookieId) || elements[0];
+                    if (activeWarehouse) {
+                        const activeId = (activeWarehouse.id || activeWarehouse._id || '').toString();
+                        if (activeId) {
+                            setSelectedWarehouseId(activeId);
+                            setWarehouseRows(activeWarehouse.row || activeWarehouse.Row || 14);
+                            setWarehouseCols(activeWarehouse.column || activeWarehouse.Column || 38);
+                            
+                            if (cookieId !== activeId) {
+                                document.cookie = `selectedWarehouseId=${activeId}; path=/`;
+                            }
+                        }
+                    }
                 }
             } catch (err) {
                 console.error("Failed to load warehouses:", err);
@@ -202,11 +173,14 @@ export default function ActivitiesMap() {
         const interval = setInterval(() => {
             const cookieId = getCookie('selectedWarehouseId');
             if (cookieId && cookieId !== selectedIdRef.current && warehousesRef.current.length > 0) {
-                const activeWarehouse = warehousesRef.current.find((w: any) => w.id?.toString() === cookieId);
+                const activeWarehouse = warehousesRef.current.find((w: any) => (w.id || w.ID || w._id)?.toString() === cookieId);
                 if (activeWarehouse) {
-                    setSelectedWarehouseId(activeWarehouse.id.toString());
-                    setWarehouseRows(activeWarehouse.row || 14);
-                    setWarehouseCols(activeWarehouse.column || 38);
+                    const activeId = (activeWarehouse.id || activeWarehouse.ID || activeWarehouse._id || '').toString();
+                    if (activeId) {
+                        setSelectedWarehouseId(activeId);
+                        setWarehouseRows(activeWarehouse.row || activeWarehouse.Row || 14);
+                        setWarehouseCols(activeWarehouse.column || activeWarehouse.Column || 38);
+                    }
                 }
             }
         }, 500);

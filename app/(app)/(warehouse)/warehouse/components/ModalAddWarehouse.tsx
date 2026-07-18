@@ -4,7 +4,7 @@ import FormItemController from "@/components/ui/CustomController";
 import ModalThemeProvider from "@/components/ui/ModalThemeProvider";
 import ModalConfirmDelete from "@/components/ui/ModalConfirmDelete";
 import { Form, Button, Modal, InputNumber, Input, message, Select } from "antd";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { useEffect, useState } from "react";
 import z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -139,7 +139,9 @@ export default function ModalAddWarehouse({
         style: { paddingLeft: 0, maxWidth: "100%" },
     };
 
-    const isEditActive = !!(children?.id || children?.ID) && (children.Status || "").toUpperCase() === "ACTIVE";
+    const currentStatus = (useWatch({ control, name: "status" }) || "NEW").toUpperCase();
+    const initialStatus = children ? (children.Status || "NEW").toUpperCase() : "NEW";
+    const isEditActive = !!(children?.id || children?.ID) && initialStatus === "ACTIVE";
 
     return (
         <ModalThemeProvider>
@@ -258,28 +260,41 @@ export default function ModalAddWarehouse({
 
 
                         {/* Trạng thái - Chỉ hiển thị khi chỉnh sửa */}
-                        {(children?.id || children?.ID) && (
-                            <FormItemController
-                                name="status"
-                                label="Trạng thái"
-                                style={{ width: "100%", marginBottom: 20 }}
-                                control={control}
-                                wrapperCol={commonWrapperCol}
-                                labelCol={commonLabelCol}
-                                render={(field) => (
-                                    <Select
-                                        {...field}
-                                        className="w-full h-[40px] rounded-md"
-                                        placeholder="Chọn trạng thái"
-                                        options={[
-                                            { value: 'NEW', label: 'Mới tạo' },
-                                            { value: 'MAINTENANCE', label: 'Đang bảo trì' },
-                                            { value: 'ACTIVE', label: 'Đang sử dụng' },
-                                        ]}
-                                    />
-                                )}
-                            />
-                        )}
+                        {(children?.id || children?.ID) && (() => {
+                            const isMaintenanceDisabled = initialStatus === 'NEW';
+                            const isNewDisabled = initialStatus !== 'NEW';
+                            
+                            return (
+                                <FormItemController
+                                    name="status"
+                                    label="Trạng thái"
+                                    style={{ width: "100%", marginBottom: 20 }}
+                                    control={control}
+                                    wrapperCol={commonWrapperCol}
+                                    labelCol={commonLabelCol}
+                                    render={(field) => (
+                                        <Select
+                                            {...field}
+                                            className="w-full h-[40px] rounded-md"
+                                            placeholder="Chọn trạng thái"
+                                            options={[
+                                                { value: 'ACTIVE', label: 'Đang sử dụng' },
+                                                { 
+                                                    value: 'MAINTENANCE', 
+                                                    label: <span style={{ color: isMaintenanceDisabled ? '#bfbfbf' : 'inherit' }}>Đang bảo trì</span>, 
+                                                    disabled: isMaintenanceDisabled 
+                                                },
+                                                { 
+                                                    value: 'NEW', 
+                                                    label: <span style={{ color: isNewDisabled ? '#bfbfbf' : 'inherit' }}>Mới tạo</span>, 
+                                                    disabled: isNewDisabled 
+                                                },
+                                            ]}
+                                        />
+                                    )}
+                                />
+                            );
+                        })()}
 
                         {/* Nút điều hướng Footer */}
                         <div className="flex flex-row items-center justify-center gap-[20px] mt-[30px] ">

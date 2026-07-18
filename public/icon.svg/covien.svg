@@ -1,8 +1,0 @@
-<svg width="500" height="500" viewBox="0 0 500 500" fill="none" xmlns="http://www.w3.org/2000/svg">
-<rect x="2" y="2" width="496" height="496" stroke="#D8D8D8" stroke-opacity="0.2" stroke-width="4"/>
-<path d="M0 250H250.001" stroke="#7C8DB5" stroke-opacity="0.7" stroke-width="8"/>
-<path d="M250 250H500.001" stroke="#7C8DB5" stroke-opacity="0.7" stroke-width="8"/>
-<path d="M250 0V246.915" stroke="#7C8DB5" stroke-opacity="0.7" stroke-width="8"/>
-<path d="M250 246.912V500" stroke="#7C8DB5" stroke-opacity="0.7" stroke-width="8"/>
-<ellipse cx="250" cy="250" rx="25.0001" ry="25" fill="#677594"/>
-</svg>

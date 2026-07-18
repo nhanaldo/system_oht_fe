@@ -5,8 +5,6 @@ import { FullscreenOutlined, FullscreenExitOutlined } from "@ant-design/icons";
 import { useRouter, useSearchParams } from "next/navigation";
 import { WarehouseConfigProvider, useWarehouseConfig } from "../../[id]/components/WarehouseContext";
 import WarehouseMap from "../../[id]/components/WarehouseMap";
-import ModalThemeProvider from "@/components/ui/ModalThemeProvider";
-import ActivitiesPanels from "@/app/(app)/minitor/components/ActivitiesPanels";
 
 const MapViewer: React.FC = () => {
     const { setActiveTab } = useWarehouseConfig();
@@ -20,9 +18,7 @@ const MapViewer: React.FC = () => {
             <div className="flex-[3] min-w-0 relative h-full rounded-xl border border-[#D6E4F0] overflow-hidden bg-white shadow-sm">
                 <WarehouseMap />
             </div>
-            <div className="w-[400px] shrink-0 h-full overflow-hidden rounded-xl  flex flex-col">
-                <ActivitiesPanels />
-            </div>
+
         </div>
     );
 };

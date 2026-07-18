@@ -56,6 +56,7 @@ export default function AppLayoutComponents({ children, menuData = [], username 
 
     const pathname = usePathname();
     const isViewMode = pathname?.endsWith('/view');
+    const isMinitorPage = pathname?.includes('/minitor');
 
     if (!mounted) {
         return (
@@ -74,7 +75,7 @@ export default function AppLayoutComponents({ children, menuData = [], username 
         return (
             <Layout style={{ height: '100vh', width: '100vw', overflow: 'hidden' }}>
                 <Content style={{ padding: 0, margin: 0, background: '#f1f5f9', position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column', width: '100%', height: '100%' }}>
-                        {children}
+                    {children}
                 </Content>
             </Layout>
         );
@@ -84,15 +85,17 @@ export default function AppLayoutComponents({ children, menuData = [], username 
         <Layout style={{ height: '100vh', width: '100vw', overflow: 'hidden' }}>
 
             {/* Header */}
-            <HeaderComponent
-                collapsed={collapsed}
-                setCollapsed={setCollapsed}
-                username={username}
-            />
+            {!isMinitorPage && (
+                <HeaderComponent
+                    collapsed={collapsed}
+                    setCollapsed={setCollapsed}
+                    username={username}
+                />
+            )}
 
             <Layout style={{ height: 'calc(100vh - 64px)', position: 'relative' }}>
                 {/* Backdrop mờ khi mở Sidebar trên mobile */}
-                {isMobile && !collapsed && (
+                {isMobile && !collapsed && !isMinitorPage && (
                     <div
                         className="absolute inset-0 bg-black/40 z-[98]"
                         onClick={() => setCollapsed(true)}
@@ -100,43 +103,45 @@ export default function AppLayoutComponents({ children, menuData = [], username 
                 )}
 
                 {/* Sidebar */}
-                <Sider
-                    trigger={null}
-                    collapsible
-                    collapsed={collapsed}
-                    collapsedWidth={0}
-                    width={siderWidth}
-                    breakpoint="lg"
-                    onBreakpoint={(broken) => {
-                        setCollapsed(broken);
-                    }}
-                    theme="light"
-                    style={{
-                        height: '100%',
-                        overflow: 'hidden',
-                        background: '#ffffff',
-                        position: isMobile ? 'absolute' : 'relative',
-                        zIndex: isMobile ? 99 : 1,
-                        left: 0,
-                        top: 0,
-                        bottom: 0,
-                        boxShadow: isMobile && !collapsed ? '4px 0 10px rgba(0,0,0,0.1)' : 'none'
-                    }}
-                >
-                    <OverlayScrollbarsComponent
-                        defer
-                        options={{
-                            scrollbars: {
-                                autoHide: 'leave',
-                                autoHideDelay: 500,
-                            },
+                {!isMinitorPage && (
+                    <Sider
+                        trigger={null}
+                        collapsible
+                        collapsed={collapsed}
+                        collapsedWidth={0}
+                        width={siderWidth}
+                        breakpoint="lg"
+                        onBreakpoint={(broken) => {
+                            setCollapsed(broken);
                         }}
-                        style={{ maxHeight: '100%' }}
+                        theme="light"
+                        style={{
+                            height: '100%',
+                            overflow: 'hidden',
+                            background: '#ffffff',
+                            position: isMobile ? 'absolute' : 'relative',
+                            zIndex: isMobile ? 99 : 1,
+                            left: 0,
+                            top: 0,
+                            bottom: 0,
+                            boxShadow: isMobile && !collapsed ? '4px 0 10px rgba(0,0,0,0.1)' : 'none'
+                        }}
                     >
-                        {/* //Tự động đóng Sidebar khi nhấn chọn Menu (Mobile) */}
-                        {/* <SideBar collapse={collapsed} menuItems={menuData} isAdmin={isAdmin} onMenuClick={() => { if (isMobile) setCollapsed(true); }} /> */}
-                    </OverlayScrollbarsComponent>
-                </Sider>
+                        <OverlayScrollbarsComponent
+                            defer
+                            options={{
+                                scrollbars: {
+                                    autoHide: 'leave',
+                                    autoHideDelay: 500,
+                                },
+                            }}
+                            style={{ maxHeight: '100%' }}
+                        >
+                            {/* //Tự động đóng Sidebar khi nhấn chọn Menu (Mobile) */}
+                            {/* <SideBar collapse={collapsed} menuItems={menuData} isAdmin={isAdmin} onMenuClick={() => { if (isMobile) setCollapsed(true); }} /> */}
+                        </OverlayScrollbarsComponent>
+                    </Sider>
+                )}
 
                 {/* Main Content */}
                 <Layout style={{ background: '#f8f9fa', display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
@@ -154,13 +159,15 @@ export default function AppLayoutComponents({ children, menuData = [], username 
                             height: '100%'
                         }}
                     >
-                            {children}
+                        {children}
                     </Content>
 
                     {/* Footer */}
-                    <Footer style={{ textAlign: 'left', fontFamily: 'roboto', fontStyle: "regular", padding: '12px 24px', color: '#5f5d5d', fontWeight: 400, background: 'white' }}>
-                        Bản quyền thuộc về THACO Chu Lai © 2026
-                    </Footer>
+                    {!isMinitorPage && (
+                        <Footer style={{ textAlign: 'left', fontFamily: 'roboto', fontStyle: "regular", padding: '12px 24px', color: '#5f5d5d', fontWeight: 400, background: 'white' }}>
+                            Bản quyền thuộc về THACO Chu Lai © 2026
+                        </Footer>
+                    )}
                 </Layout>
             </Layout>
         </Layout >

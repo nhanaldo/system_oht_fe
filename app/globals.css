@@ -14,18 +14,6 @@ body {
     font-family: system-ui, -apple-system, sans-serif;
 }
 
-/* ===== Custom Toast Notification ===== */
-/* .ant-message {
-    position: fixed !important;
-    top: 24px !important;
-    right: 24px !important;
-    left: auto !important;
-    width: auto !important;
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: flex-end !important;
-}
-*/
 .custom-toast-notice .ant-message-notice-content {
     padding: 0 !important;
     background: transparent !important;

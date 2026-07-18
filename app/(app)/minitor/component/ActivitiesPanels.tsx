@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { mockStats, mockExecutionList } from '../mockData';
+import { mockStats, mockExecutionList } from './mockData';
 import { DownOutlined } from '@ant-design/icons';
 import { OverlayScrollbarsComponent } from 'overlayscrollbars-react';
 import { getDevices } from '@/app/(app)/(warehouse)/warehouse/warehouseAcction';
@@ -289,7 +289,7 @@ export default function ActivitiesPanels() {
                             </div>
                         ) : (
                             <div className="flex flex-col gap-2">
-                                {filteredTasks.map(task => {
+                                {filteredTasks.map((task: any) => {
                                     let borderColor = 'border-gray-200';
                                     let statusColor = 'bg-gray-400';
                                     let tagColor = 'text-gray-600 bg-gray-100';

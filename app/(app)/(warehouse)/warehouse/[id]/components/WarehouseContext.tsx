@@ -1,11 +1,10 @@
 'use client';
 import React, { createContext, useContext, useState, useCallback } from 'react';
-import { hasAnyDirection, getSelectedTileName } from './warehouse-types';
+import { getSelectedTileName } from './warehouse-types';
 import type {
   TabKey, AreaConfig, PositionConfig, DirectionFlags
 } from './warehouse-types';
-import { getZone, getZoneType, getWarehouse, getWarehouseById, getCategory, getProduct, getDevices, getLocations, getNodeEdges } from '../../warehouseAcction';
-// import { getDeviceTypes } from '@/app/(app)/workflows/list/workflowsAction';
+import { getZone, getZoneType, getWarehouse, getCategory, getProduct, getDevices, getLocations, getNodeEdges } from '../../warehouseAcction';
 import { MOCK_ZONE_TYPES } from '../mockdata';
 interface WarehouseConfigContextType {
   // Data
@@ -58,8 +57,6 @@ interface WarehouseConfigContextType {
   setPosDirections: (d: DirectionFlags) => void;
   posName: string;
   setPosName: (n: string) => void;
-  posQrCode: string;
-  setPosQrCode: (q: string) => void;
   routeType: string | null;
   setRouteType: (v: string | null) => void;
   curveAngle: string | null;
@@ -111,8 +108,8 @@ export const WarehouseConfigProvider: React.FC<{
   const [positionItems, setPositionItems] = useState<PositionConfig[]>([]);
 
   const [allDevices, setAllDevices] = useState<any[]>([]);
-  const [allDeviceTypes, setAllDeviceTypes] = useState<any[]>([]);
-  const [allLocations, setAllLocations] = useState<any[]>([]);
+  const [allDeviceTypes] = useState<any[]>([]);
+  const [allLocations] = useState<any[]>([]);
 
   const [zoneTypes, setZoneTypes] = useState<any[]>(MOCK_ZONE_TYPES);
   const [warehouses, setWarehouses] = useState<any[]>([]);
@@ -133,7 +130,6 @@ export const WarehouseConfigProvider: React.FC<{
   const [products, setProducts] = useState<any[]>([]);
   const [allProducts, setAllProducts] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
-  const [selectedProduct, setSelectedProduct] = useState<string>("");
 
   const [activeTab, setActiveTab] = useState<TabKey>('area');
   const [selectedCells, setSelectedCells] = useState<Set<string>>(new Set());
@@ -276,7 +272,7 @@ export const WarehouseConfigProvider: React.FC<{
     fetchData();
   }, [warehouseId, globalRefreshCounter]);
 
- 
+
 
   // --- Fetch data for specific floor ---
   React.useEffect(() => {
@@ -315,7 +311,7 @@ export const WarehouseConfigProvider: React.FC<{
 
             let areaType = "";
             const zCode = z.zone_type_code || z.zone_type || "";
-            const zName = z.zone_type_name || ""; 
+            const zName = z.zone_type_name || "";
 
             if (zCode === 'PICKING' || zName.includes("lấy hàng")) areaType = "inbound";
             else if (zCode === 'DROPPING' || zName.includes("bỏ hàng")) areaType = "outbound";
@@ -391,30 +387,30 @@ export const WarehouseConfigProvider: React.FC<{
         })));
 
         const nextRoutes: import('./warehouse-types').RouteConfig[] = rawEdges.map((edge: any, index: number) => {
-           const fromId = edge.from_node_id?.toString() || edge.FromNodeID?.toString();
-           const toId = edge.to_node_id?.toString() || edge.ToNodeID?.toString();
-           const fromPos = Object.values(nextPositions).find(p => p.nodeId === fromId);
-           const toPos = Object.values(nextPositions).find(p => p.nodeId === toId);
-           
-           let rDir = 'right';
-           const directionNum = edge.direction || edge.Direction;
-           if (directionNum === 2) rDir = 'left';
-           else if (directionNum === 3) rDir = 'left_right';
+          const fromId = edge.from_node_id?.toString() || edge.FromNodeID?.toString();
+          const toId = edge.to_node_id?.toString() || edge.ToNodeID?.toString();
+          const fromPos = Object.values(nextPositions).find(p => p.nodeId === fromId);
+          const toPos = Object.values(nextPositions).find(p => p.nodeId === toId);
 
-           const config = edge.config || edge.Config || {};
+          let rDir = 'right';
+          const directionNum = edge.direction || edge.Direction;
+          if (directionNum === 2) rDir = 'left';
+          else if (directionNum === 3) rDir = 'left_right';
 
-           return {
-             id: (edge.ID || edge.id || Date.now() + index).toString(),
-             name: `Tuyến đường ${index + 1}`,
-             cells: [fromPos?.cellKeys?.[0], toPos?.cellKeys?.[0]].filter(Boolean) as string[],
-             routeType: (edge.edge_type === 'CURVE' || edge.EdgeType === 'CURVE') ? 'Arc tròn' : 'Đường thẳng',
-             curveDirection: config.curve_dir || null,
-             curveAngle: config.curvature || null,
-             controlPoint: (config.curve_x !== undefined && config.curve_y !== undefined) ? { x: config.curve_x, y: config.curve_y } : null,
-             routeDirection: rDir,
-             distance: edge.distance || edge.Distance || 0,
-             speed: edge.max_speed || edge.MaxSpeed || 0
-           };
+          const config = edge.config || edge.Config || {};
+
+          return {
+            id: (edge.ID || edge.id || Date.now() + index).toString(),
+            name: `Tuyến đường ${index + 1}`,
+            cells: [fromPos?.cellKeys?.[0], toPos?.cellKeys?.[0]].filter(Boolean) as string[],
+            routeType: (edge.edge_type === 'CURVE' || edge.EdgeType === 'CURVE') ? 'Arc tròn' : 'Đường thẳng',
+            curveDirection: config.curve_dir || null,
+            curveAngle: config.curvature || null,
+            controlPoint: (config.curve_x !== undefined && config.curve_y !== undefined) ? { x: config.curve_x, y: config.curve_y } : null,
+            routeDirection: rDir,
+            distance: edge.distance || edge.Distance || 0,
+            speed: edge.max_speed || edge.MaxSpeed || 0
+          };
         });
         setRoutes(nextRoutes);
       } catch (err) {
@@ -570,7 +566,7 @@ export const WarehouseConfigProvider: React.FC<{
         const fullKey = `${floorPrefix}${k}`;
         const prevData = next[fullKey];
 
-        const resolvedDirections = (preserveDirections && prevData && hasAnyDirection(prevData.directions)) ? prevData.directions : directions;
+        const resolvedDirections = (preserveDirections && prevData) ? prevData.directions : directions;
         const resolvedAreaType = areaType || prevData?.areaType || '';
 
         next[fullKey] = {
